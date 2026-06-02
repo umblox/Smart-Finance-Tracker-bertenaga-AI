@@ -43,7 +43,7 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.adapter = chatAdapter
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val savedChat = prefs.getString("chat_history_backup_v3", "")
+        val savedChat = prefs.getString("chat_history_backup_v4", "")
         
         if (!savedChat.isNullOrEmpty()) {
             loadBackupToAdapter(savedChat)
@@ -64,7 +64,7 @@ class ChatFragment : Fragment() {
                 setTitle("🗑️ Bersihkan Riwayat Chat?")
                 setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakapan?")
                 setPositiveButton("Ya, Hapus") { _, _ ->
-                    prefs.edit().remove("chat_history_backup_v3").apply()
+                    prefs.edit().remove("chat_history_backup_v4").apply()
                     messageList.clear()
                     messageList.add(ChatMessage("Riwayat chat telah dibersihkan.\n\nAda yang bisa saya bantu hari ini?", false))
                     chatAdapter.notifyDataSetChanged()
@@ -90,25 +90,31 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
         lifecycleScope.launch {
-            val response = geminiClient.sendMessageToAI(message)
+            val rawResponse = geminiClient.sendMessageToAI(message)
             
             if (messageList.isNotEmpty()) {
                 messageList.removeAt(messageList.size - 1)
             }
             
-            // Masukkan balasan narasi lengkap dari Groq ke sisi kiri layar
-            messageList.add(ChatMessage(response, false))
+            // PERBAIKAN MUTLAK: Hanya ambil teks respon narasi yang bersih untuk ditampilkan dan di-backup
+            val cleanDisplayResponse = if (rawResponse.contains("[EXEC_RESULT]")) {
+                rawResponse.split("[EXEC_RESULT]")[1].trim()
+            } else {
+                rawResponse.trim()
+            }
+
+            messageList.add(ChatMessage(cleanDisplayResponse, false))
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             binding.btnSend.isEnabled = true
             
-            // SIMPAN BACKUP INTERAKTIF YANG SESUNGGUHNYA
+            // Simpan data bersih agar saat balik ke menu chat teks tidak berubah menjadi kode
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
                 backupBuilder.append("$prefix${it.text}\n")
             }
-            prefs.edit().putString("chat_history_backup_v3", backupBuilder.toString()).apply()
+            prefs.edit().putString("chat_history_backup_v4", backupBuilder.toString()).apply()
         }
     }
 
