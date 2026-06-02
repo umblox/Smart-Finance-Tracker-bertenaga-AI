@@ -3,47 +3,127 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#F7FAFC"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#F5F7FA">
+    android:padding="20dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Pengaturan API Gemini AI"
-        android:textSize="18sp"
+        android:text="⚙️ Pengaturan Sistem"
+        android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="#1A202C"
-        android:layout_marginBottom="8dp"/>
+        android:textColor="#2D3748"
+        android:layout_marginBottom="24dp"/>
 
-    <TextView
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/menuApiKey"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Masukkan API Key Gemini pribadi Anda untuk mengaktifkan kontrol penuh pencatatan otomatis lewat chat."
-        android:textSize="14sp"
-        android:textColor="#718096"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#FFFFFF"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Gemini API Key (2.5)"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etApiKey"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textPassword"/>
-    </com.google.android.material.textfield.TextInputLayout>
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
 
-    <Button
-        android:id="@+id/btnSaveSettings"
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🔑 Integrasi API Key Groq"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#4A5568"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="➔"
+                android:textColor="#A0AEC0"
+                android:textSize="16sp"/>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/menuManageCategories"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Simpan Konfigurasi"
-        android:backgroundTint="#008080"
-        android:textColor="#FFFFFF"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#FFFFFF"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🗂️ Kelola Master Kategori (CRUD)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#4A5568"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="➔"
+                android:textColor="#A0AEC0"
+                android:textSize="16sp"/>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/menuAboutApp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#FFFFFF"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="ℹ️ Tentang Aplikasi"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#4A5568"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="➔"
+                android:textColor="#A0AEC0"
+                android:textSize="16sp"/>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </LinearLayout>
