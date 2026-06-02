@@ -8,8 +8,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.ai.GeminiClient
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.repository.FinanceRepository
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
 
@@ -30,11 +28,8 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val db = AppDatabase.getDatabase(requireContext())
-        
-        // PERBAIKAN: Urutan Dao disesuaikan dengan kebutuhan konstruktor FinanceRepository milikmu
-        val repository = FinanceRepository(db.categoryDao(), db.transactionDao(), db.debtDao())
-        val assistant = FinancialAssistant(repository)
+        // Inisialisasi menggunakan Context langsung tanpa perantara repository
+        val assistant = FinancialAssistant(requireContext())
         geminiClient = GeminiClient(requireContext(), assistant)
 
         binding.btnSend.setOnClickListener {
