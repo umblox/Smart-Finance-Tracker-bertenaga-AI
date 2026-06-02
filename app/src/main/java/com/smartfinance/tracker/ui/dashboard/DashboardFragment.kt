@@ -89,9 +89,7 @@ class DashboardFragment : Fragment() {
                 }
             }
 
-            // TAMPILKAN KE LAYAR DASHBOARD
             binding.tvDashboardReport.text = reportBuilder.toString()
-
             setupReportChart(totalIncome.toFloat(), totalExpense.toFloat())
         }
     }
@@ -108,31 +106,6 @@ class DashboardFragment : Fragment() {
         binding.reportBarChart.data = BarData(dataSet)
         binding.reportBarChart.description.isEnabled = false
         binding.reportBarChart.setFitBars(true)
-        binding.reportBarChart.invalidate()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-}
-    private fun setupReportChart(income: Float, expense: Float) {
-        val entries = ArrayList<BarEntry>()
-        entries.add(BarEntry(1f, if(income == 0f) 1f else income))
-        entries.add(BarEntry(2f, if(expense == 0f) 1f else expense))
-
-        val dataSet = BarDataSet(entries, "Pemasukan vs Pengeluaran (Rp)")
-        val colorsList = ArrayList<Int>().apply {
-            add(Color.parseColor("#2F855A"))
-            add(Color.parseColor("#C53030"))
-        }
-        dataSet.colors = colorsList
-        dataSet.valueTextSize = 11f
-
-        binding.reportBarChart.data = BarData(dataSet)
-        binding.reportBarChart.description.isEnabled = false
-        binding.reportBarChart.setFitBars(true)
-        binding.reportBarChart.animateY(500)
         binding.reportBarChart.invalidate()
     }
 
