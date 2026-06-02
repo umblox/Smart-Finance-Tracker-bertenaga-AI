@@ -19,8 +19,13 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Kita menggunakan sistem build global milik Ubuntu GitHub Runner (tanpa gradlew lokal)
-    - name: Build with Global Gradle
+    # Setup Gradle versi 8.5 secara otomatis di server agar sinkron dengan kode kita
+    - name: Setup Gradle 8.5
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: 8.5
+
+    - name: Build with Gradle 8.5
       run: gradle assembleDebug
 
     - name: Upload APK
