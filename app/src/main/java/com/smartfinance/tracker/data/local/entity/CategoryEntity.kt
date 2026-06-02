@@ -8,6 +8,5 @@ data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val type: String, // "INCOME" atau "EXPENSE"
-    val iconName: String // Contoh: "ic_food", "ic_transport"
+    val iconName: String
 )
-
