@@ -10,16 +10,28 @@ import com.smartfinance.tracker.data.model.ChatMessage
 
 class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
-    class ChatViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
+    class ChatViewHolder(val container: LinearLayout, val textView: TextView) : RecyclerView.ViewHolder(container)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val context = parent.context
+        
+        // Buat parent layout linier penjamin gravitasi kanan-kiri bekerja mutlak
+        val linearParent = LinearLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 4, 0, 4)
+        }
+
         val textView = TextView(context).apply {
             textSize = 15f
-            setPadding(24, 16, 24, 16)
-            maxWidth = (parent.width * 0.75).toInt()
+            setPadding(28, 20, 28, 20)
         }
-        return ChatViewHolder(textView)
+        
+        linearParent.addView(textView)
+        return ChatViewHolder(linearParent, textView)
     }
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
@@ -30,19 +42,25 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
-            topMargin = 8
-            bottomMargin = 8
+            topMargin = 4
+            bottomMargin = 4
+            // Batasi lebar maksimal gelembung chat sebesar 75% dari layar HP
+            maxWidth = (holder.itemView.rootView.width * 0.75).toInt()
         }
 
         if (message.isUser) {
-            // SISI KANAN - WARNA TEAL (USER)
+            // SISI KANAN - USER (WARNA TEAL)
+            holder.container.gravity = Gravity.END
             params.gravity = Gravity.END
+            params.leftMargin = 100 // Jarak aman agar tidak mepet ke kiri
             holder.textView.setBackgroundResource(android.R.drawable.toast_frame)
             holder.textView.background.setTint(Color.parseColor("#008080"))
             holder.textView.setTextColor(Color.WHITE)
         } else {
-            // SISI KIRI - WARNA ABU-ABU (GROQ AI)
+            // SISI KIRI - GROQ AI (WARNA ABU-ABU)
+            holder.container.gravity = Gravity.START
             params.gravity = Gravity.START
+            params.rightMargin = 100 // Jarak aman agar tidak mepet ke kanan
             holder.textView.setBackgroundResource(android.R.drawable.toast_frame)
             holder.textView.background.setTint(Color.parseColor("#E2E8F0"))
             holder.textView.setTextColor(Color.parseColor("#2D3748"))
