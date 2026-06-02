@@ -11,7 +11,6 @@ import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
 import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -43,8 +42,6 @@ class DashboardFragment : Fragment() {
             
             var totalIncome = 0.0
             var totalExpense = 0.0
-
-            // Penampung Filter Laporan Berkala
             var harian = 0.0
             var mingguan = 0.0
             var bulanan = 0.0
@@ -57,10 +54,8 @@ class DashboardFragment : Fragment() {
             for (tx in allTransactions) {
                 if (tx.type == "INCOME") totalIncome += tx.amount else totalExpense += tx.amount
 
-                // Filter Waktu Skema Berkala
                 calTx.timeInMillis = tx.timestamp
-                val diffMillis = now - tx.timestamp
-                val diffDays = diffMillis / (1000 * 60 * 60 * 24)
+                val diffDays = (now - tx.timestamp) / (1000 * 60 * 60 * 24)
 
                 if (diffDays <= 0) harian += if (tx.type == "EXPENSE") tx.amount else 0.0
                 if (diffDays <= 7) mingguan += if (tx.type == "EXPENSE") tx.amount else 0.0
@@ -72,37 +67,55 @@ class DashboardFragment : Fragment() {
                 }
             }
 
-            val totalBalance = totalIncome - totalExpense
             val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
-            
-            // Set Nilai Atas
-            binding.tvTotalBalance.text = formatRupiah.format(totalBalance)
+            binding.tvTotalBalance.text = formatRupiah.format(totalIncome - totalExpense)
             binding.tvIncomeSummary.text = formatRupiah.format(totalIncome)
             binding.tvExpenseSummary.text = formatRupiah.format(totalExpense)
 
-            // CETAK DAFTAR LAPORAN TRANSAKSI DAN RIWAYAT BERKALA KE LAYAR
             val reportBuilder = StringBuilder()
-            reportBuilder.append("📋 **RINGKASAN PENGELUARAN BERKALA**\n")
+            reportBuilder.append("📋 PENGELUARAN BERKALA\n")
             reportBuilder.append("▪️ Hari Ini: ${formatRupiah.format(harian)}\n")
             reportBuilder.append("▪️ 7 Hari Terakhir: ${formatRupiah.format(mingguan)}\n")
             reportBuilder.append("▪️ Bulan Ini: ${formatRupiah.format(bulanan)}\n")
             reportBuilder.append("▪️ Tahun Ini: ${formatRupiah.format(tahunan)}\n\n")
             
-            reportBuilder.append("🕒 **DAFTAR RIWAYAT TRANSAKSI TERBARU**\n")
+            reportBuilder.append("🕒 DAFTAR RIWAYAT TRANSAKSI TERBARU\n")
             if (allTransactions.isEmpty()) {
-                reportBuilder.append("Belum ada transaksi tercatat. Ketik di Chat AI untuk menambahkan.")
+                reportBuilder.append("Belum ada transaksi. Ketik di Chat AI atau tambahkan via menu.")
             } else {
-                allTransactions.take(10).forEach { tx ->
+                allTransactions.take(8).forEach { tx ->
                     val sign = if (tx.type == "INCOME") "🟢 +" else "🔴 -"
                     reportBuilder.append("$sign ${tx.categoryName} (${tx.note}): ${formatRupiah.format(tx.amount)}\n")
                 }
             }
 
-            // Meminjam space layout visual secara aman di bawah Chart
+            // TAMPILKAN KE LAYAR DASHBOARD
+            binding.tvDashboardReport.text = reportBuilder.toString()
+
             setupReportChart(totalIncome.toFloat(), totalExpense.toFloat())
         }
     }
 
+    private fun setupReportChart(income: Float, expense: Float) {
+        val entries = ArrayList<BarEntry>()
+        entries.add(BarEntry(1f, if(income == 0f) 1f else income))
+        entries.add(BarEntry(2f, if(expense == 0f) 1f else expense))
+
+        val dataSet = BarDataSet(entries, "Pemasukan vs Pengeluaran")
+        dataSet.colors = arrayListOf(Color.parseColor("#2F855A"), Color.parseColor("#C53030"))
+        dataSet.valueTextSize = 11f
+
+        binding.reportBarChart.data = BarData(dataSet)
+        binding.reportBarChart.description.isEnabled = false
+        binding.reportBarChart.setFitBars(true)
+        binding.reportBarChart.invalidate()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
     private fun setupReportChart(income: Float, expense: Float) {
         val entries = ArrayList<BarEntry>()
         entries.add(BarEntry(1f, if(income == 0f) 1f else income))
