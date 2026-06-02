@@ -17,10 +17,12 @@ class FinancialAssistant(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
 
+    val systemInstruction = "Anda adalah Asisten Keuangan Pribadi di aplikasi Smart Finance Tracker."
+
     suspend fun processNaturalLanguage(input: String): String {
         val text = input.lowercase(Locale.ROOT).trim()
 
-        // 1. Fitur Cek Saldo Cepat Lokal
+        // 1. Interseptor Cek Saldo Cepat Lokal
         if (text.contains("saldo") || text.contains("total uang")) {
             val transactions = db.transactionDao().getAllTransactions().first()
             var income = 0.0
@@ -31,7 +33,7 @@ class FinancialAssistant(private val context: Context) {
             return "Saldo Anda saat ini: Rp ${String.format("%,.0f", income - expense)}"
         }
 
-        // 2. Ambil Master Kategori dari SQLite untuk Konteks
+        // 2. Ambil Master Kategori untuk Konteks Gemini
         val categories = db.categoryDao().getAllCategories().first()
         val categoryContext = StringBuilder()
         categories.forEach { 
@@ -43,15 +45,15 @@ class FinancialAssistant(private val context: Context) {
 
         if (apiKey.isNotEmpty()) {
             val systemPrompt = """
-                Anda adalah mesin ekstraksi data keuangan bertenaga AI. Tugas Anda adalah menganalisis kalimat transaksi pengguna, memperbaiki typo, dan mencocokkannya ke kategori terdekat dari daftar ini:
+                Anda adalah mesin pembaca teks transaksi keuangan. Tugas Anda adalah mengekstrak kalimat dari user menjadi data terstruktur, memperbaiki typo, dan mencocokkannya ke kategori terdekat dari daftar ini:
                 $categoryContext
                 
-                Aturan:
-                1. Jika nominal angka TIDAK DISEBUTKAN oleh pengguna, set "status" menjadi "NEED_AMOUNT".
-                2. Di bidang "clean_note", bersihkan kata sampah seperti "saya", "habis", "tadi". Tulis HANYA nama barang komoditasnya (Contoh: "ROKOK", "PERTAMAX", "SEBLAK").
+                Aturan Pengisian:
+                1. Jika nominal angka TIDAK ADA atau LUPA disebutkan, set "status" menjadi "NEED_AMOUNT".
+                2. Di bidang "clean_note", isi HANYA dengan nama barang/jasa bersih dengan huruf kapital (Contoh: "PERTAMAX", "ROKOK SURYA", "NASI GORENG"). Jangan masukkan kalimat panjang dari user.
                 
-                Format Output WAJIB JSON murni:
-                {"amount": 20000.0, "type": "EXPENSE", "category_id": 2, "category_name": "Makanan", "clean_note": "SEBLAK", "status": "SUCCESS", "message": "Berhasil"}
+                Format Output WAJIB berupa JSON murni tanpa markdown, tanpa teks tambahan apa pun:
+                {"amount": 25000.0, "type": "EXPENSE", "category_id": 2, "category_name": "Makanan", "clean_note": "NASI GORENG", "status": "SUCCESS", "message": "Berhasil"}
             """.trimIndent()
 
             try {
@@ -59,7 +61,7 @@ class FinancialAssistant(private val context: Context) {
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
-                conn.connectTimeout = 5000
+                conn.connectTimeout = 6000
                 conn.doOutput = true
 
                 val jsonBody = JSONObject().apply {
@@ -67,7 +69,7 @@ class FinancialAssistant(private val context: Context) {
                         put(JSONObject().apply {
                             put("role", "user")
                             put("parts", org.json.JSONArray().apply {
-                                put(JSONObject().put("text", "$systemPrompt\n\nKalimat: $input"))
+                                put(JSONObject().put("text", "$systemPrompt\n\nKalimat User: $input"))
                             })
                         })
                     }
@@ -78,13 +80,21 @@ class FinancialAssistant(private val context: Context) {
 
                 if (conn.responseCode == 200) {
                     val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    val rawAiJson = JSONObject(reader.readText()).getJSONArray("candidates")
-                        .getJSONObject(0).getJSONObject("content").getJSONArray("parts")
-                        .getJSONObject(0).getString("text").trim()
+                    val jsonResponse = JSONObject(reader.readText())
+                    val candidate = jsonResponse.getJSONArray("candidates").getJSONObject(0)
+                    var rawAiResponse = candidate.getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim()
                     
-                    val resultObj = JSONObject(rawAiJson)
+                    // =========================================================================
+                    // BLOK PENYEMBUH (ANTI-BOBOT): Bersihkan paksa tag markdown ```json jika Gemini bebal
+                    // =========================================================================
+                    if (rawAiResponse.contains("{")) {
+                        rawAiResponse = rawAiResponse.substring(rawAiResponse.indexOf("{"), rawAiResponse.lastIndexOf("}") + 1)
+                    }
+
+                    val resultObj = JSONObject(rawAiResponse)
                     val status = resultObj.optString("status", "FAILED")
-                    
+                    val message = resultObj.optString("message", "")
+
                     if (status == "SUCCESS") {
                         val amount = resultObj.optDouble("amount", 0.0)
                         val type = resultObj.optString("type", "EXPENSE")
@@ -97,19 +107,25 @@ class FinancialAssistant(private val context: Context) {
                                 amount = amount, type = type, categoryId = catId, categoryName = catName,
                                 note = cleanNote.uppercase(Locale.ROOT), timestamp = System.currentTimeMillis()
                             ))
-                            return "📝 **BERHASIL DICATAT OLEH GEMINI!**\n\n▪️ **Keterangan**: $cleanNote\n▪️ **Kategori**: $catName\n▪️ **Nominal**: Rp ${String.format("%,.0f", amount)}"
+                            
+                            return "📝 **BERHASIL DICATAT OLEH AI!**\n\n" +
+                                   "▪️ **Keterangan**: $cleanNote\n" +
+                                   "▪️ **Kategori**: $catName\n" +
+                                   "▪️ **Nominal**: Rp ${String.format("%,.0f", amount)}"
                         }
                     } else if (status == "NEED_AMOUNT") {
-                        return "Saya mendeteksi Anda ingin mencatat transaksi, namun **nominal uangnya belum disebutkan**. Silakan ketik ulang beserta nominal harganya ya."
+                        return "Saya mendeteksi Anda ingin mencatat transaksi, namun **nominal harganya belum disebutkan**. Silakan ketik kembali beserta nominal uangnya ya."
                     }
+                    
+                    if (message.isNotEmpty()) return面 message
                 }
             } catch (e: Exception) {
-                // Tangkap error koneksi/API untuk di-fallback ke mesin lokal bawah
+                // Jika koneksi gagal atau parsing JSON crash, otomatis fallback ke engine lokal bawah
             }
         }
 
         // =========================================================================
-        // FALLBACK LOCAL ENGINE (Bekerja otomatis tanpa internet jika API Google Limit / Error 429)
+        // LOCAL BACKUP ENGINE (Berjalan otomatis jika internet/API bermasalah)
         // =========================================================================
         val numberPattern = Pattern.compile("\\d+")
         val numberMatcher = numberPattern.matcher(text)
@@ -122,7 +138,6 @@ class FinancialAssistant(private val context: Context) {
         val isIncome = text.contains("gaji") || text.contains("terima") || text.contains("masuk")
         val type = if (isIncome) "INCOME" else "EXPENSE"
         
-        // Bersihkan kalimat sampah secara mandiri menggunakan modul pemotong teks lokal
         var cleanNote = input.replace(numberMatcher.group(), "", ignoreCase = true)
             .replace("rp", "", ignoreCase = true).replace("beli", "", ignoreCase = true)
             .replace("saya", "", ignoreCase = true).replace("tadi", "", ignoreCase = true)
@@ -133,9 +148,8 @@ class FinancialAssistant(private val context: Context) {
         var catName = if (isIncome) "Gaji" else "Makanan/Umum"
         var catId = if (isIncome) 1L else 2L
 
-        // Pemetaan kategori cerdas lokal berdasarkan kata kunci populer
         when {
-            text.contains("pertamax") || text.contains("bensin") || text.contains("pertalite") || text.contains("bensin") -> {
+            text.contains("pertamax") || text.contains("bensin") || text.contains("pertalite") -> {
                 catName = "Transportasi"; catId = 4L; cleanNote = "BENSIN KENDARAAN"
             }
             text.contains("rokok") || text.contains("surya") || text.contains("udud") -> {
@@ -146,16 +160,14 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
-        // Simpan ke SQLite
         db.transactionDao().insertTransaction(TransactionEntity(
             amount = amount, type = type, categoryId = catId, categoryName = catName,
             note = cleanNote.uppercase(Locale.ROOT), timestamp = System.currentTimeMillis()
         ))
 
-        return "📝 **BERHASIL DICATAT (LOCAL ENGINE - API SIBUK)!**\n\n" +
-               "▪️ **Keterangan Bersih**: ${cleanNote.uppercase(Locale.ROOT)}\n" +
-               "▪️ **Kategori Cocok**: $catName\n" +
-               "▪️ **Nominal Angka**: Rp ${String.format("%,.0f", amount)}\n\n" +
-               "*(Catatan: Karena server API Gemini sedang penuh/limit, sistem beralih menggunakan modul pencatatan lokal pintar HP Anda)*"
+        return "📝 **BERHASIL DICATAT (LOCAL ENGINE)!**\n\n" +
+               "▪️ **Keterangan**: ${cleanNote.uppercase(Locale.ROOT)}\n" +
+               "▪️ **Kategori**: $catName\n" +
+               "▪️ **Nominal**: Rp ${String.format("%,.0f", amount)}"
     }
 }
