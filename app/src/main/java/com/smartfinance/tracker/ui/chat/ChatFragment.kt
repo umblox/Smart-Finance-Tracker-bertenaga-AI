@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.chat
 
+import android.app.AlertDialog
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -48,12 +49,19 @@ class ChatFragment : Fragment() {
             }
         }
 
-        // BYPASS TRICK: Tekan lama area riwayat obrolan teks untuk mengosongkan seluruh cache riwayat chat
-        binding.tvChatHistory.setOnLongClickListener {
-            prefs.edit().remove("chat_history_backup").apply()
-            binding.tvChatHistory.text = "Riwayat chat telah dibersihkan.\n\nAda yang bisa saya bantu hari ini?"
-            Toast.makeText(requireContext(), "Riwayat obrolan berhasil dikosongkan!", Toast.LENGTH_SHORT).show()
-            true
+        // PERBAIKAN: Tombol hapus resmi dengan Dialog Konfirmasi Batal / Ya
+        binding.btnClearChat.setOnClickListener {
+            AlertDialog.Builder(requireContext()).apply {
+                setTitle("🗑️ Bersihkan Riwayat Chat?")
+                setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakpan dengan AI? Tindakan ini tidak bisa dibatalkan.")
+                setPositiveButton("Ya, Hapus") { _, _ ->
+                    prefs.edit().remove("chat_history_backup").apply()
+                    binding.tvChatHistory.text = "Riwayat chat telah dibersihkan.\n\nAda yang bisa saya bantu hari ini?"
+                    Toast.makeText(requireContext(), "Riwayat chat dikosongkan!", Toast.LENGTH_SHORT).show()
+                }
+                setNegativeButton("Batal", null)
+                show()
+            }
         }
     }
 
