@@ -14,83 +14,82 @@ import java.net.URL
 class GeminiClient(private val context: Context, private val assistant: FinancialAssistant) {
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
-        // 1. Cek interceptor laporan atau manajemen kategori lokal terlebih dahulu
-        val localResponse = assistant.processNaturalLanguage(userMessage)
-        if (!localResponse.contains("Format kurang spesifik")) {
-            return@withContext localResponse
-        }
-
-        // 2. Ambil API Key dari menu Pengaturan (Nanti masukkan API Key Groq kamu di sini)
         val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+
         if (apiKey.isEmpty()) {
-            return@withContext "API Key belum diatur di menu Pengaturan. Silakan masukkan API Key Groq Anda terlebih dahulu."
+            return@withContext "⚠️ API Key Groq belum diatur di Pengaturan. Mengalihkan ke sistem lokal...\n\n" + 
+                    assistant.processLocalFallback(userMessage, "API Key Kosong")
         }
 
-        // 3. Ambil data transaksi nyata dari SQLite untuk konteks otak AI
+        // Ambil riwayat dari SQLite untuk bekal otak Groq
         val db = AppDatabase.getDatabase(context)
         val transactions = db.transactionDao().getAllTransactions().first()
         val txHistory = StringBuilder()
-        transactions.take(15).forEach { 
-            txHistory.append("- ${it.type}: ${it.categoryName} (${it.note}) sebesar Rp ${it.amount}\n")
+        transactions.take(10).forEach { 
+            txHistory.append("- ${it.type}: ${it.categoryName} (${it.note}) Rp ${it.amount}\n")
         }
 
         val systemPrompt = """
             Anda adalah Asisten Keuangan Pribadi pintar di aplikasi Smart Finance Tracker.
-            Berikut adalah data transaksi nyata pengguna saat ini di dalam database local HP:
+            Berikut data transaksi user saat ini di database SQLite HP:
             $txHistory
             
-            Tugas Anda adalah menjawab pertanyaan keuangan, menganalisis pengeluaran mereka, atau memberikan rekomendasi penghematan berdasarkan data transaksi di atas. Jawablah dengan ramah, santun, dan gunakan format Bahasa Indonesia yang rapi.
+            Tugas Anda:
+            1. Jawab pertanyaan keuangan, analisis pengeluaran, atau berikan saran hemat dengan ramah.
+            2. Jika user ingin MEMBUAT KATEGORI (misal: "buat kategori kopi"), respon Anda WAJIB mengandung kata kunci khusus: "CMD_CREATE_CATEGORY:NamaKategori:Tipe" (Tipe: INCOME atau EXPENSE).
+            
+            Gunakan Bahasa Indonesia yang baik dan santun.
         """.trimIndent()
 
-        // 4. KONEKSI KE SERVER GROQ (Bypass limit Gemini yang pelit)
+        // 🚀 UPAYAKAN ONLINE GROQ ENGINE DULUAN
         try {
-            // Menggunakan endpoint resmi chat completion Groq Cloud
             val url = URL("https://api.groq.com/openai/v1/chat/completions")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Authorization", "Bearer $apiKey") // Menyuntikkan token Groq
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            conn.connectTimeout = 6000 // Terapkan timeout agar tidak hang lama
+            conn.readTimeout = 6000
             conn.doOutput = true
 
-            // Struktur JSON standar OpenAI/Groq yang sangat stabil
             val jsonBody = JSONObject().apply {
-                put("model", "llama3-8b-8192") // Menggunakan model Llama 3 super kencang & gratis
-                
+                put("model", "llama3-8b-8192")
                 val messagesArray = org.json.JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("role", "system")
-                        put("content", systemPrompt)
-                    })
-                    put(JSONObject().apply {
-                        put("role", "user")
-                        put("content", userMessage)
-                    })
+                    put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+                    put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.7)
+                put("temperature", 0.6)
             }
 
-            conn.outputStream.use { os ->
-                os.write(jsonBody.toString().toByteArray(Charsets.UTF_8))
-            }
+            conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
 
             if (conn.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
                 val responseStr = reader.readText()
                 val jsonResponse = JSONObject(responseStr)
+                val aiText = jsonResponse.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
                 
-                // Ekstraksi teks jawaban dari format OpenAI/Groq JSON
-                val choice = jsonResponse.getJSONArray("choices").getJSONObject(0)
-                val textResponse = choice.getJSONObject("message").getString("content")
-                return@withContext textResponse
+                // Cek apakah Groq memberikan instruksi pembuatan kategori sistem
+                if (aiText.contains("CMD_CREATE_CATEGORY")) {
+                    return@withContext assistant.executeInterceptorCommand(aiText)
+                }
+                
+                return@withContext aiText
             } else {
                 val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
                 val errorLog = errorReader.readText()
-                return@withContext "Error AI Server (Code ${conn.responseCode}). Silakan pastikan API Key Groq dimasukkan dengan benar di menu Pengaturan."
+                val shortError = "Http Code ${conn.responseCode}"
+                
+                // Groq gagal/limit -> Lempar ke AI Lokal dengan pemberitahuan
+                return@withContext "⚠️ **Groq API gagal ($shortError)**. Mengalihkan otomatis ke AI Lokal...\n\n" + 
+                        assistant.processLocalFallback(userMessage, errorLog)
             }
         } catch (e: Exception) {
-            return@withContext "Gagal terhubung ke modul AI. Pastikan internet aktif. Detail: ${e.message}"
+            // Koneksi putus/timeout -> Lempar ke AI Lokal dengan pemberitahuan
+            return@withContext "⚠️ **Groq Terputus (${e.message})**. Mengalihkan otomatis ke AI Lokal...\n\n" + 
+                    assistant.processLocalFallback(userMessage, e.message ?: "Unknown Connection Error")
         }
     }
 }
