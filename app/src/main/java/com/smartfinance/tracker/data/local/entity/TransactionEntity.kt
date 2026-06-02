@@ -9,8 +9,7 @@ data class TransactionEntity(
     val amount: Double,
     val type: String, // "INCOME" atau "EXPENSE"
     val categoryId: Long,
-    val categoryName: String, // Denormalisasi agar AI lebih mudah membaca langsung
+    val categoryName: String,
     val note: String,
-    val timestamp: Long // Waktu transaksi dalam milidetik
+    val timestamp: Long
 )
-
