@@ -6,17 +6,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import com.smartfinance.tracker.ai.FinancialAssistant
-import com.smartfinance.tracker.ai.GeminiClient
+import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.repository.FinanceRepository
+import com.smartfinance.tracker.data.local.entity.CategoryEntity
 import com.smartfinance.tracker.databinding.FragmentSettingsBinding
+import kotlinx.coroutines.launch
 
 class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
-    private lateinit var geminiClient: GeminiClient
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -28,27 +27,42 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Setup repository dan client AI untuk menghubungkan SharedPreferences
-        val db = AppDatabase.getDatabase(requireContext())
-        val repo = FinanceRepository(db.categoryDao(), db.transactionDao(), db.debtDao())
-        val assistant = FinancialAssistant(repo)
-        geminiClient = GeminiClient(requireContext(), assistant)
+        val sharedPreferences = requireContext().getSharedPreferences("smart_finance_prefs", android.content.Context.MODE_PRIVATE)
+        
+        // Load API Key lama jika ada
+        val savedKey = sharedPreferences.getString("gemini_api_key", "")
+        binding.etApiKey.setText(savedKey)
 
-        // Tampilkan API key yang sedang tersimpan (jika ada)
-        val savedKey = geminiClient.getSavedApiKey()
-        if (savedKey.isNotEmpty()) {
-            binding.etApiKey.setText(savedKey)
-        }
-
-        // Aksi simpan perubahan key baru dari user
+        // Tombol Simpan Konfigurasi API Key & Inisialisasi Kategori Bawaan Aplikasi
         binding.btnSaveSettings.setOnClickListener {
-            val newKey = binding.etApiKey.text.toString().trim()
-            if (newKey.isNotEmpty()) {
-                geminiClient.saveCustomApiKey(newKey)
-                Toast.makeText(context, "API Key pribadi berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Kolom API Key tidak boleh kosong!", Toast.LENGTH_SHORT).show()
+            val inputKey = binding.etApiKey.text.toString().trim()
+            
+            sharedPreferences.edit().putString("gemini_api_key", inputKey).apply()
+            
+            // Suntikkan kategori transaksi finansial standar langsung ke SQLite Room DB
+            injectDefaultCategories()
+        }
+    }
+
+    private fun injectDefaultCategories() {
+        val db = AppDatabase.getDatabase(requireContext())
+        
+        lifecycleScope.launch {
+            val dao = db.categoryDao()
+            
+            // Buat master data kategori transaksi
+            val defaultCategories = listOf(
+                CategoryEntity(1, "Gaji", "INCOME", "ic_income"),
+                CategoryEntity(2, "Makanan", "EXPENSE", "ic_expense"),
+                CategoryEntity(3, "Rokok", "EXPENSE", "ic_expense"),
+                CategoryEntity(4, "Transportasi", "EXPENSE", "ic_expense")
+            )
+            
+            for (cat in defaultCategories) {
+                dao.insertCategory(cat)
             }
+            
+            Toast.makeText(requireContext(), "Konfigurasi & Master Kategori Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -57,4 +71,3 @@ class SettingsFragment : Fragment() {
         _binding = null
     }
 }
-
