@@ -38,13 +38,12 @@ class ChatFragment : Fragment() {
         val assistant = FinancialAssistant(requireContext())
         geminiClient = GeminiClient(requireContext(), assistant)
 
-        // Setup RecyclerView dengan susunan Vertikal dari atas ke bawah
         chatAdapter = ChatAdapter(messageList)
         binding.rvChatHistory.layoutManager = LinearLayoutManager(requireContext())
         binding.rvChatHistory.adapter = chatAdapter
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val savedChat = prefs.getString("chat_history_backup_v2", "")
+        val savedChat = prefs.getString("chat_history_backup_v3", "")
         
         if (!savedChat.isNullOrEmpty()) {
             loadBackupToAdapter(savedChat)
@@ -65,11 +64,10 @@ class ChatFragment : Fragment() {
                 setTitle("🗑️ Bersihkan Riwayat Chat?")
                 setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakapan?")
                 setPositiveButton("Ya, Hapus") { _, _ ->
-                    prefs.edit().remove("chat_history_backup_v2").apply()
+                    prefs.edit().remove("chat_history_backup_v3").apply()
                     messageList.clear()
                     messageList.add(ChatMessage("Riwayat chat telah dibersihkan.\n\nAda yang bisa saya bantu hari ini?", false))
                     chatAdapter.notifyDataSetChanged()
-                    Toast.makeText(requireContext(), "Riwayat dikosongkan!", Toast.LENGTH_SHORT).show()
                 }
                 setNegativeButton("Batal", null)
                 show()
@@ -80,7 +78,6 @@ class ChatFragment : Fragment() {
     private fun sendChatToAI(message: String) {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
-        // Tambahkan chat kamu ke SISI KANAN
         messageList.add(ChatMessage(message, true))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -88,7 +85,6 @@ class ChatFragment : Fragment() {
         binding.etMessage.setText("")
         binding.btnSend.isEnabled = false 
 
-        // Tampilkan indikator loading chat
         messageList.add(ChatMessage("AI sedang berpikir...", false))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -96,24 +92,23 @@ class ChatFragment : Fragment() {
         lifecycleScope.launch {
             val response = geminiClient.sendMessageToAI(message)
             
-            // Hapus indikator loading
             if (messageList.isNotEmpty()) {
                 messageList.removeAt(messageList.size - 1)
             }
             
-            // Tambahkan balasan Groq ke SISI KIRI
+            // Masukkan balasan narasi lengkap dari Groq ke sisi kiri layar
             messageList.add(ChatMessage(response, false))
             chatAdapter.notifyDataSetChanged()
-            binding.rvChatHistory.scrollToPosition(messageList.size - 1)
+            binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             binding.btnSend.isEnabled = true
             
-            // Simpan backup terstruktur string gabungan dengan token pemisah khusus [USER] dan [AI]
+            // SIMPAN BACKUP INTERAKTIF YANG SESUNGGUHNYA
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
                 backupBuilder.append("$prefix${it.text}\n")
             }
-            prefs.edit().putString("chat_history_backup_v2", backupBuilder.toString()).apply()
+            prefs.edit().putString("chat_history_backup_v3", backupBuilder.toString()).apply()
         }
     }
 
