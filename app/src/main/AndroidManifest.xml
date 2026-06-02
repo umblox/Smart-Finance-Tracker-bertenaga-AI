@@ -10,9 +10,7 @@
         android:roundIcon="@drawable/ic_income"
         android:label="Smart Finance Tracker"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-        
-        <activity
+        android:theme="@style/Theme.SmartFinanceTracker"> <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
