@@ -4,22 +4,43 @@ import android.content.Context
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
+import com.smartfinance.tracker.data.local.entity.DebtEntity
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.text.NumberFormat
-import java.util.Calendar
 import java.util.Locale
 import java.util.regex.Pattern
 
 class FinancialAssistant(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
 
-    suspend fun executeSmartJsonCommand(jsonStr: String): String {
+    suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         try {
-            val cleanJsonStr = jsonStr.replace("```json", "").replace("```", "").trim()
-            val json = JSONObject(cleanJsonStr)
+            // Pemindai Regex: Cari objek kurung kurawal JSON {...} di bagian akhir string respon Groq
+            val jsonPattern = Pattern.compile("\\{[^\\{]*\\}$")
+            val matcher = jsonPattern.matcher(rawText.trim())
+
+            if (matcher.find()) {
+                val jsonString = matcher.group()
+                // Potong narasi manusia bersih agar bebas dari teks kode biner
+                val cleanNarration = rawText.replace(jsonString, "").trim()
+
+                // Eksekusi data JSON ke SQLite secara senyap di background
+                executeSilentJsonCommand(jsonString)
+                
+                return cleanNarration
+            }
+        } catch (e: Exception) {
+            // Jika regex gagal, kembalikan teks asli agar chat tidak blank
+            return rawText
+        }
+        return rawText
+    }
+
+    private suspend fun executeSilentJsonCommand(jsonStr: String) {
+        try {
+            val json = JSONObject(jsonStr)
             val actionType = json.optString("action_type", "CHAT_ONLY")
 
             when (actionType) {
@@ -30,7 +51,8 @@ class FinancialAssistant(private val context: Context) {
                     val cleanNote = json.optString("clean_note", "Transaksi AI").uppercase(Locale.ROOT)
                     var type = json.optString("type", "EXPENSE").uppercase(Locale.ROOT)
 
-                    if (cleanNote.contains("GAJI") || cleanNote.contains("TIPS") || cleanNote.contains("BONUS")) {
+                    // Proteksi ganda: Kunci arah jenis uang masuk untuk kata kunci sensitif gaji/tips
+                    if (cleanNote.contains("GAJI") || cleanNote.contains("TIPS") || cleanNote.contains("BONUS") || cleanNote.contains("UPAH")) {
                         type = "INCOME"
                         if (catId == 15L) { catId = 1L; catName = "Gaji & Pendapatan" }
                     }
@@ -40,8 +62,6 @@ class FinancialAssistant(private val context: Context) {
                             amount = amount, type = type, categoryId = catId, categoryName = catName,
                             note = cleanNote, timestamp = System.currentTimeMillis()
                         ))
-                        val label = if (type == "INCOME") "🟢 PEMASUKAN" else "🔴 PENGELUARAN"
-                        return "✅ **TERCATAT DI DASHBOARD:**\n▪️ **Jenis**: $label\n▪️ **Kategori**: $catName\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
                     }
                 }
                 
@@ -51,9 +71,9 @@ class FinancialAssistant(private val context: Context) {
                     val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
 
                     if (amount > 0.0) {
-                        db.debtDao().insertDebt(com.smartfinance.tracker.data.local.entity.DebtEntity(
+                        db.debtDao().insertDebt(DebtEntity(
                             contactName = name, contactPhoneNumber = "0812", amount = amount,
-                            remainingAmount = amount, type = debtType, note = "Dicatat via AI Cerdas",
+                            remainingAmount = amount, type = debtType, note = "Otomatis via Chat AI",
                             timestamp = System.currentTimeMillis(), isPaid = false
                         ))
 
@@ -66,9 +86,6 @@ class FinancialAssistant(private val context: Context) {
                             note = if (isReceivable) "PINJAMAN KELUAR KE $name" else "PINJAMAN MASUK DARI $name",
                             timestamp = System.currentTimeMillis()
                         ))
-
-                        val jenisLabel = if (debtType == "DEBT") "⚠️ Hutang Baru" else "💰 Piutang Baru"
-                        return "✅ **PINJAMAN DISIMPAN:**\n▪️ **Jenis**: $jenisLabel\n▪️ **Nama Orang**: $name\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
                     }
                 }
                 
@@ -82,24 +99,16 @@ class FinancialAssistant(private val context: Context) {
                         
                         if (matchDebt != null) {
                             val nextRemaining = (matchDebt.remainingAmount - payAmount).coerceAtLeast(0.0)
-                            
                             db.debtDao().insertDebt(matchDebt.copy(
                                 remainingAmount = nextRemaining,
                                 isPaid = nextRemaining <= 0.0
                             ))
 
-                            // LOGIKA MATEMATIKA ARUS KAS CICILAN PINJAMAN:
-                            // Jika matchDebt.type adalah DEBT (Hutang kita), saat kita mencicil bayar ke orang = EXPENSE (Uang keluar)
-                            // Jika matchDebt.type adalah RECEIVABLE (Orang berhutang ke kita), saat dia mencicil bayar ke kita = INCOME (Uang masuk)
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
-                            
                             db.transactionDao().insertTransaction(TransactionEntity(
                                 amount = payAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
-                                note = "CICILAN ${matchDebt.type} OLEH ${matchDebt.contactName}", timestamp = System.currentTimeMillis()
+                                note = "CICILAN PINJAMAN OLEH ${matchDebt.contactName}", timestamp = System.currentTimeMillis()
                             ))
-
-                            val statusLunas = if (nextRemaining <= 0.0) "LUNAS ✅" else "BELUM LUNAS ⏳"
-                            return "✅ **UPDATE CICILAN SUKSES!**\n▪️ **Nama**: ${matchDebt.contactName}\n▪️ **Uang Masuk/Keluar**: Rp ${String.format("%,.0f", payAmount)}\n▪️ **Sisa Pinjaman**: ${formatRupiah.format(nextRemaining)} ($statusLunas)"
                         }
                     }
                 }
@@ -114,17 +123,11 @@ class FinancialAssistant(private val context: Context) {
 
                     if (targetName.isNotEmpty()) {
                         db.categoryDao().insertCategory(CategoryEntity(name = targetName, type = catType, iconName = "ic_custom"))
-                        return "✅ **KATEGORI BARU SUKSES DAFTAR!**\n▪️ **Nama**: \"$targetName\"\n▪️ **Tipe**: $catType"
                     }
                 }
             }
         } catch (e: Exception) {
-            return "Bahasa alami dimengerti, namun eksekusi biner SQLite Room terhambat."
+            // Gagal parsing senyap, abaikan agar tidak crash
         }
-        return "Format instruksi diproses."
-    }
-
-    suspend fun processLocalFallback(input: String, debugError: String): String {
-        return "🤖 **Sistem Cadangan Lokal**: Layanan Groq API Cloud sedang tidak stabil."
     }
 }
