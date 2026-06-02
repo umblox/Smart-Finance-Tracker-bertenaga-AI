@@ -11,6 +11,7 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- KARTU TOTAL SALDO -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -41,12 +42,14 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- RINGKASAN PEMASUKAN DAN PENGELUARAN -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:weightSum="2"
             android:layout_marginBottom="20dp">
+            
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -117,6 +120,7 @@
             android:textColor="#2D3748"
             android:layout_marginBottom="8dp"/>
 
+        <!-- GRAFIK UTAMA -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="220dp"
@@ -130,7 +134,7 @@
                 android:padding="8dp"/>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- TEMPAT TEXTVIEW HISTORY TRANSAKSI KONSOLIDASI -->
+        <!-- KONTEN HISTORY DAN LAPORAN BERKALA -->
         <TextView
             android:id="@+id/tvDashboardReport"
             android:layout_width="match_parent"
@@ -142,36 +146,3 @@
 
     </LinearLayout>
 </ScrollView>
-                        android:textColor="#C53030"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:layout_marginTop="4dp"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Grafik Laporan Keuangan"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:textColor="#2D3748"
-            android:layout_marginBottom="8dp"/>
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="250dp"
-            app:cardCornerRadius="12dp"
-            android:layout_marginBottom="16dp"
-            android:backgroundTint="#FFFFFF">
-            <com.github.mikephil.charting.charts.BarChart
-                android:id="@+id/reportBarChart"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="8dp"/>
-        </com.google.android.material.card.MaterialCardView>
-
-    </LinearLayout>
-</ScrollView>
-
