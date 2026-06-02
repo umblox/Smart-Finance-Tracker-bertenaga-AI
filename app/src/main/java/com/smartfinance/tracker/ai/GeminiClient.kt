@@ -22,7 +22,6 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     assistant.processLocalFallback(userMessage, "API Key Kosong")
         }
 
-        // Ambil riwayat dari SQLite untuk bekal otak Groq
         val db = AppDatabase.getDatabase(context)
         val transactions = db.transactionDao().getAllTransactions().first()
         val txHistory = StringBuilder()
@@ -42,19 +41,20 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             Gunakan Bahasa Indonesia yang baik dan santun.
         """.trimIndent()
 
-        // 🚀 UPAYAKAN ONLINE GROQ ENGINE DULUAN
         try {
             val url = URL("https://api.groq.com/openai/v1/chat/completions")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            conn.connectTimeout = 6000 // Terapkan timeout agar tidak hang lama
+            conn.connectTimeout = 6000
             conn.readTimeout = 6000
             conn.doOutput = true
 
             val jsonBody = JSONObject().apply {
-                put("model", "llama3-8b-8192")
+                // PERBAIKAN MUTLAK: Mengganti model yang expired ke model Llama 3.1 aktif & gratis
+                put("model", "llama-3.1-8b-instant")
+                
                 val messagesArray = org.json.JSONArray().apply {
                     put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
@@ -71,7 +71,6 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val jsonResponse = JSONObject(responseStr)
                 val aiText = jsonResponse.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
                 
-                // Cek apakah Groq memberikan instruksi pembuatan kategori sistem
                 if (aiText.contains("CMD_CREATE_CATEGORY")) {
                     return@withContext assistant.executeInterceptorCommand(aiText)
                 }
@@ -82,14 +81,12 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val errorLog = errorReader.readText()
                 val shortError = "Http Code ${conn.responseCode}"
                 
-                // Groq gagal/limit -> Lempar ke AI Lokal dengan pemberitahuan
                 return@withContext "⚠️ **Groq API gagal ($shortError)**. Mengalihkan otomatis ke AI Lokal...\n\n" + 
                         assistant.processLocalFallback(userMessage, errorLog)
             }
         } catch (e: Exception) {
-            // Koneksi putus/timeout -> Lempar ke AI Lokal dengan pemberitahuan
             return@withContext "⚠️ **Groq Terputus (${e.message})**. Mengalihkan otomatis ke AI Lokal...\n\n" + 
-                    assistant.processLocalFallback(userMessage, e.message ?: "Unknown Connection Error")
+                    assistant.processLocalFallback(userMessage, e.message ?: "Unknown Error")
         }
     }
 }
