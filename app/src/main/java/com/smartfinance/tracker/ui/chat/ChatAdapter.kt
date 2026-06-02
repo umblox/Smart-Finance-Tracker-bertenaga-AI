@@ -15,7 +15,6 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val context = parent.context
         
-        // Buat parent layout linier penjamin gravitasi kanan-kiri bekerja mutlak
         val linearParent = LinearLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -44,23 +43,29 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         ).apply {
             topMargin = 4
             bottomMargin = 4
-            // Batasi lebar maksimal gelembung chat sebesar 75% dari layar HP
-            maxWidth = (holder.itemView.rootView.width * 0.75).toInt()
+        }
+
+        // PERBAIKAN MUTLAK: Atur max width langsung ke TextView secara aman setelah layout dirender
+        holder.textView.post {
+            val maxChatWidth = (holder.itemView.rootView.width * 0.75).toInt()
+            if (maxChatWidth > 0) {
+                holder.textView.maxWidth = maxChatWidth
+            }
         }
 
         if (message.isUser) {
-            // SISI KANAN - USER (WARNA TEAL)
             holder.container.gravity = Gravity.END
             params.gravity = Gravity.END
-            params.leftMargin = 100 // Jarak aman agar tidak mepet ke kiri
+            params.leftMargin = 100
+            params.rightMargin = 0
             holder.textView.setBackgroundResource(android.R.drawable.toast_frame)
             holder.textView.background.setTint(Color.parseColor("#008080"))
             holder.textView.setTextColor(Color.WHITE)
         } else {
-            // SISI KIRI - GROQ AI (WARNA ABU-ABU)
             holder.container.gravity = Gravity.START
             params.gravity = Gravity.START
-            params.rightMargin = 100 // Jarak aman agar tidak mepet ke kanan
+            params.rightMargin = 100
+            params.leftMargin = 0
             holder.textView.setBackgroundResource(android.R.drawable.toast_frame)
             holder.textView.background.setTint(Color.parseColor("#E2E8F0"))
             holder.textView.setTextColor(Color.parseColor("#2D3748"))
