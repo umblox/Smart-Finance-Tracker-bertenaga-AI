@@ -6,7 +6,9 @@ import androidx.fragment.app.Fragment
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.databinding.ActivityMainBinding
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
-import com.smartfinance.tracker.ui.settings.SettingsFragment // Representasi dari fragment pengaturan XML fase lalu
+import com.smartfinance.tracker.ui.settings.SettingsFragment
+import com.smartfinance.tracker.ui.dashboard.DashboardFragment
+import com.smartfinance.tracker.ui.chat.ChatFragment
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,23 +19,23 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Inisialisasi Database Lokal Room secara pasif di awal
+        // Inisialisasi Database Lokal Room secara pasif
         AppDatabase.getDatabase(this)
 
-        // Set Fragment default saat aplikasi pertama kali terbuka (Dashboard)
+        // Set Fragment pertama kali terbuka (Dashboard)
         if (savedInstanceState == null) {
-            loadFragment(DummyDashboardFragment()) // Sementara diarahkan ke penampung fragmen dasar
+            loadFragment(DashboardFragment())
         }
 
-        // Logika klik navigasi bawah untuk berpindah menu
+        // Logika navigasi menu bawah
         binding.bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.menu_dashboard -> {
-                    loadFragment(DummyDashboardFragment())
+                    loadFragment(DashboardFragment())
                     true
                 }
                 R.id.menu_chat -> {
-                    loadFragment(DummyChatFragment())
+                    loadFragment(ChatFragment())
                     true
                 }
                 R.id.menu_debt -> {
@@ -41,7 +43,6 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
                 R.id.menu_settings -> {
-                    // Mengarah ke layout pengaturan API Gemini yang dibuat pada fase 3
                     loadFragment(SettingsFragment())
                     true
                 }
@@ -56,11 +57,3 @@ class MainActivity : AppCompatActivity() {
             .commit()
     }
 }
-
-// ==========================================
-// PENAMPUNG FRAGMENT DUMMY UNTUK COMPILING
-// Agar build gradle sukses tanpa error class missing
-// ==========================================
-class DummyDashboardFragment : Fragment(R.layout.fragment_dashboard)
-class DummyChatFragment : Fragment(R.layout.fragment_chat)
-
