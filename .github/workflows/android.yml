@@ -18,20 +18,10 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    # TRIK KHUSUS: Membuat ulang gradle-wrapper.jar yang hilang langsung di server Ubuntu
-    - name: Regenerate Gradle Wrapper JAR
-      run: jar cvf gradle/wrapper/gradle-wrapper.jar -C . . || echo "Mengabaikan error pengecekan, lanjut build..."
-
-    - name: Download Wrapper Dependencies
-      run: ./gradlew wrapper --gradle-version 8.5
-
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug
+    # Kita menggunakan sistem build global milik Ubuntu GitHub Runner (tanpa gradlew lokal)
+    - name: Build with Global Gradle
+      run: gradle assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
