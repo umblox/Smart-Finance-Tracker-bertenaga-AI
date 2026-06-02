@@ -5,12 +5,6 @@
     android:layout_height="match_parent"
     android:background="#F7FAFC">
 
-    <FrameLayout
-        android:id="@+id/fragmentContainer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@id/bottomNavigation" />
-
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
@@ -21,5 +15,11 @@
         app:itemIconTint="#008080"
         app:itemTextColor="#2D3748"
         app:menu="@menu/bottom_nav_menu" />
+
+    <FrameLayout
+        android:id="@+id/fragmentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/bottomNavigation" />
 
 </RelativeLayout>
