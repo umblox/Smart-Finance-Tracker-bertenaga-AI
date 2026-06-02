@@ -3,6 +3,7 @@ package com.smartfinance.tracker.ai
 import android.content.Context
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
+import com.smartfinance.tracker.data.local.entity.DebtEntity
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -18,34 +19,63 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun executeSmartJsonCommand(jsonStr: String): String {
         try {
-            val cleanJsonStr = jsonStr.replace("```json", "").replace("```", "").trim()
-            val json = JSONObject(cleanJsonStr)
+            val json = JSONObject(jsonStr.trim())
             val actionType = json.optString("action_type", "CHAT_ONLY")
 
             when (actionType) {
                 "TRANSACTION" -> {
                     val amount = json.optDouble("amount", 0.0)
-                    val catId = json.optLong("category_id", 15L)
-                    val catName = json.optString("category_name", "Lain-lain / Umum")
-                    val cleanNote = json.optString("clean_note", "Transaksi AI")
-                    val type = json.optString("type", "EXPENSE").uppercase(Locale.ROOT)
+                    var catId = json.optLong("category_id", 15L)
+                    var catName = json.optString("category_name", "Lain-lain / Umum")
+                    var cleanNote = json.optString("clean_note", "Transaksi AI").uppercase(Locale.ROOT)
+                    var type = json.optString("type", "EXPENSE").uppercase(Locale.ROOT)
+
+                    // HARD INTERCEPTOR PROTECTION: Kunci mati logika arah uang untuk kata kunci sensitif
+                    if (cleanNote.contains("GAJI") || cleanNote.contains("TIPS") || cleanNote.contains("BONUS") || cleanNote.contains("UPAH")) {
+                        type = "INCOME"
+                        if (catId == 15L || catName.contains("Lain-lain")) {
+                            catId = 1L
+                            catName = "Gaji & Pendapatan"
+                        }
+                    }
 
                     if (amount > 0.0) {
                         db.transactionDao().insertTransaction(TransactionEntity(
-                            amount = amount, 
-                            type = type, 
-                            categoryId = catId, 
-                            categoryName = catName,
-                            note = cleanNote.uppercase(Locale.ROOT), 
-                            timestamp = System.currentTimeMillis()
+                            amount = amount, type = type, categoryId = catId, categoryName = catName,
+                            note = cleanNote, timestamp = System.currentTimeMillis()
                         ))
                         
-                        val statusEmoji = if (type == "INCOME") "🟢 PEMASUKAN" else "🔴 PENGELUARAN"
-                        return "📝 **TRANSAKSI BERHASIL DICATAT!**\n\n" +
-                               "▪️ **Jenis Saldo**: $statusEmoji\n" +
-                               "▪️ **Kategori Sistem**: $catName\n" +
-                               "▪️ **Keterangan Bersih**: $cleanNote\n" +
-                               "▪️ **Nominal**: ${formatRupiah.format(amount)}"
+                        val label = if (type == "INCOME") "🟢 PEMASUKAN" else "🔴 PENGELUARAN"
+                        return "✅ **TERCATAT DI DASHBOARD:**\n▪️ **Jenis**: $label\n▪️ **Kategori**: $catName\n▪️ **Keterangan**: $cleanNote\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
+                    }
+                }
+                
+                "DEBT_RECORD" -> {
+                    val amount = json.optDouble("amount", 0.0)
+                    val name = json.optString("contact_name", "Teman").uppercase(Locale.ROOT)
+                    val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT) // DEBT atau RECEIVABLE
+
+                    if (amount > 0.0) {
+                        // SUNTIKKAN SECARA NYATA KE TABEL UTANG PIUTANG (DEBT_DAO)
+                        db.debtDao().insertDebt(DebtEntity(
+                            contactName = name, contactPhoneNumber = "0812", amount = amount,
+                            remainingAmount = amount, type = debtType, note = "Dicatat otomatis via AI",
+                            timestamp = System.currentTimeMillis(), isPaid = false
+                        ))
+
+                        // Sinkronisasikan efeknya langsung memotong atau menambah saldo dashboard
+                        val isReceivable = debtType == "RECEIVABLE"
+                        db.transactionDao().insertTransaction(TransactionEntity(
+                            amount = amount,
+                            type = if (isReceivable) "EXPENSE" else "INCOME",
+                            categoryId = if (isReceivable) 13L else 12L,
+                            categoryName = if (isReceivable) "Piutang (Memberi Pinjaman)" else "Hutang (Saya Meminjam)",
+                            note = if (isReceivable) "PINJAMAN KELUAR KE $name" else "PINJAMAN MASUK DARI $name",
+                            timestamp = System.currentTimeMillis()
+                        ))
+
+                        val jenisLabel = if (debtType == "DEBT") "⚠️ Hutang (Uang Masuk Dashboard)" else "💰 Piutang (Uang Keluar Dashboard)"
+                        return "✅ **TRANSAKSI PINJAMAN BERHASIL DISIMPAN!**\n▪️ **Jenis**: $jenisLabel\n▪️ **Nama Kontak**: $name\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
                     }
                 }
                 
@@ -60,85 +90,44 @@ class FinancialAssistant(private val context: Context) {
                         if (matchDebt != null) {
                             val nextRemaining = (matchDebt.remainingAmount - payAmount).coerceAtLeast(0.0)
                             
-                            val updatedDebt = matchDebt.copy(
+                            db.debtDao().insertDebt(matchDebt.copy(
                                 remainingAmount = nextRemaining,
                                 isPaid = nextRemaining <= 0.0
-                            )
-                            db.debtDao().insertDebt(updatedDebt)
+                            ))
 
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                             db.transactionDao().insertTransaction(TransactionEntity(
-                                amount = payAmount,
-                                type = txType,
-                                categoryId = 11L,
-                                categoryName = "Cicilan & Pinjaman",
-                                note = "PELUNASAN OTOMATIS AI OLEH ${matchDebt.contactName.uppercase()}",
-                                timestamp = System.currentTimeMillis()
+                                amount = payAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
+                                note = "CICILAN PINJAMAN OLEH ${matchDebt.contactName}", timestamp = System.currentTimeMillis()
                             ))
 
-                            return "🤝 **EKSEKUSI PELUNASAN BERHASIL!**\n\n" +
-                                   "▪️ **Nama Kontak**: ${matchDebt.contactName}\n" +
-                                   "▪️ **Nominal Dibayarkan**: ${formatRupiah.format(payAmount)}\n" +
-                                   "▪️ **Sisa Hutang Tersisa**: ${formatRupiah.format(nextRemaining)}\n\n" +
-                                   "*(Status pinjaman otomatis diubah menjadi ${if (nextRemaining <= 0.0) "LUNAS ✅" else "BELUM LUNAS ⏳"})*"
+                            return "✅ **UPDATE CICILAN SUKSES!**\n▪️ **Kontak**: ${matchDebt.contactName}\n▪️ **Dibayarkan**: ${formatRupiah.format(payAmount)}\n▪️ **Sisa Pinjaman**: ${formatRupiah.format(nextRemaining)}"
                         }
                     }
-                    return "Saya memahami Anda ingin memproses pembayaran hutang, namun ID transaksi pinjaman tersebut tidak valid."
                 }
 
                 "CREATE_CATEGORY" -> {
                     val targetName = json.optString("target_name", "").trim()
-                    val catType = json.optString("category_type", "EXPENSE").uppercase(Locale.ROOT)
+                    var catType = json.optString("category_type", "EXPENSE").uppercase(Locale.ROOT)
                     
+                    if (targetName.lowercase().contains("tips") || targetName.lowercase().contains("gaji")) {
+                        catType = "INCOME"
+                    }
+
                     if (targetName.isNotEmpty()) {
                         db.categoryDao().insertCategory(CategoryEntity(name = targetName, type = catType, iconName = "ic_custom"))
-                        
-                        val typeLabel = if (catType == "INCOME") "🟢 INCOME (Pemasukan)" else "🔴 EXPENSE (Pengeluaran)"
-                        return "🗂️ **KATEGORI BARU BERHASIL DIBUAT!**\n\n" +
-                               "▪️ **Nama Kategori**: \"$targetName\"\n" +
-                               "▪️ **Tipe Logika**: $typeLabel\n\n" +
-                               "*Kategori ini sudah langsung terdaftar di sistem aplikasi Anda.*"
+                        val label = if (catType == "INCOME") "🟢 INCOME (Pemasukan)" else "🔴 EXPENSE (Pengeluaran)"
+                        return "✅ **KATEGORI BARU SUKSES DAFTAR TEMPEL!**\n▪️ **Nama**: \"$targetName\"\n▪️ **Sistem Logika**: $label"
                     }
                 }
             }
         } catch (e: Exception) {
-            return "Perintah bahasa alami diterima, namun struktur biner pengolah data sedang penuh. Silakan coba kembali."
+            return "Bahasa alami dimengerti, namun eksekusi query SQLite Room terhambat."
         }
-        return "Format instruksi tidak spesifik."
+        return "Format instruksi diproses."
     }
 
     suspend fun processLocalFallback(input: String, debugError: String): String {
-        val text = input.lowercase(Locale.ROOT).trim()
-
-        if (text.contains("laporan") || text.contains("rekap")) {
-            val transactions = db.transactionDao().getAllTransactions().first()
-            var harian = 0.0
-            var bulanan = 0.0
-            val now = System.currentTimeMillis()
-            val calTx = Calendar.getInstance()
-            val calNow = Calendar.getInstance()
-
-            for (tx in transactions) {
-                calTx.timeInMillis = tx.timestamp
-                val diffDays = (now - tx.timestamp) / (1000 * 60 * 60 * 24)
-                if (tx.type == "EXPENSE" && diffDays <= 0) harian += tx.amount
-                if (tx.type == "EXPENSE" && calTx.get(Calendar.MONTH) == calNow.get(Calendar.MONTH)) bulanan += tx.amount
-            }
-            return "📊 **LAPORAN DATABASE DARURAT (LOKAL)**\n\n" +
-                   "▪️ Pengeluaran Hari Ini: ${formatRupiah.format(harian)}\n" +
-                   "▪️ Pengeluaran Bulan Ini: ${formatRupiah.format(bulanan)}"
-        }
-
-        val numberPattern = Pattern.compile("\\d+")
-        val numberMatcher = numberPattern.matcher(text)
-        if (!numberMatcher.find()) return "Format tidak dikenali sistem lokal cadangan. Error: $debugError"
-
-        val amount = numberMatcher.group().toDoubleOrNull() ?: 0.0
-        db.transactionDao().insertTransaction(TransactionEntity(
-            amount = amount, type = "EXPENSE", categoryId = 15L, categoryName = "Lain-lain / Umum",
-            note = "TRANSAKSI LOKAL CADANGAN", timestamp = System.currentTimeMillis()
-        ))
-
-        return "📝 **BERHASIL DICATAT ENGINE CADANGAN LOKAL!**\n\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
+        return "🤖 **Sistem Cadangan Lokal**: Layanan Groq API Cloud sedang tidak stabil. Silakan gunakan menu form input manual pada halaman utama dashboard untuk pencatatan instan."
     }
 }
