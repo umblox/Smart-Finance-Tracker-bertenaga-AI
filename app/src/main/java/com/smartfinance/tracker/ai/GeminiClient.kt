@@ -29,29 +29,28 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         val debts = db.debtDao().getAllDebts().first()
         val debtContext = StringBuilder()
         debts.filter { !it.isPaid }.forEach { 
-            debtContext.append("- ID Pinjaman: ${it.id}, Nama Orang: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
+            debtContext.append("- ID Pinjaman: ${it.id}, Nama Kontak: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
         }
 
         val systemPrompt = """
-            Anda adalah Otak Kecerdasan buatan pelacak keuangan. Tugas Anda mengekstrak kalimat menjadi objek JSON perintah.
-            
-            KATEGORI DATABASE:
+            Anda adalah Otak AI Finansial paling cerdas. Tugas Anda menganalisis kalimat percakapan bahasa alami pengguna dan merespons dengan narasi penjelasan santun, diikuti instruksi data JSON terstruktur di baris paling bawah.
+
+            KATEGORI SISTEM SAAT INI:
             $catContext
 
-            DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
+            DAFTAR TRANSAKSI PINJAMAN YANG BELUM LUNAS:
             $debtContext
 
-            ATURAN MUTLAK JALUR PINJAMAN:
-            1. Jika kalimat user bertema HUTANG / PIUTANG BARU (Contoh: "hutang ke samsul 50000" atau "saya pinjamkan budi uang 10000"):
-               Anda WAJIB memakai action_type "DEBT_RECORD".
-               - "amount": nominal angka.
-               - "contact_name": nama subjek orang (Contoh: "SAMSUL", "BUDI").
-               - "debt_type": Isi "DEBT" jika user yang meminjam/berhutang (ID Kategori 12). Isi "RECEIVABLE" jika user yang meminjamkan uang ke orang lain (ID Kategori 13).
-            2. Jika transaksi biasa (Contoh: "gaji 770000" atau "beli seblak 15000"):
-               Set action_type menjadi "TRANSACTION". Ingat kata "gaji", "tips", "bonus" tipe harganya adalah "INCOME".
-               
-            Respons HANYA berupa JSON mentah satu baris tanpa tambahan kata lain:
-            {"action_type":"DEBT_RECORD", "amount":50000, "contact_name":"SAMSUL", "debt_type":"DEBT"}
+            TENTUKAN STRUKTUR DENGAN ATURAN TEGAS INI:
+            1. PENCATATAN UTANG PIUTANG BARU: Jika user berhutang atau memberi pinjaman (Contoh: "hutang ke samsul 50000" atau "samsul pinjam uang saya 100000"), gunakan action_type "DEBT_RECORD", isi "amount", "contact_name", dan "debt_type" ("DEBT" jika user berhutang, "RECEIVABLE" jika user memberi pinjaman).
+            2. PELUNASAN / CICILAN PINJAMAN: Jika user/orang lain melunasi atau menyicil hutang (Contoh: "arianto melunasi semua hutangnya"), cari Nama Kontak yang cocok di daftar pinjaman belum lunas. Gunakan action_type "DEBT_PAYMENT", isi "debt_id" dengan ID pinjamannya, dan isi "pay_amount" dengan nominal pelunasan penuh/sebagian.
+            3. TAMBAH KATEGORI BARU: Jika user ingin membuat kategori baru (Contoh: "buat kategori tips kurir"), gunakan action_type "CREATE_CATEGORY", tentukan "target_name", dan "category_type" ("INCOME" atau "EXPENSE") berdasarkan analisis logika bahasa. Kata "tips", "gaji", "bonus" MUTLAK adalah INCOME.
+            4. TRANSAKSI BIASA: Jika pengeluaran/pemasukan biasa (Contoh: "gaji 770000"), gunakan action_type "TRANSACTION". Pilih "category_id" yang paling mendekati dari daftar di atas. Perbaiki typo jika ada.
+
+            Di baris paling akhir dari jawaban Anda, Anda WAJIB menyertakan baris string bertanda token khusus [JSON_CMD] diikuti objek data JSON murni satu baris tanpa markdown.
+            Contoh balasan Anda:
+            Kategori baru berhasil dianalisis dan ditambahkan ke dalam memori aplikasi Anda.
+            [JSON_CMD]{"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME"}
         """.trimIndent()
 
         try {
@@ -78,15 +77,24 @@ class GeminiClient(private val context: Context, private val assistant: Financia
 
             if (conn.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val rawJsonResult = JSONObject(reader.readText()).getJSONArray("choices")
+                val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                return@withContext assistant.executeSmartJsonCommand(rawJsonResult)
+                if (rawResponse.contains("[JSON_CMD]")) {
+                    val textParts = rawResponse.split("[JSON_CMD]")
+                    val aiNarration = textParts[0].trim()
+                    val jsonCommand = textParts[1].trim()
+                    
+                    // Jalankan perintah biner ke SQLite
+                    val executionResult = assistant.executeSmartJsonCommand(jsonCommand)
+                    return@withContext "$aiNarration\n\n$executionResult"
+                }
+                return@withContext rawResponse
             } else {
-                return@withContext "⚠️ Gangguan jaringan Groq Server (${conn.responseCode})"
+                return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Koneksi lambat, coba ulangi beberapa saat lagi."
+            return@withContext "⚠️ Server Groq sedang sibuk. Silakan gunakan input manual dashboard."
         }
     }
 }
