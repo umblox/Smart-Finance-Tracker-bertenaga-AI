@@ -22,35 +22,47 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         }
 
         val db = AppDatabase.getDatabase(context)
+        
+        // 1. Ambil Kategori untuk bahan otak Groq
         val categories = db.categoryDao().getAllCategories().first()
         val catContext = StringBuilder()
         categories.forEach { catContext.append("- ID: ${it.id}, Nama: ${it.name}, Tipe: ${it.type}\n") }
 
+        // 2. Ambil semua riwayat pinjaman belum lunas (UNTUK SEMUA NAMA ORANG SIAP DETEKSI TYPO)
         val debts = db.debtDao().getAllDebts().first()
         val debtContext = StringBuilder()
         debts.filter { !it.isPaid }.forEach { 
-            debtContext.append("- ID Pinjaman: ${it.id}, Nama Orang: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
+            debtContext.append("- ID: ${it.id}, Nama Akurat: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis Tabel: ${it.type}\n")
         }
 
         val systemPrompt = """
-            Anda adalah Otak AI Finansial paling cerdas. Tugas Anda menganalisis kalimat bahasa alami pengguna secara nalar luas, lalu menghasilkan kesimpulan data terstruktur.
+            Anda adalah Otak AI Finansial super cerdas yang menguasai logika matematika bahasa alami Indonesia dan deteksi nama toleransi typo (Fuzzy Matching).
+            Tugas Anda adalah membaca kalimat user, mengekstrak data keuangan, lalu menghasilkan kesimpulan berupa JSON di baris akhir.
 
-            DAFTAR KATEGORI NYATA DI HP USER SAAT INI:
+            KATEGORI DATABASE APLIKASI:
             $catContext
 
-            DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
+            DAFTAR PINJAMAN AKTIF DI SQLITE (SEMUA ORANG):
             $debtContext
 
-            ATURAN STRUKTUR:
-            1. PENCATATAN PINJAMAN: Jika bertema hutang/piutang baru, gunakan action_type "DEBT_RECORD", isi "amount", "contact_name", dan "debt_type" ("DEBT" atau "RECEIVABLE").
-            2. PELUNASAN: Jika bertema pembayaran hutang, cari nama di daftar di atas, gunakan action_type "DEBT_PAYMENT", isi "debt_id" dan "pay_amount".
-            3. KATEGORI BARU: Jika ingin membuat kategori baru, gunakan action_type "CREATE_CATEGORY", tentukan "target_name" dan "category_type" ("INCOME" atau "EXPENSE"). Kata "tips", "gaji", "bonus" adalah INCOME.
-            4. TRANSAKSI BIASA: Jika pengeluaran/pemasukan biasa, gunakan action_type "TRANSACTION". Pilih "category_id" dan "category_name" paling cocok dari daftar di atas secara fleksibel (pahami konteks barang belanjaan bebas dari user).
+            📋 ATURAN MATEMATIKA ANGKA & SINGKATAN UMUM:
+            - Jika user menyebut "rb" atau "ribu", kalikan angka di depannya dengan 1.000 (Contoh: "50rb" atau "50 ribu" = 50000).
+            - Jika user menyebut "jt" atau "juta", kalikan dengan 1.000.000 (Contoh: "1.5jt" atau "1 setengah juta" = 1500000).
+            - Jika user menyebut "ratusan" atau "puluhan", hitung secara matematis nominal riilnya.
 
-            Format respons Anda wajib disisipkan token pembatas rahasia [JSON_CMD] di baris paling akhir diikuti objek data JSON murni satu baris tanpa markdown.
+            👤 ATURAN DETEKSI NAMA & TOLERANSI TYPO (FUZZY MATCHING):
+            - Jika user menyebut suatu nama (misal: "ariant", "arianto", "aryanto", "samsul", "samshul", dll), Anda WAJIB menyisir "DAFTAR PINJAMAN AKTIF" di atas.
+            - Cari nama yang memiliki kemiripan karakter paling dekat (toleransi salah ketik hingga 3 huruf). Jika "ariant" mirip dengan "Arianto" yang punya sisa hutang, maka anggap subjek tersebut adalah "Arianto".
+
+            ALUR DETERMINASI TINDAKAN (ACTION_TYPE):
+            1. DEBT_PAYMENT (Pelunasan/Cicilan): Jika user/orang lain membayar hutang (Contoh: "ariant bayar hutangnya 150rb" atau "arianto lunas semua"). Jika kata "lunas semua" atau "semua hutangnya", set "pay_amount" sesuai dengan Sisa Hutang riil milik orang tersebut yang tertera di daftar atas secara matematis.
+            2. DEBT_RECORD (Pinjaman Baru): Jika mencatat hutang/piutang baru dari orang baru atau orang lama (Contoh: "saya hutang ke iwan 50000"). Set "debt_type" menjadi "DEBT" (jika user berhutang) atau "RECEIVABLE" (jika user meminjamkan uang).
+            3. TRANSACTION (Transaksi Biasa): Pengeluaran/pemasukan biasa (Contoh: "beli bensin 20rb"). Ingat kata "gaji", "tips", "bonus" harganya MUTLAK bertipe "INCOME".
+
+            Format respons wajib menyelipkan token pembatas khusus [JSON_CMD] di baris paling akhir diikuti data JSON murni satu baris tanpa markdown.
             Format:
-            Jawaban penjelasan santun Anda di sini mengenai pengelompokan transaksi.
-            [JSON_CMD]{"action_type":"TRANSACTION", "amount":50000, "type":"EXPENSE", "category_id":2, "category_name":"Makanan & Minuman", "clean_note":"BELANJA"}
+            Pesan narasi ringkas penjelasan Anda ke user (Gunakan format mata uang Rupiah yang rapi).
+            [JSON_CMD]{"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":150000}
         """.trimIndent()
 
         try {
@@ -70,7 +82,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.1) 
+                put("temperature", 0.1) // Kunci suhu rendah agar kepatuhan kalkulasi matematis stabil
             }
 
             conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
@@ -85,16 +97,15 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     val aiNarration = textParts[0].trim()
                     val jsonCommand = textParts[1].trim()
                     
-                    // Jalankan biner SQLite, lalu gabungkan dengan token penanda internal baru [EXEC_RESULT]
                     val executionResult = assistant.executeSmartJsonCommand(jsonCommand)
                     return@withContext "[EXEC_RESULT]$aiNarration\n\n$executionResult"
                 }
                 return@withContext rawResponse
             } else {
-                return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
+                return@withContext "⚠️ Koneksi Groq terputus (HTTP ${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Sistem Cloud Groq penuh."
+            return@withContext "⚠️ Sistem Cloud Groq penuh. Silakan ulangi beberapa saat lagi."
         }
     }
 }
