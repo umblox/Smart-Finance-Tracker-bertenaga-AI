@@ -32,46 +32,60 @@ class SettingsFragment : Fragment() {
         val savedKey = sharedPreferences.getString("gemini_api_key", "")
         binding.etApiKey.setText(savedKey)
 
-        // DYNAMIC CONTAINER UNTUK MASTER MANAJEMEN KATEGORI BARU
-        val linearLayout = binding.root.findViewById<LinearLayout>(android.R.id.id) ?: (binding.root as? ViewGroup)?.getChildAt(0) as? LinearLayout
+        // PERBAIKAN MUTLAK: Ambil kontainer induk utama langsung dari binding root secara aman
+        val containerLayout = binding.root as? ViewGroup
         
-        linearLayout?.let { layout ->
-            val tvHeader = TextView(context).apply { 
-                text = "\n🗂️ TAMBAH KATEGORI TRANSAKSI MANUAL"
-                textSize = 15f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-            }
-            layout.addView(tvHeader)
+        containerLayout?.let { layout ->
+            // Cek jika komponen sudah pernah ditambahkan agar tidak double saat fragment di-refresh
+            if (layout.findViewWithTag<View>("manual_category_section") == null) {
+                
+                val innerContainer = LinearLayout(context).apply {
+                    tag = "manual_category_section"
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, 32, 0, 0)
+                }
 
-            val etCatName = EditText(context).apply { hint = "Nama Kategori Baru (ex: Liburan)" }
-            layout.addView(etCatName)
+                val tvHeader = TextView(context).apply { 
+                    text = "🗂️ TAMBAH KATEGORI TRANSAKSI MANUAL"
+                    textSize = 15f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setTextColor(android.graphics.Color.parseColor("#2D3748"))
+                }
+                innerContainer.addView(tvHeader)
 
-            val spinner = Spinner(context)
-            val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listOf("EXPENSE (Pengeluaran)", "INCOME (Pemasukan)"))
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinner.adapter = adapter
-            layout.addView(spinner)
+                val etCatName = EditText(context).apply { hint = "Nama Kategori Baru (ex: Liburan)" }
+                innerContainer.addView(etCatName)
 
-            val btnAddCat = Button(context).apply {
-                text = "SIMPAN MASTER KATEGORI"
-                backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#008080"))
-                setOnClickListener {
-                    val catName = etCatName.text.toString().trim()
-                    val type = if (spinner.selectedItemPosition == 0) "EXPENSE" else "INCOME"
-                    
-                    if (catName.isNotEmpty()) {
-                        lifecycleScope.launch {
-                            val db = AppDatabase.getDatabase(context)
-                            db.categoryDao().insertCategory(CategoryEntity(name = catName, type = type, iconName = "ic_custom"))
-                            Toast.makeText(context, "Kategori '$catName' Berhasil Ditambahkan!", Toast.LENGTH_SHORT).show()
-                            etCatName.setText("")
+                val spinner = Spinner(context)
+                val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listOf("EXPENSE (Pengeluaran)", "INCOME (Pemasukan)"))
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                spinner.adapter = adapter
+                innerContainer.addView(spinner)
+
+                val btnAddCat = Button(context).apply {
+                    text = "SIMPAN MASTER KATEGORI"
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#008080"))
+                    setOnClickListener {
+                        val catName = etCatName.text.toString().trim()
+                        val type = if (spinner.selectedItemPosition == 0) "EXPENSE" else "INCOME"
+                        
+                        if (catName.isNotEmpty()) {
+                            lifecycleScope.launch {
+                                val db = AppDatabase.getDatabase(context)
+                                db.categoryDao().insertCategory(CategoryEntity(name = catName, type = type, iconName = "ic_custom"))
+                                Toast.makeText(context, "Kategori '$catName' Berhasil Ditambahkan!", Toast.LENGTH_SHORT).show()
+                                etCatName.setText("")
+                            }
+                        } else {
+                            Toast.makeText(context, "Nama kategori tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        Toast.makeText(context, "Nama kategori tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                     }
                 }
+                innerContainer.addView(btnAddCat)
+                
+                // Tempelkan ke dalam layout utama pengaturan
+                layout.addView(innerContainer)
             }
-            layout.addView(btnAddCat)
         }
 
         binding.btnSaveSettings.setOnClickListener {
