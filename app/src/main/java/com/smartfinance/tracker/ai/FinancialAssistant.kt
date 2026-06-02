@@ -7,7 +7,6 @@ import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.data.local.entity.DebtEntity
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
-import java.text.NumberFormat
 import java.util.Locale
 import java.util.regex.Pattern
 
@@ -17,28 +16,25 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         try {
-            // Pemindai Regex: Cari objek kurung kurawal JSON {...} di bagian akhir string respon Groq
             val jsonPattern = Pattern.compile("\\{[^\\{]*\\}$")
             val matcher = jsonPattern.matcher(rawText.trim())
 
             if (matcher.find()) {
                 val jsonString = matcher.group()
-                // Potong narasi manusia bersih agar bebas dari teks kode biner
                 val cleanNarration = rawText.replace(jsonString, "").trim()
 
-                // Eksekusi data JSON ke SQLite secara senyap di background
-                executeSilentJsonCommand(jsonString)
+                // Jalankan perintah biner ke SQLite sambil mengirimkan teks asli user untuk proteksi kata kunci
+                executeSilentJsonCommand(jsonString, cleanNarration.lowercase())
                 
                 return cleanNarration
             }
         } catch (e: Exception) {
-            // Jika regex gagal, kembalikan teks asli agar chat tidak blank
             return rawText
         }
         return rawText
     }
 
-    private suspend fun executeSilentJsonCommand(jsonStr: String) {
+    private suspend fun executeSilentJsonCommand(jsonStr: String, cleanNarrationLower: String) {
         try {
             val json = JSONObject(jsonStr)
             val actionType = json.optString("action_type", "CHAT_ONLY")
@@ -51,7 +47,6 @@ class FinancialAssistant(private val context: Context) {
                     val cleanNote = json.optString("clean_note", "Transaksi AI").uppercase(Locale.ROOT)
                     var type = json.optString("type", "EXPENSE").uppercase(Locale.ROOT)
 
-                    // Proteksi ganda: Kunci arah jenis uang masuk untuk kata kunci sensitif gaji/tips
                     if (cleanNote.contains("GAJI") || cleanNote.contains("TIPS") || cleanNote.contains("BONUS") || cleanNote.contains("UPAH")) {
                         type = "INCOME"
                         if (catId == 15L) { catId = 1L; catName = "Gaji & Pendapatan" }
@@ -68,15 +63,32 @@ class FinancialAssistant(private val context: Context) {
                 "DEBT_RECORD" -> {
                     val amount = json.optDouble("amount", 0.0)
                     val name = json.optString("contact_name", "Teman").uppercase(Locale.ROOT)
-                    val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
+                    var debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
+
+                    // 🛡️ INTERCEPTOR PROTECTION MUTLAK: Deteksi kalimat terbalik
+                    // Jika teks mengandung indikasi kuat user yang memberikan pinjaman uang
+                    if (cleanNarrationLower.contains("meminjam uang saya") || 
+                        cleanNarrationLower.contains("meminjamkan") || 
+                        cleanNarrationLower.contains("piutang")) {
+                        debtType = "RECEIVABLE"
+                    }
 
                     if (amount > 0.0) {
+                        // 1. Simpan ke tabel master Hutang-Piutang (DebtEntity)
                         db.debtDao().insertDebt(DebtEntity(
-                            contactName = name, contactPhoneNumber = "0812", amount = amount,
-                            remainingAmount = amount, type = debtType, note = "Otomatis via Chat AI",
-                            timestamp = System.currentTimeMillis(), isPaid = false
+                            contactName = name, 
+                            contactPhoneNumber = "0812", 
+                            amount = amount,
+                            remainingAmount = amount, 
+                            type = debtType, // Tersimpan akurat sebagai RECEIVABLE
+                            note = "Dicatat otomatis via Chat AI",
+                            timestamp = System.currentTimeMillis(), 
+                            isPaid = false
                         ))
 
+                        // 2. Sinkronisasikan efek saldo ke dashboard utama (TransactionEntity)
+                        // Piutang (RECEIVABLE) = Uang kita keluar dipinjam orang (EXPENSE)
+                        // Hutang (DEBT) = Uang masuk ke dompet kita dari orang (INCOME)
                         val isReceivable = debtType == "RECEIVABLE"
                         db.transactionDao().insertTransaction(TransactionEntity(
                             amount = amount,
