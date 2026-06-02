@@ -7,7 +7,9 @@ import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.text.NumberFormat
+import java.util.Calendar
 import java.util.Locale
+import java.util.regex.Pattern
 
 class FinancialAssistant(private val context: Context) {
 
@@ -16,7 +18,6 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun executeSmartJsonCommand(jsonStr: String): String {
         try {
-            // Bersihkan sisa karakter markdown penutup dari AI jika ada
             val cleanJsonStr = jsonStr.replace("```json", "").replace("
 ```", "").trim()
             val json = JSONObject(cleanJsonStr)
@@ -28,14 +29,12 @@ class FinancialAssistant(private val context: Context) {
                     val catId = json.optLong("category_id", 15L)
                     val catName = json.optString("category_name", "Lain-lain / Umum")
                     val cleanNote = json.optString("clean_note", "Transaksi AI")
-                    
-                    // PERBAIKAN MUTLAK: Ambil nilai type langsung dari kiriman cerdas JSON AI
                     val type = json.optString("type", "EXPENSE").uppercase(Locale.ROOT)
 
                     if (amount > 0.0) {
                         db.transactionDao().insertTransaction(TransactionEntity(
                             amount = amount, 
-                            type = type, // Menyimpan secara tepat INCOME atau EXPENSE
+                            type = type, 
                             categoryId = catId, 
                             categoryName = catName,
                             note = cleanNote.uppercase(Locale.ROOT), 
@@ -62,14 +61,12 @@ class FinancialAssistant(private val context: Context) {
                         if (matchDebt != null) {
                             val nextRemaining = (matchDebt.remainingAmount - payAmount).coerceAtLeast(0.0)
                             
-                            // 1. Perbarui sisa hutang di database pinjaman
                             val updatedDebt = matchDebt.copy(
                                 remainingAmount = nextRemaining,
                                 isPaid = nextRemaining <= 0.0
                             )
                             db.debtDao().insertDebt(updatedDebt)
 
-                            // 2. Sinkronisasikan langsung ke saldo utama dashboard
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                             db.transactionDao().insertTransaction(TransactionEntity(
                                 amount = payAmount,
@@ -112,8 +109,38 @@ class FinancialAssistant(private val context: Context) {
     }
 
     suspend fun processLocalFallback(input: String, debugError: String): String {
-        // Fallback cadangan teks reguler jika internet HP tiba-tiba mati
-        return "🤖 **Sistem Cadangan Lokal**:\n\nKoneksi API Cloud Anda sedang tidak stabil. Silakan gunakan menu input transaksi manual pada halaman utama dashboard untuk pencatatan instan."
+        val text = input.lowercase(Locale.ROOT).trim()
+
+        if (text.contains("laporan") || text.contains("rekap")) {
+            val transactions = db.transactionDao().getAllTransactions().first()
+            var harian = 0.0
+            var bulanan = 0.0
+            val now = System.currentTimeMillis()
+            val calTx = Calendar.getInstance()
+            val calNow = Calendar.getInstance()
+
+            for (tx in transactions) {
+                calTx.timeInMillis = tx.timestamp
+                val diffDays = (now - tx.timestamp) / (1000 * 60 * 60 * 24)
+                if (tx.type == "EXPENSE" && diffDays <= 0) harian += tx.amount
+                if (tx.type == "EXPENSE" && calTx.get(Calendar.MONTH) == calNow.get(Calendar.MONTH)) bulanan += tx.amount
+            }
+            return "📊 **LAPORAN DATABASE DARURAT (LOKAL)**\n\n" +
+                   "▪️ Pengeluaran Hari Ini: ${formatRupiah.format(harian)}\n" +
+                   "▪️ Pengeluaran Bulan Ini: ${formatRupiah.format(bulanan)}"
+        }
+
+        val numberPattern = Pattern.compile("\\d+")
+        val numberMatcher = numberPattern.matcher(text)
+        if (!numberMatcher.find()) return "Format tidak dikenali sistem lokal cadangan. Error: $debugError"
+
+        val amount = numberMatcher.group().toDoubleOrNull() ?: 0.0
+        db.transactionDao().insertTransaction(TransactionEntity(
+            amount = amount, type = "EXPENSE", categoryId = 15L, categoryName = "Lain-lain / Umum",
+            note = "TRANSAKSI LOKAL CADANGAN", timestamp = System.currentTimeMillis()
+        ))
+
+        return "📝 **BERHASIL DICATAT ENGINE CADANGAN LOKAL!**\n\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
     }
                                                                       }
                                                                       
