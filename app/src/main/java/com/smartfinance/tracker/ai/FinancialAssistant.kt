@@ -13,16 +13,13 @@ class FinancialAssistant(private val context: Context) {
     suspend fun processNaturalLanguage(input: String): String {
         val lowerInput = input.lowercase()
 
-        // 1. Filter Proteksi Topik luar keuangan
         if (lowerInput.contains("presiden") || lowerInput.contains("cuaca")) {
             return "Maaf, saya hanya bisa membantu mencatat transaksi dan keuangan Anda."
         }
 
-        // Ambil database secara langsung untuk menjamin fungsi baca-tulis valid
         val db = AppDatabase.getDatabase(context)
         val transactionDao = db.transactionDao()
 
-        // 2. Fitur Cek Saldo Otomatis
         if (lowerInput.contains("saldo") || lowerInput.contains("total uang")) {
             val transactions = transactionDao.getAllTransactions().first()
             var income = 0.0
@@ -33,33 +30,36 @@ class FinancialAssistant(private val context: Context) {
             return "Saldo Anda saat ini: Rp ${String.format("%,.0f", income - expense)}"
         }
 
-        // 3. Catat Transaksi Otomatis (Format: beli rokok 15000)
-        val pattern = Pattern.compile("(beli|gaji|bayar|catat)\\s+([a-zA-Z\\s]+)\\s+(\\d+)")
-        val matcher = pattern.matcher(lowerInput)
-
-        if (matcher.find()) {
-            val aksi = matcher.group(1) ?: ""
-            val nama = matcher.group(2)?.trim() ?: "Umum"
-            val nominalStr = matcher.group(3) ?: "0"
+        // PERBAIKAN REGEX: Menangkap nominal angka di mana saja, baik di depan maupun di belakang
+        val numberPattern = Pattern.compile("\\d+[\\d\\.]*")
+        val numberMatcher = numberPattern.matcher(lowerInput)
+        
+        if (numberMatcher.find()) {
+            val nominalStr = numberMatcher.group().replace(".", "")
             val nominal = nominalStr.toDoubleOrNull() ?: 0.0
-
+            
             if (nominal > 0.0) {
-                val isIncome = aksi.contains("gaji")
+                // Tentukan tipe berdasarkan kata kunci yang fleksibel
+                val isIncome = lowerInput.contains("gaji") || lowerInput.contains("pemasukan") || lowerInput.contains("masuk") || lowerInput.contains("gajian")
                 val type = if (isIncome) "INCOME" else "EXPENSE"
                 
+                // Ambil sisa teks sebagai catatan/note barang
+                val note = input.replace(numberMatcher.group(), "").replace("gaji", "").replace("beli", "").replace("catat", "").trim()
+                val finalNote = if (note.isEmpty()) { if (isIncome) "Pemasukan AI" else "Pengeluaran AI" } else note
+
                 val tx = TransactionEntity(
                     amount = nominal,
                     type = type,
-                    categoryId = if (isIncome) 1 else 2,
+                    categoryId = if (isIncome) 1L else 2L,
                     categoryName = if (isIncome) "Gaji" else "Makanan/Umum",
-                    note = nama,
+                    note = finalNote,
                     timestamp = System.currentTimeMillis()
                 )
                 transactionDao.insertTransaction(tx)
-                return "Berhasil mencatat ${if (isIncome) "Pemasukan" else "Pengeluaran"} '$nama' sebesar Rp ${String.format("%,.0f", nominal)}."
+                return "Berhasil mencatat ${if (isIncome) "Pemasukan" else "Pengeluaran"} *\"$finalNote\"* sebesar **Rp ${String.format("%,.0f", nominal)}** ke database."
             }
         }
 
-        return "Maaf, format kurang spesifik. Coba ketik: 'beli rokok 15000' atau 'gaji 5000000'."
+        return "Format kurang spesifik. Coba ketik: 'beli rokok 15000' atau 'gajian 5000000'."
     }
 }
