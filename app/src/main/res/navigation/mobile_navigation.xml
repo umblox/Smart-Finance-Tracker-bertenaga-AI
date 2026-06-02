@@ -1,0 +1,4 @@
+    <fragment
+        android:id="@+id/menu_report"
+        android:name="com.smartfinance.tracker.ui.settings.ReportFragment"
+        android:title="Laporan Keuangan" />
