@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.chat
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -28,9 +29,15 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Inisialisasi menggunakan Context langsung tanpa perantara repository
         val assistant = FinancialAssistant(requireContext())
         geminiClient = GeminiClient(requireContext(), assistant)
+
+        // MUAT RIWAYAT CHAT LAMA DARI PENYIMPANAN PERMANEN HP
+        val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        val savedChat = prefs.getString("chat_history_backup", "")
+        if (!savedChat.isNullContentOrEmpty()) {
+            binding.tvChatHistory.text = savedChat
+        }
 
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
@@ -41,6 +48,8 @@ class ChatFragment : Fragment() {
     }
 
     private fun sendChatToAI(message: String) {
+        val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        
         binding.tvChatHistory.append("\nAnda: $message\n")
         binding.etMessage.setText("")
         binding.btnSend.isEnabled = false 
@@ -52,12 +61,17 @@ class ChatFragment : Fragment() {
             
             val currentText = binding.tvChatHistory.text.toString()
             val cleanedText = currentText.replace("AI sedang berpikir...\n", "")
-            binding.tvChatHistory.text = cleanedText
             
-            binding.tvChatHistory.append("AI: $response\n\n")
+            val updatedChat = "$cleanedText\nAI: $response\n\n"
+            binding.tvChatHistory.text = updatedChat
             binding.btnSend.isEnabled = true
+            
+            // SIMPAN PERMANEN DETIK INI JUGA
+            prefs.edit().putString("chat_history_backup", updatedChat).apply()
         }
     }
+
+    private fun String?.isNullContentOrEmpty(): Boolean = this == null || this.trim().isEmpty()
 
     override fun onDestroyView() {
         super.onDestroyView()
