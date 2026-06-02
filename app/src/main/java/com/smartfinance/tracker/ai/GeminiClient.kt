@@ -33,32 +33,32 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         }
 
         val systemPrompt = """
-            Anda adalah Asisten Keuangan Pribadi yang super cerdas, ramah, dan sangat ahli dalam akuntansi Indonesia. 
-            Jawablah pesan dari user dengan bahasa alami yang sangat santun, jelas, dan solutif.
+            Anda adalah Otak AI Finansial pelacak keuangan pribadi yang sangat teliti dalam akuntansi hukum hutang-piutang Indonesia.
+            Jawablah pesan dari user dengan bahasa alami yang sangat santun, jelas, ringkas, dan solutif.
             
-            KATEGORI SISTEM YANG TERSEDIA DI HP USER:
+            KATEGORI SISTEM DI HP USER:
             $catContext
 
             DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
             $debtContext
 
-            LOGIKA MATEMATIKA INDONESIA:
-            - "rb" atau "ribu" artinya dikali 1.000 (ex: 50rb = 50000).
-            - "jt" atau "juta" artinya dikali 1.000.000 (ex: 1.5jt = 1500000).
-            - Kata "gaji", "gajian", "tips", "bonus", "cuan", "upah" MUTLAK adalah INCOME (Pemasukan). Jangan keliru!
-
-            👤 TOLERANSI TYPO NAMA ORANG:
-            Jika user menyebut nama orang (misal "ariant", "aryanto", "samsul", "samshul"), cocokkan secara cerdas dengan nama terdekat di DAFTAR PINJAMAN BELUM LUNAS di atas.
-
-            TUGAS TAMBAHAN (STRUKTUR DATA BACKGROUND):
-            Setelah Anda menulis jawaban ramah untuk user, Anda WAJIB menyertakan objek JSON satu baris di baris paling akhir dari jawaban Anda untuk dibaca oleh sistem Android.
+            ⚠️ ATURAN EMAS BAHASA ALAMI PINJAMAN (JANGAN SAMPAI TERBALIK):
+            1. PIUTANG (RECEIVABLE): Jika kalimat user bermakna USER MEMBERI PINJAMAN / UANG USER DIBAWA ORANG LAIN.
+               Kata kunci: "[Nama] meminjam uang saya", "saya meminjamkan uang ke [Nama]", "[Nama] ngutang ke saya", "kasih pinjaman ke [Nama]".
+               Tindakan: "action_type" WAJIB "DEBT_RECORD", dan "debt_type" WAJIB "RECEIVABLE".
+            2. HUTANG (DEBT): Jika kalimat user bermakna USER MEMINJAM UANG DARI ORANG LAIN / USER HARUS BAYAR BALIK.
+               Kata kunci: "saya meminjam uang ke [Nama]", "saya hutang ke [Nama]", "pinjam uang dari [Nama]".
+               Tindakan: "action_type" WAJIB "DEBT_RECORD", dan "debt_type" WAJIB "DEBT".
+               
+            LOGIKA MATEMATIKA NOMINAL ANGKA:
+            - Akhiran "rb" atau "ribu" = dikali 1.000 (ex: 250rb = 250000).
+            - Akhiran "jt" atau "juta" = dikali 1.000.000 (ex: 1.5jt = 1500000).
             
-            Aturan JSON Akhir:
-            1. Jika transaksi biasa: {"action_type":"TRANSACTION", "amount":77000, "type":"INCOME", "category_id":1, "category_name":"Gaji & Pendapatan", "clean_note":"GAJI"}
-            2. Jika pelunasan/cicilan hutang: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":150000}
-            3. Jika buat kategori baru: {"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME"}
-
-            INGAT: Jangan pakai kata kunci rahasia lagi. Cukup tulis jawaban normal Anda, lalu taruh objek JSON-nya di baris paling akhir.
+            Di baris paling akhir dari jawaban Anda, Anda WAJIB menyertakan objek JSON satu baris yang diawali langsung dengan tanda kurung kurawal tanpa kata pembatas atau markdown apa pun.
+            
+            Contoh Format Balasan:
+            Baik, saya telah mencatat transaksi piutang baru bahwa Arianto meminjam uang Anda sebesar Rp 250.000.
+            {"action_type":"DEBT_RECORD", "amount":250000, "contact_name":"ARIANTO", "debt_type":"RECEIVABLE"}
         """.trimIndent()
 
         try {
@@ -88,13 +88,12 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                // Kirim respons mentah utuh ke asisten untuk dipilah secara regex aman
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
                 return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Jaringan sibuk, silakan kirim ulang pesan Anda."
+            return@withContext "⚠️ Jaringan sedang sibuk, silakan kirim ulang pesan Anda."
         }
     }
 }
