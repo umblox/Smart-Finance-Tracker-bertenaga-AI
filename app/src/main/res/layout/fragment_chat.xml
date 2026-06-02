@@ -3,46 +3,59 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#EDF2F7">
+    android:background="#F7FAFC"
+    android:padding="16dp">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvChatMessages"
+    <ScrollView
+        android:id="@+id/scrollChat"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/layoutInputArea"
-        android:padding="8dp"
-        android:clipToPadding="false"/>
+        android:layout_above="@id/layoutInput"
+        android:layout_marginBottom="12dp">
+        
+        <TextView
+            android:id="@+id/tvChatHistory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Halo! Saya asisten keuangan AI kamu. Silakan ketik transaksi seperti 'beli rokok 10.500' atau 'gaji masuk 5.000.000'.\n\n"
+            android:textSize="15sp"
+            android:textColor="#2D3748" />
+    </ScrollView>
 
     <LinearLayout
-        android:id="@+id/layoutInputArea"
+        android:id="@+id/layoutInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
         android:orientation="horizontal"
-        android:padding="8dp"
-        android:background="#FFFFFF">
+        android:layout_alignParentBottom="true"
+        android:gravity="center_vertical">
 
-        <EditText
-            android:id="@+id/etUserMessage"
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Ketik: Beli bakso 15000..."
-            android:background="@android:color/transparent"
-            android:padding="12dp"
-            android:maxLines="3"
-            android:inputType="textShortMessage"/>
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:hintEnabled="false">
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btnSendMessage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            app:fabSize="mini"
-            android:src="@android:drawable/ic_menu_send"
-            app:backgroundTint="#008080"
-            app:tint="#FFFFFF"
-            android:contentDescription="Kirim pesan"/>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Ketik pesan finansial..."
+                android:inputType="textLongMessage"
+                android:maxLines="3"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSend"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:layout_marginStart="8dp"
+            android:backgroundTint="#008080"
+            app:icon="?attr/actionModeShareDrawable"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            style="@style/Widget.MaterialComponents.Button.Icon"/>
     </LinearLayout>
-</RelativeLayout>
 
+</RelativeLayout>
