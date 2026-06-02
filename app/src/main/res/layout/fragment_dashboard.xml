@@ -18,20 +18,17 @@
             app:cardElevation="4dp"
             android:backgroundTint="#008080"
             android:layout_marginBottom="16dp">
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="20dp">
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Total Saldo Anda"
                     android:textColor="#E2E8F0"
                     android:textSize="14sp" />
-
                 <TextView
                     android:id="@+id/tvTotalBalance"
                     android:layout_width="wrap_content"
@@ -50,7 +47,6 @@
             android:orientation="horizontal"
             android:weightSum="2"
             android:layout_marginBottom="20dp">
-
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -104,6 +100,48 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Rp 0"
+                        android:textColor="#C53030"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Grafik Laporan Keuangan"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="#2D3748"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="16dp"
+            android:backgroundTint="#FFFFFF">
+            <com.github.mikephil.charting.charts.BarChart
+                android:id="@+id/reportBarChart"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="8dp"/>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- TEMPAT TEXTVIEW HISTORY TRANSAKSI KONSOLIDASI -->
+        <TextView
+            android:id="@+id/tvDashboardReport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Memuat riwayat transaksi..."
+            android:textSize="14sp"
+            android:textColor="#2D3748"
+            android:padding="8dp"/>
+
+    </LinearLayout>
+</ScrollView>
                         android:textColor="#C53030"
                         android:textStyle="bold"
                         android:textSize="16sp"
