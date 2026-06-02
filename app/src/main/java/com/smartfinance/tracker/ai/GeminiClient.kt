@@ -2,7 +2,7 @@ package com.smartfinance.tracker.ai
 
 import android.content.Context
 import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
+import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -10,7 +10,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
 
     private val sharedPreferences = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
     
-    // API Key Default dari Anda jika di pengaturan masih kosong
+    // API Key Default dari Anda
     private val defaultApiKey = "AIzaSyBVOhVsXnPHX7O2U6hIXH0BaUuEeIbfGNg"
 
     private fun getApiKey(): String {
@@ -21,11 +21,19 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         try {
             val currentApiKey = getApiKey()
             
-            // Inisialisasi Model Gemini 2.5 Flash (Cocok untuk kecepatan tinggi & hemat kuota di Mobile)
+            // Konfigurasi instruksi sistem dan parameter model yang disesuaikan
+            val config = generationConfig {
+                // Konfigurasi tambahan jika diperlukan bisa ditaruh di sini
+            }
+
+            // Inisialisasi Model Gemini 2.5 Flash dengan instruksi sistem terpisah
             val model = GenerativeModel(
                 modelName = "gemini-2.5-flash",
                 apiKey = currentApiKey,
-                systemInstruction = content { text(assistant.systemInstruction) }
+                generationConfig = config,
+                systemInstruction = com.google.ai.client.generativeai.type.content { 
+                    text(assistant.systemInstruction) 
+                }
             )
 
             // Jalankan validasi skop asisten keuangan secara lokal & AI hybrid
@@ -36,7 +44,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 return@withContext localResponse
             }
 
-            // Kirim ke Gemini untuk pemrosesan konteks bahasa natural yang lebih luas (jika lolos pengaman lokal)
+            // Kirim ke Gemini untuk pemrosesan konteks bahasa natural yang lebih luas
             val response = model.generateContent(userMessage)
             response.text ?: "Maaf, saya tidak dapat memahami pesan tersebut."
             
@@ -54,4 +62,3 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         return sharedPreferences.getString("gemini_api_key", "") ?: ""
     }
 }
-
