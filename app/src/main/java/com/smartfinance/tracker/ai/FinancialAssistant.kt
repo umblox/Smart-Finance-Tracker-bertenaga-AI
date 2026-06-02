@@ -1,29 +1,34 @@
 package com.smartfinance.tracker.ai
 
-import com.smartfinance.tracker.data.repository.FinanceRepository
+import android.content.Context
+import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.first
 import java.util.regex.Pattern
 
-class FinancialAssistant(private val repository: FinanceRepository) {
+class FinancialAssistant(private val context: Context) {
 
     val systemInstruction = "Anda adalah Asisten Keuangan Pribadi di aplikasi Smart Finance Tracker."
 
     suspend fun processNaturalLanguage(input: String): String {
         val lowerInput = input.lowercase()
 
-        // 1. Filter Proteksi
+        // 1. Filter Proteksi Topik luar keuangan
         if (lowerInput.contains("presiden") || lowerInput.contains("cuaca")) {
             return "Maaf, saya hanya bisa membantu mencatat transaksi dan keuangan Anda."
         }
 
-        // 2. Cek Saldo
+        // Ambil database secara langsung untuk menjamin fungsi baca-tulis valid
+        val db = AppDatabase.getDatabase(context)
+        val transactionDao = db.transactionDao()
+
+        // 2. Fitur Cek Saldo Otomatis
         if (lowerInput.contains("saldo") || lowerInput.contains("total uang")) {
-            val transactions = repository.getAllTransactions().first()
+            val transactions = transactionDao.getAllTransactions().first()
             var income = 0.0
             var expense = 0.0
-            transactions.forEach { 
-                if (it.type == "INCOME") income += it.amount else expense += it.amount 
+            for (tx in transactions) {
+                if (tx.type == "INCOME") income += tx.amount else expense += tx.amount
             }
             return "Saldo Anda saat ini: Rp ${String.format("%,.0f", income - expense)}"
         }
@@ -50,7 +55,7 @@ class FinancialAssistant(private val repository: FinanceRepository) {
                     note = nama,
                     timestamp = System.currentTimeMillis()
                 )
-                repository.insertTransaction(tx)
+                transactionDao.insertTransaction(tx)
                 return "Berhasil mencatat ${if (isIncome) "Pemasukan" else "Pengeluaran"} '$nama' sebesar Rp ${String.format("%,.0f", nominal)}."
             }
         }
