@@ -10,7 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // ALAMAT BARU: Menyuruh server mencari pustaka grafik MPAndroidChart di sini
+        maven { url = java.net.URI("https://jitpack.io") }
     }
 }
+
 rootProject.name = "SmartFinanceTracker"
 include(":app")
