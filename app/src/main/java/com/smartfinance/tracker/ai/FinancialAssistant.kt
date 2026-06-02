@@ -18,8 +18,7 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun executeSmartJsonCommand(jsonStr: String): String {
         try {
-            val cleanJsonStr = jsonStr.replace("```json", "").replace("
-```", "").trim()
+            val cleanJsonStr = jsonStr.replace("```json", "").replace("```", "").trim()
             val json = JSONObject(cleanJsonStr)
             val actionType = json.optString("action_type", "CHAT_ONLY")
 
@@ -142,5 +141,4 @@ class FinancialAssistant(private val context: Context) {
 
         return "📝 **BERHASIL DICATAT ENGINE CADANGAN LOKAL!**\n\n▪️ **Nominal**: ${formatRupiah.format(amount)}"
     }
-                                                                      }
-                                                                      
+}
