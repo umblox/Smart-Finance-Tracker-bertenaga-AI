@@ -29,28 +29,28 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         val debts = db.debtDao().getAllDebts().first()
         val debtContext = StringBuilder()
         debts.filter { !it.isPaid }.forEach { 
-            debtContext.append("- ID Pinjaman: ${it.id}, Nama Kontak: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
+            debtContext.append("- ID Pinjaman: ${it.id}, Nama Orang: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
         }
 
         val systemPrompt = """
-            Anda adalah Otak AI Finansial paling cerdas. Tugas Anda menganalisis kalimat percakapan bahasa alami pengguna dan merespons dengan narasi penjelasan santun, diikuti instruksi data JSON terstruktur di baris paling bawah.
+            Anda adalah Otak AI Finansial paling cerdas. Tugas Anda menganalisis kalimat bahasa alami pengguna secara nalar luas, lalu menghasilkan kesimpulan data terstruktur.
 
-            KATEGORI SISTEM SAAT INI:
+            DAFTAR KATEGORI NYATA DI HP USER SAAT INI:
             $catContext
 
-            DAFTAR TRANSAKSI PINJAMAN YANG BELUM LUNAS:
+            DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
             $debtContext
 
-            TENTUKAN STRUKTUR DENGAN ATURAN TEGAS INI:
-            1. PENCATATAN UTANG PIUTANG BARU: Jika user berhutang atau memberi pinjaman (Contoh: "hutang ke samsul 50000" atau "samsul pinjam uang saya 100000"), gunakan action_type "DEBT_RECORD", isi "amount", "contact_name", dan "debt_type" ("DEBT" jika user berhutang, "RECEIVABLE" jika user memberi pinjaman).
-            2. PELUNASAN / CICILAN PINJAMAN: Jika user/orang lain melunasi atau menyicil hutang (Contoh: "arianto melunasi semua hutangnya"), cari Nama Kontak yang cocok di daftar pinjaman belum lunas. Gunakan action_type "DEBT_PAYMENT", isi "debt_id" dengan ID pinjamannya, dan isi "pay_amount" dengan nominal pelunasan penuh/sebagian.
-            3. TAMBAH KATEGORI BARU: Jika user ingin membuat kategori baru (Contoh: "buat kategori tips kurir"), gunakan action_type "CREATE_CATEGORY", tentukan "target_name", dan "category_type" ("INCOME" atau "EXPENSE") berdasarkan analisis logika bahasa. Kata "tips", "gaji", "bonus" MUTLAK adalah INCOME.
-            4. TRANSAKSI BIASA: Jika pengeluaran/pemasukan biasa (Contoh: "gaji 770000"), gunakan action_type "TRANSACTION". Pilih "category_id" yang paling mendekati dari daftar di atas. Perbaiki typo jika ada.
+            ATURAN STRUKTUR:
+            1. PENCATATAN PINJAMAN: Jika bertema hutang/piutang baru, gunakan action_type "DEBT_RECORD", isi "amount", "contact_name", dan "debt_type" ("DEBT" atau "RECEIVABLE").
+            2. PELUNASAN: Jika bertema pembayaran hutang, cari nama di daftar di atas, gunakan action_type "DEBT_PAYMENT", isi "debt_id" dan "pay_amount".
+            3. KATEGORI BARU: Jika ingin membuat kategori baru, gunakan action_type "CREATE_CATEGORY", tentukan "target_name" dan "category_type" ("INCOME" atau "EXPENSE"). Kata "tips", "gaji", "bonus" adalah INCOME.
+            4. TRANSAKSI BIASA: Jika pengeluaran/pemasukan biasa, gunakan action_type "TRANSACTION". Pilih "category_id" dan "category_name" paling cocok dari daftar di atas secara fleksibel (pahami konteks barang belanjaan bebas dari user).
 
-            Di baris paling akhir dari jawaban Anda, Anda WAJIB menyertakan baris string bertanda token khusus [JSON_CMD] diikuti objek data JSON murni satu baris tanpa markdown.
-            Contoh balasan Anda:
-            Kategori baru berhasil dianalisis dan ditambahkan ke dalam memori aplikasi Anda.
-            [JSON_CMD]{"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME"}
+            Format respons Anda wajib disisipkan token pembatas rahasia [JSON_CMD] di baris paling akhir diikuti objek data JSON murni satu baris tanpa markdown.
+            Format:
+            Jawaban penjelasan santun Anda di sini mengenai pengelompokan transaksi.
+            [JSON_CMD]{"action_type":"TRANSACTION", "amount":50000, "type":"EXPENSE", "category_id":2, "category_name":"Makanan & Minuman", "clean_note":"BELANJA"}
         """.trimIndent()
 
         try {
@@ -85,16 +85,16 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     val aiNarration = textParts[0].trim()
                     val jsonCommand = textParts[1].trim()
                     
-                    // Jalankan perintah biner ke SQLite
+                    // Jalankan biner SQLite, lalu gabungkan dengan token penanda internal baru [EXEC_RESULT]
                     val executionResult = assistant.executeSmartJsonCommand(jsonCommand)
-                    return@withContext "$aiNarration\n\n$executionResult"
+                    return@withContext "[EXEC_RESULT]$aiNarration\n\n$executionResult"
                 }
                 return@withContext rawResponse
             } else {
                 return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Server Groq sedang sibuk. Silakan gunakan input manual dashboard."
+            return@withContext "⚠️ Sistem Cloud Groq penuh."
         }
     }
 }
