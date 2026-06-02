@@ -35,7 +35,7 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Pasang form input manual & riwayat transaksi secara dinamis ke layout
+        // Inisialisasi form manual dan muat data real database
         setupManualInputForm()
         loadRealDashboardData()
     }
@@ -44,10 +44,13 @@ class DashboardFragment : Fragment() {
         val context = requireContext()
         val db = AppDatabase.getDatabase(context)
         
-        val container = binding.root.findViewById<LinearLayout>(android.R.id.id) ?: (binding.root as? ViewGroup)?.getChildAt(0) as? LinearLayout
+        // PERBAIKAN MUTLAK: Gunakan linearLayout induk langsung dari binding root tanpa memanggil android.R.id
+        val layout = binding.root as? ViewGroup
         
-        container?.let { layout ->
-            if (layout.findViewWithTag<View>("manual_tx_form") == null) {
+        layout?.let { viewGroup ->
+            // Pastikan form hanya dibuat satu kali agar tidak duplikat saat fragment dibuat ulang
+            if (viewGroup.findViewWithTag<View>("manual_tx_form") == null) {
+                
                 val formContainer = LinearLayout(context).apply {
                     tag = "manual_tx_form"
                     orientation = LinearLayout.VERTICAL
@@ -58,16 +61,19 @@ class DashboardFragment : Fragment() {
                     text = "➕ INPUT TRANSAKSI MANUAL"
                     textSize = 15f
                     setTypeface(null, android.graphics.Typeface.BOLD)
+                    setTextColor(Color.parseColor("#2D3748"))
                 }
                 formContainer.addView(tvTitle)
 
-                val etAmount = EditText(context).apply { hint = "Nominal Uang (Rp)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+                val etAmount = EditText(context).apply { 
+                    hint = "Nominal Uang (Rp)"
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER 
+                }
                 formContainer.addView(etAmount)
 
                 val etNote = EditText(context).apply { hint = "Keterangan (ex: Beli Bakso)" }
                 formContainer.addView(etNote)
 
-                // Spinner Pilihan Kategori Statis & Dinamis dari Database
                 val spinnerCategory = Spinner(context)
                 formContainer.addView(spinnerCategory)
 
@@ -89,10 +95,10 @@ class DashboardFragment : Fragment() {
 
                         if (amount > 0.0 && selectedCat.isNotEmpty() && !selectedCat.contains("Belum ada")) {
                             lifecycleScope.launch {
-                                // Ekstrak ID dan tipe kategori dari string spinner
-                                val catId = selectedCat.split("-")[0].trim().toLongOrNull() ?: 1L
+                                val parts = selectedCat.split("-")
+                                val catId = parts[0].trim().toLongOrNull() ?: 1L
                                 val isIncome = selectedCat.contains("INCOME")
-                                val catName = selectedCat.split("-")[1].split("(")[0].trim()
+                                val catName = parts[1].split("(")[0].trim()
 
                                 val newTx = TransactionEntity(
                                     amount = amount,
@@ -107,7 +113,7 @@ class DashboardFragment : Fragment() {
                                 
                                 etAmount.setText("")
                                 etNote.setText("")
-                                loadRealDashboardData() // Refresh angka dashboard
+                                loadRealDashboardData()
                             }
                         } else {
                             Toast.makeText(context, "Lengkapi nominal dan kategori!", Toast.LENGTH_SHORT).show()
@@ -115,7 +121,10 @@ class DashboardFragment : Fragment() {
                     }
                 }
                 formContainer.addView(btnSave)
-                layout.addView(formContainer, 2) // Sisipkan form di bawah rangkuman saldo
+                
+                // Sisipkan form secara aman ke dalam susunan vertikal utama halaman dashboard
+                val targetLinearLayout = viewGroup.getChildAt(0) as? LinearLayout
+                targetLinearLayout?.addView(formContainer, 2)
             }
         }
     }
@@ -154,7 +163,7 @@ class DashboardFragment : Fragment() {
             binding.tvIncomeSummary.text = formatRupiah.format(totalIncome)
             binding.tvExpenseSummary.text = formatRupiah.format(totalExpense)
 
-            // FITUR KLIK UNTUK RINCIAN PENH TRANSAKSI
+            // Pasang interaksi klik rincian penuh pada total angka ringkasan
             val clickListener = View.OnClickListener {
                 showFullDetailsDialog(allTransactions, formatRupiah)
             }
@@ -186,7 +195,7 @@ class DashboardFragment : Fragment() {
 
     private fun showFullDetailsDialog(list: List<TransactionEntity>, format: NumberFormat) {
         val builder = AlertDialog.Builder(requireContext())
-        builder.setTitle("📜 RINCIAN PENH HISTORY TRANSAKSI")
+        builder.setTitle("📜 RINCIAN PENUH HISTORY TRANSAKSI")
         
         val details = StringBuilder()
         list.forEachIndexed { index, tx ->
