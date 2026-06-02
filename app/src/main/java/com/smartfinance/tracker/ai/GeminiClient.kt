@@ -22,13 +22,10 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         }
 
         val db = AppDatabase.getDatabase(context)
-        
-        // 1. Ambil Kategori Aktif
         val categories = db.categoryDao().getAllCategories().first()
         val catContext = StringBuilder()
         categories.forEach { catContext.append("- ID: ${it.id}, Nama: ${it.name}, Tipe: ${it.type}\n") }
 
-        // 2. Ambil Riwayat Hutang Piutang Aktif agar Groq bisa menghitung pelunasan otomatis
         val debts = db.debtDao().getAllDebts().first()
         val debtContext = StringBuilder()
         debts.filter { !it.isPaid }.forEach { 
@@ -36,35 +33,25 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         }
 
         val systemPrompt = """
-            Anda adalah Otak AI Finansial super cerdas untuk aplikasi Smart Finance Tracker.
-            Tugas Anda adalah mengekstrak kalimat user menjadi instruksi JSON murni yang sangat akurat.
-
+            Anda adalah Otak Kecerdasan buatan pelacak keuangan. Tugas Anda mengekstrak kalimat menjadi objek JSON perintah.
+            
             KATEGORI DATABASE:
             $catContext
 
-            DAFTAR PINJAMAN BELUM LUNAS DI HP USER:
+            DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
             $debtContext
 
-            ATURAN ANALISIS JALUR PERINTAH:
-            1. PENTING (Logika Pendapatan): Kata seperti "gaji", "gajian", "tips", "bonus", "upah", "cuan" SECARA MUTLAK adalah INCOME (Pemasukan). Jangan pernah mengategorikannya sebagai EXPENSE.
-            2. Jika user membuat kategori baru (Contoh: "buat kategori tips kurir"):
-               Analisis kata subjeknya. "Tips" adalah uang masuk, maka set "category_type" menjadi "INCOME".
-            3. Jika user melakukan PELUNASAN / CICILAN HUTANG PIUTANG (Contoh: "arianto melunasi semua hutangnya" atau "arianto bayar cicilan 20000"):
-               Cari nama orang yang cocok dari DAFTAR PINJAMAN BELUM LUNAS di atas. 
-               Set "action_type" menjadi "DEBT_PAYMENT".
-               Isi "debt_id" dengan ID Pinjaman yang cocok.
-               Isi "pay_amount" dengan sisa hutang orang tersebut jika dia "melunasi semua", atau isi sesuai nominal yang disebutkan jika dia menyicil sebagian.
-            4. Jika transaksi biasa (Contoh: "beli rokok 20000"):
-               Set "action_type" menjadi "TRANSACTION". Tentukan "type" ("INCOME" atau "EXPENSE") sesuai logika kategori target.
+            ATURAN MUTLAK JALUR PINJAMAN:
+            1. Jika kalimat user bertema HUTANG / PIUTANG BARU (Contoh: "hutang ke samsul 50000" atau "saya pinjamkan budi uang 10000"):
+               Anda WAJIB memakai action_type "DEBT_RECORD".
+               - "amount": nominal angka.
+               - "contact_name": nama subjek orang (Contoh: "SAMSUL", "BUDI").
+               - "debt_type": Isi "DEBT" jika user yang meminjam/berhutang (ID Kategori 12). Isi "RECEIVABLE" jika user yang meminjamkan uang ke orang lain (ID Kategori 13).
+            2. Jika transaksi biasa (Contoh: "gaji 770000" atau "beli seblak 15000"):
+               Set action_type menjadi "TRANSACTION". Ingat kata "gaji", "tips", "bonus" tipe harganya adalah "INCOME".
                
-            Format Output WAJIB JSON murni tanpa markdown:
-            {"action_type":"TRANSACTION", "amount":77000, "type":"INCOME", "category_id":1, "category_name":"Gaji & Pendapatan", "clean_note":"GAJI", "feedback":"Sukses"}
-            
-            Format Output jika Pelunasan/Cicilan Pinjaman:
-            {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":40000, "feedback":"Pelunasan terdeteksi"}
-            
-            Format Output jika Tambah Kategori Baru:
-            {"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME", "feedback":"Membuat kategori"}
+            Respons HANYA berupa JSON mentah satu baris tanpa tambahan kata lain:
+            {"action_type":"DEBT_RECORD", "amount":50000, "contact_name":"SAMSUL", "debt_type":"DEBT"}
         """.trimIndent()
 
         try {
@@ -96,10 +83,10 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 
                 return@withContext assistant.executeSmartJsonCommand(rawJsonResult)
             } else {
-                return@withContext "⚠️ Hubungan ke server Groq terputus (Code ${conn.responseCode}). Menggunakan mesin lokal..."
+                return@withContext "⚠️ Gangguan jaringan Groq Server (${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Batasan limit tercapai. Menggunakan pemroses lokal darurat."
+            return@withContext "⚠️ Koneksi lambat, coba ulangi beberapa saat lagi."
         }
     }
 }
