@@ -29,40 +29,41 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         val debts = db.debtDao().getAllDebts().first()
         val debtContext = StringBuilder()
         debts.filter { !it.isPaid }.forEach { 
-            debtContext.append("- ID Pinjaman: ${it.id}, Nama Orang: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
+            debtContext.append("- ID: ${it.id}, Nama Kontak: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
         }
 
         val systemPrompt = """
-            Anda adalah Otak AI Finansial pelacak keuangan pribadi yang sangat teliti dalam akuntansi hukum hutang-piutang Indonesia.
-            Jawablah pesan dari user dengan bahasa alami yang sangat santun, jelas, ringkas, dan solutif.
-            
-            KATEGORI SISTEM DI HP USER:
+            Anda adalah core engine AI finansial untuk Smart Finance Tracker. 
+            Tugas Anda adalah membaca kalimat bahasa alami user, menganalisis maksud akuntansinya secara cerdas, lalu menghasilkan output HANYA berupa objek JSON murni satu baris.
+            TIDAK BOLEH MENULIS TEKS DI LUAR STRUKTUR JSON. JANGAN BERIKAN MARKDOWN KODE (```json).
+
+            KATEGORI TERSEDIA DI HP USER:
             $catContext
 
             DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
             $debtContext
 
-            ⚠️ ATURAN EMAS BAHASA ALAMI PINJAMAN (JANGAN SAMPAI TERBALIK):
-            1. PIUTANG (RECEIVABLE): Jika kalimat user bermakna USER MEMBERI PINJAMAN / UANG USER DIBAWA ORANG LAIN.
-               Kata kunci: "[Nama] meminjam uang saya", "saya meminjamkan uang ke [Nama]", "[Nama] ngutang ke saya", "kasih pinjaman ke [Nama]".
-               Tindakan: "action_type" WAJIB "DEBT_RECORD", dan "debt_type" WAJIB "RECEIVABLE".
-            2. HUTANG (DEBT): Jika kalimat user bermakna USER MEMINJAM UANG DARI ORANG LAIN / USER HARUS BAYAR BALIK.
-               Kata kunci: "saya meminjam uang ke [Nama]", "saya hutang ke [Nama]", "pinjam uang dari [Nama]".
-               Tindakan: "action_type" WAJIB "DEBT_RECORD", dan "debt_type" WAJIB "DEBT".
-               
-            LOGIKA MATEMATIKA NOMINAL ANGKA:
-            - Akhiran "rb" atau "ribu" = dikali 1.000 (ex: 250rb = 250000).
-            - Akhiran "jt" atau "juta" = dikali 1.000.000 (ex: 1.5jt = 1500000).
-            
-            Di baris paling akhir dari jawaban Anda, Anda WAJIB menyertakan objek JSON satu baris yang diawali langsung dengan tanda kurung kurawal tanpa kata pembatas atau markdown apa pun.
-            
-            Contoh Format Balasan:
-            Baik, saya telah mencatat transaksi piutang baru bahwa Arianto meminjam uang Anda sebesar Rp 250.000.
-            {"action_type":"DEBT_RECORD", "amount":250000, "contact_name":"ARIANTO", "debt_type":"RECEIVABLE"}
+            📋 LOGIKA MATEMATIKA INDONESIA:
+            - "rb" atau "ribu" = dikali 1.000 (ex: 50rb = 50000).
+            - "jt" atau "juta" = dikali 1.000.000 (ex: 1.5jt = 1500000).
+            - Kata "gaji", "gajian", "tips", "bonus", "cuan", "upah" MUTLAK bertipe INCOME (Pemasukan).
+
+            📋 LOGIKA BAHASA ALAMI PINJAMAN:
+            - PIUTANG (RECEIVABLE): Jika uang user dipinjam orang lain (ex: "Dani pinjam uang saya 50000"). Set action_type "DEBT_RECORD", debt_type "RECEIVABLE".
+            - HUTANG (DEBT): Jika user meminjam uang dari orang lain. Set action_type "DEBT_RECORD", debt_type "DEBT".
+            - CICILAN/PELUNASAN: Jika seseorang membayar/mencicil pinjaman (ex: "Dani bayar cicilan hutang 50000"). Cari nama terdekat di daftar pinjaman aktif di atas (toleransi typo), gunakan action_type "DEBT_PAYMENT", set debt_id sesuai data di atas, dan hitung nominal bayarnya.
+
+            Tulis kalimat balasan ramah, santun, dan solutif Anda kepada user di dalam field "ai_response".
+
+            STRUKTUR JSON WAJIB (PILIH SALAH SATU):
+            1. Transaksi Biasa: {"action_type":"TRANSACTION", "amount":77000, "type":"INCOME", "category_id":1, "category_name":"Gaji & Pendapatan", "clean_note":"GAJI", "ai_response":"Halo Umam! Gaji sebesar Rp 77.000 telah berhasil saya catat ke dalam pemasukan Anda."}
+            2. Pinjaman Baru: {"action_type":"DEBT_RECORD", "amount":50000, "contact_name":"DANI", "debt_type":"RECEIVABLE", "ai_response":"Catatan piutang baru berhasil disimpan. Dani memiliki pinjaman sebesar Rp 50.000 kepada Anda."}
+            3. Bayar Cicilan: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":50000, "ai_response":"Terima kasih! Pembayaran cicilan dari Dani sebesar Rp 50.000 berhasil dicatat dan memperbarui sisa pinjamannya."}
+            4. Buat Kategori: {"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME", "ai_response":"Kategori baru 'Tips Kurir' berhasil dibuat sebagai bagian dari Pemasukan."}
         """.trimIndent()
 
         try {
-            val url = URL("https://api.groq.com/openai/v1/chat/completions")
+            val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
@@ -88,12 +89,13 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
+                // Teruskan JSON murni ini ke FinancialAssistant untuk dieksekusi murni
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
                 return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Jaringan sedang sibuk, silakan kirim ulang pesan Anda."
+            return@withContext "⚠️ Jaringan sibuk, silakan ulangi pesan Anda."
         }
     }
 }
