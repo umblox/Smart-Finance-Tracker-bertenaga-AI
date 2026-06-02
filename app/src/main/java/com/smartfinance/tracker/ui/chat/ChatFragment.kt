@@ -9,7 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.ai.GeminiClient
 import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.repository.FinanceRepository // Import repositori milikmu
+import com.smartfinance.tracker.data.repository.FinanceRepository
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
 
@@ -30,13 +30,13 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 1. Inisialisasi sesuai dengan arsitektur FinanceRepository milikmu
         val db = AppDatabase.getDatabase(requireContext())
-        val repository = FinanceRepository(db.transactionDao(), db.categoryDao(), db.debtDao())
+        
+        // PERBAIKAN: Urutan Dao disesuaikan dengan kebutuhan konstruktor FinanceRepository milikmu
+        val repository = FinanceRepository(db.categoryDao(), db.transactionDao(), db.debtDao())
         val assistant = FinancialAssistant(repository)
         geminiClient = GeminiClient(requireContext(), assistant)
 
-        // 2. Menggunakan akses binding yang aman untuk layout chat kamu
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
@@ -48,8 +48,6 @@ class ChatFragment : Fragment() {
     private fun sendChatToAI(message: String) {
         binding.tvChatHistory.append("\nAnda: $message\n")
         binding.etMessage.setText("")
-        
-        // Mengamankan properti perubahan status view di Android
         binding.btnSend.isEnabled = false 
 
         lifecycleScope.launch {
