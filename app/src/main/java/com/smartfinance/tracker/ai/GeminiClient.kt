@@ -45,7 +45,8 @@ class GeminiClient(private val context: Context, private val assistant: Financia
 
         // 4. Koneksi HTTP API ke Endpoint Resmi Google Gemini
         try {
-            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$apiKey")
+            // PERBAIKAN: Mengubah model target dari 'gemini-pro' menjadi 'gemini-2.5-flash'
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
