@@ -8,6 +8,10 @@
         android:id="@+id/menu_chat"
         android:icon="@android:drawable/stat_notify_chat"
         android:title="AI Chat" />
+     <item
+        android:id="@+id/navigation_report"
+        android:icon="?attr/actionModeFindDrawable"
+        android:title="Laporan" />
     <item
         android:id="@+id/menu_debt"
         android:icon="@android:drawable/ic_menu_agenda"
