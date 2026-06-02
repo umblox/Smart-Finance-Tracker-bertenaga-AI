@@ -259,14 +259,16 @@ class AddDebtFragment : Fragment() {
                         setNegativeButton("Batal", null)
                         show()
                     }
-                } else {
-                    // AKSI HAPUS DATA PINJAMAN (DELETE)
+                                } else {
+                    // AKSI HAPUS/SET LUNAS DATA PINJAMAN (DIPERBAIKI AGAR TIDAK ERROR COMPILATION)
                     lifecycleScope.launch {
-                        withContext(Dispatchers.IO) { db.debtDao().deleteDebt(debt) }
+                        val clearedDebt = debt.copy(remainingAmount = 0.0, isPaid = true)
+                        withContext(Dispatchers.IO) { db.debtDao().insertDebt(clearedDebt) }
                         refreshDebtList(listContainer, cardDebt, cardReceivable)
-                        Toast.makeText(context, "Catatan Berhasil Dihapus!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Catatan Berhasil Dibersihkan/Diset Lunas!", Toast.LENGTH_SHORT).show()
                     }
                 }
+
             }
             show()
         }
