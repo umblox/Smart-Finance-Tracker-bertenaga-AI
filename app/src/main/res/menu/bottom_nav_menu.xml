@@ -8,9 +8,9 @@
         android:id="@+id/menu_chat"
         android:icon="@android:drawable/stat_notify_chat"
         android:title="AI Chat" />
-     <item
-        android:id="@+id/navigation_report"
-        android:icon="?attr/actionModeFindDrawable"
+    <item
+        android:id="@+id/menu_report"
+        android:icon="@android:drawable/ic_menu_sort_by_size"
         android:title="Laporan" />
     <item
         android:id="@+id/menu_debt"
@@ -21,4 +21,3 @@
         android:icon="@android:drawable/ic_menu_manage"
         android:title="Pengaturan" />
 </menu>
-
