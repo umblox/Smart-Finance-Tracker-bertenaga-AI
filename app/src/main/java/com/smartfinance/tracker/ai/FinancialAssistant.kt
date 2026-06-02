@@ -5,11 +5,8 @@ import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.first
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
+import java.text.NumberFormat
+import java.util.Calendar
 import java.util.Locale
 import java.util.regex.Pattern
 
@@ -17,157 +14,132 @@ class FinancialAssistant(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
 
-    val systemInstruction = "Anda adalah Asisten Keuangan Pribadi di aplikasi Smart Finance Tracker."
-
     suspend fun processNaturalLanguage(input: String): String {
         val text = input.lowercase(Locale.ROOT).trim()
+        val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
 
-        // 1. Interseptor Cek Saldo Cepat Lokal
-        if (text.contains("saldo") || text.contains("total uang")) {
+        // =========================================================================
+        // FITUR 1: MANAJEMEN LAPORAN KEUANGAN (BACA DATABASE) VIA CHAT LOCAL
+        // =========================================================================
+        if (text.contains("laporan") || text.contains("rekap") || text.contains("cek pengeluaran")) {
             val transactions = db.transactionDao().getAllTransactions().first()
-            var income = 0.0
-            var expense = 0.0
+            var harian = 0.0
+            var bulanan = 0.0
+            val now = System.currentTimeMillis()
+            val calTx = Calendar.getInstance()
+            val calNow = Calendar.getInstance().apply { timeInMillis = now }
+
             for (tx in transactions) {
-                if (tx.type == "INCOME") income += tx.amount else expense += tx.amount
-            }
-            return "Saldo Anda saat ini: Rp ${String.format("%,.0f", income - expense)}"
-        }
-
-        // 2. Ambil Master Kategori untuk Konteks Gemini
-        val categories = db.categoryDao().getAllCategories().first()
-        val categoryContext = StringBuilder()
-        categories.forEach { 
-            categoryContext.append("- ID: ${it.id}, Nama: ${it.name}, Tipe: ${it.type}\n")
-        }
-
-        val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val apiKey = prefs.getString("gemini_api_key", "") ?: ""
-
-        if (apiKey.isNotEmpty()) {
-            val systemPrompt = """
-                Anda adalah mesin pembaca teks transaksi keuangan. Tugas Anda adalah mengekstrak kalimat dari user menjadi data terstruktur, memperbaiki typo, dan mencocokkannya ke kategori terdekat dari daftar ini:
-                $categoryContext
+                calTx.timeInMillis = tx.timestamp
+                val diffDays = (now - tx.timestamp) / (1000 * 60 * 60 * 24)
                 
-                Aturan Pengisian:
-                1. Jika nominal angka TIDAK ADA atau LUPA disebutkan, set "status" menjadi "NEED_AMOUNT".
-                2. Di bidang "clean_note", isi HANYA dengan nama barang/jasa bersih dengan huruf kapital (Contoh: "PERTAMAX", "ROKOK SURYA", "NASI GORENG"). Jangan masukkan kalimat panjang dari user.
-                
-                Format Output WAJIB berupa JSON murni tanpa markdown, tanpa teks tambahan apa pun:
-                {"amount": 25000.0, "type": "EXPENSE", "category_id": 2, "category_name": "Makanan", "clean_note": "NASI GORENG", "status": "SUCCESS", "message": "Berhasil"}
-            """.trimIndent()
-
-            try {
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.connectTimeout = 6000
-                conn.doOutput = true
-
-                val jsonBody = JSONObject().apply {
-                    val contentsArray = org.json.JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("role", "user")
-                            put("parts", org.json.JSONArray().apply {
-                                put(JSONObject().put("text", "$systemPrompt\n\nKalimat User: $input"))
-                            })
-                        })
+                if (tx.type == "EXPENSE") {
+                    if (diffDays <= 0) harian += tx.amount
+                    if (calTx.get(Calendar.MONTH) == calNow.get(Calendar.MONTH) && calTx.get(Calendar.YEAR) == calNow.get(Calendar.YEAR)) {
+                        bulanan += tx.amount
                     }
-                    put("contents", contentsArray)
                 }
-
-                conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
-                if (conn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    val jsonResponse = JSONObject(reader.readText())
-                    val candidate = jsonResponse.getJSONArray("candidates").getJSONObject(0)
-                    var rawAiResponse = candidate.getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim()
-                    
-                    // =========================================================================
-                    // BLOK PENYEMBUH (ANTI-BOBOT): Bersihkan paksa tag markdown ```json jika Gemini bebal
-                    // =========================================================================
-                    if (rawAiResponse.contains("{")) {
-                        rawAiResponse = rawAiResponse.substring(rawAiResponse.indexOf("{"), rawAiResponse.lastIndexOf("}") + 1)
-                    }
-
-                    val resultObj = JSONObject(rawAiResponse)
-                    val status = resultObj.optString("status", "FAILED")
-                    val message = resultObj.optString("message", "")
-
-                    if (status == "SUCCESS") {
-                        val amount = resultObj.optDouble("amount", 0.0)
-                        val type = resultObj.optString("type", "EXPENSE")
-                        val catId = resultObj.optLong("category_id", 1L)
-                        val catName = resultObj.optString("category_name", "Umum")
-                        val cleanNote = resultObj.optString("clean_note", "Belanja AI")
-
-                        if (amount > 0.0) {
-                            db.transactionDao().insertTransaction(TransactionEntity(
-                                amount = amount, type = type, categoryId = catId, categoryName = catName,
-                                note = cleanNote.uppercase(Locale.ROOT), timestamp = System.currentTimeMillis()
-                            ))
-                            
-                            return "📝 **BERHASIL DICATAT OLEH AI!**\n\n" +
-                                   "▪️ **Keterangan**: $cleanNote\n" +
-                                   "▪️ **Kategori**: $catName\n" +
-                                   "▪️ **Nominal**: Rp ${String.format("%,.0f", amount)}"
-                        }
-                    } else if (status == "NEED_AMOUNT") {
-                        return "Saya mendeteksi Anda ingin mencatat transaksi, namun **nominal harganya belum disebutkan**. Silakan ketik kembali beserta nominal uangnya ya."
-                    }
-                    
-                    if (message.isNotEmpty()) return面 message
-                }
-            } catch (e: Exception) {
-                // Jika koneksi gagal atau parsing JSON crash, otomatis fallback ke engine lokal bawah
             }
+
+            return "📊 **LAPORAN OTOMATIS DATABASE HP**\n\n" +
+                   "▪️ Total Pengeluaran Hari Ini: **${formatRupiah.format(harian)}**\n" +
+                   "▪️ Total Pengeluaran Bulan Ini: **${formatRupiah.format(bulanan)}**\n\n" +
+                   "*(Data dibaca langsung secara riil dari penyimpanan SQLite lokal Anda)*"
         }
 
         // =========================================================================
-        // LOCAL BACKUP ENGINE (Berjalan otomatis jika internet/API bermasalah)
+        // FITUR 2: BUAT & HAPUS KATEGORI LANGSUNG KE SISTEM APLIKASI
+        // =========================================================================
+        if (text.contains("buat kategori") || text.contains("tambah kategori")) {
+            val rawName = input.replace("buat kategori", "", ignoreCase = true)
+                .replace("tambah kategori", "", ignoreCase = true).trim()
+            if (rawName.isNotEmpty()) {
+                val isIncomeType = text.contains("pemasukan")
+                val cleanName = rawName.replace("pemasukan", "", ignoreCase = true)
+                    .replace("pengeluaran", "", ignoreCase = true).trim()
+                
+                val newCat = CategoryEntity(
+                    name = cleanName,
+                    type = if (isIncomeType) "INCOME" else "EXPENSE",
+                    iconName = "ic_custom"
+                )
+                db.categoryDao().insertCategory(newCat)
+                return "🗂️ **Kategori Berhasil Dibuat!**\n\nNama: \"$cleanName\"\nTipe: ${if (isIncomeType) "🟢 PEMASUKAN" else "🔴 PENGELUARAN"}\n\n*Sekarang menu dropdown di dashboard sudah ter-update.*"
+            }
+        }
+
+        if (text.contains("hapus kategori")) {
+            val targetName = input.replace("hapus kategori", "", ignoreCase = true).trim()
+            val allCats = db.categoryDao().getAllCategories().first()
+            val match = allCats.find { it.name.equals(targetName, ignoreCase = true) }
+            
+            return if (match != null) {
+                db.categoryDao().deleteCategory(match)
+                "🗑️ Kategori **\"${match.name}\"** telah dihapus dari sistem aplikasi."
+            } else {
+                "❌ Kategori **\"$targetName\"** tidak ditemukan. Ketik 'daftar kategori' untuk mengecek."
+            }
+        }
+
+        if (text == "daftar kategori" || text == "lihat kategori") {
+            val allCats = db.categoryDao().getAllCategories().first()
+            val sb = StringBuilder("🗂️ **DAFTAR KATEGORI SISTEM APLIKASI:**\n\n")
+            if (allCats.isEmpty()) return "Belum ada kategori tersimpan."
+            allCats.forEach { sb.append("- [${it.type}] ${it.name}\n") }
+            return sb.toString()
+        }
+
+        // =========================================================================
+        // FITUR 3: PENCATATAN TRANSAKSI (FALLBACK LOCAL ENGINE)
         // =========================================================================
         val numberPattern = Pattern.compile("\\d+")
         val numberMatcher = numberPattern.matcher(text)
         
         if (!numberMatcher.find()) {
-            return "Saya mendeteksi transaksi Anda, namun **nominal uangnya tidak ditemukan**. Mohon ketik kembali beserta harganya (Contoh: 'jajan seblak 25000')."
+            return "Format tidak dikenali. Coba ketik perintah seperti:\n" +
+                   "• *'beli rokok 20000'*\n" +
+                   "• *'berikan laporan keuangan saya'*\n" +
+                   "• *'buat kategori Jajan pengeluaran'*"
         }
         
         val amount = numberMatcher.group().toDoubleOrNull() ?: 0.0
-        val isIncome = text.contains("gaji") || text.contains("terima") || text.contains("masuk")
+        val isIncome = text.contains("gaji") || text.contains("terima") || text.contains("masuk") || text.contains("gajian")
         val type = if (isIncome) "INCOME" else "EXPENSE"
         
         var cleanNote = input.replace(numberMatcher.group(), "", ignoreCase = true)
             .replace("rp", "", ignoreCase = true).replace("beli", "", ignoreCase = true)
             .replace("saya", "", ignoreCase = true).replace("tadi", "", ignoreCase = true)
-            .replace("habis", "", ignoreCase = true).replace("jajan", "", ignoreCase = true).trim()
+            .replace("habis", "", ignoreCase = true).replace("jajan", "", ignoreCase = true)
+            .replace("catat", "", ignoreCase = true).replace("ya", "", ignoreCase = true).trim()
             
-        if (cleanNote.isEmpty()) cleanNote = if (isIncome) "PEMASUKAN" else "PENGELUARAN"
+        if (cleanNote.isEmpty()) cleanNote = if (isIncome) "Pemasukan AI" else "Pengeluaran AI"
         
-        var catName = if (isIncome) "Gaji" else "Makanan/Umum"
-        var catId = if (isIncome) 1L else 2L
-
-        when {
-            text.contains("pertamax") || text.contains("bensin") || text.contains("pertalite") -> {
-                catName = "Transportasi"; catId = 4L; cleanNote = "BENSIN KENDARAAN"
-            }
-            text.contains("rokok") || text.contains("surya") || text.contains("udud") -> {
-                catName = "Rokok/Pribadi"; catId = 3L; cleanNote = "ROKOK"
-            }
-            text.contains("seblak") || text.contains("makan") || text.contains("bakso") -> {
-                catName = "Makanan"; catId = 2L; cleanNote = cleanNote.uppercase(Locale.ROOT)
-            }
+        // Ambil kategori dari database secara dinamis biar aman
+        val existingCats = db.categoryDao().getAllCategories().first()
+        var matchedCat = existingCats.find { 
+            cleanNote.contains(it.name, ignoreCase = true) || it.name.contains(cleanNote, ignoreCase = true) 
+        }
+        
+        // Jika tidak ada yang cocok di string ketikan, cari default berdasarkan tipe transaksi
+        if (matchedCat == null) {
+            matchedCat = existingCats.find { it.type == type }
         }
 
+        val finalCatId = matchedCat?.id ?: 1L
+        val finalCatName = matchedCat?.name ?: (if (isIncome) "Gaji" else "Makanan/Umum")
+
         db.transactionDao().insertTransaction(TransactionEntity(
-            amount = amount, type = type, categoryId = catId, categoryName = catName,
-            note = cleanNote.uppercase(Locale.ROOT), timestamp = System.currentTimeMillis()
+            amount = amount,
+            type = type,
+            categoryId = finalCatId,
+            categoryName = finalCatName,
+            note = cleanNote.uppercase(Locale.ROOT),
+            timestamp = System.currentTimeMillis()
         ))
 
-        return "📝 **BERHASIL DICATAT (LOCAL ENGINE)!**\n\n" +
+        return "📝 **BERHASIL DICATAT KE DATABASE LOCAL!**\n\n" +
                "▪️ **Keterangan**: ${cleanNote.uppercase(Locale.ROOT)}\n" +
-               "▪️ **Kategori**: $catName\n" +
-               "▪️ **Nominal**: Rp ${String.format("%,.0f", amount)}"
+               "▪️ **Kategori Masuk**: $finalCatName\n" +
+               "▪️ **Nominal**: ${formatRupiah.format(amount)}"
     }
 }
