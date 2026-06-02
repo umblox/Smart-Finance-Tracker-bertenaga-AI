@@ -113,7 +113,42 @@ class SettingsFragment : Fragment() {
         binding.btnSaveSettings.setOnClickListener {
             val inputKey = binding.etApiKey.text.toString().trim()
             sharedPreferences.edit().putString("gemini_api_key", inputKey).apply()
-            Toast.makeText(context, "API Key Gemini Tersimpan!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "API Key Konfigurasi Tersimpan!", Toast.LENGTH_SHORT).show()
+            
+            // Pemicu otomatis penyuntikan 15 kategori default
+            injectDefaultCategories(tvCatListContainer = containerLayout?.findViewWithTag<LinearLayout>("manual_category_section")?.getChildAt(7) as? TextView ?: binding.root.findViewById(android.R.id.text1))
+        }
+    }
+
+    private fun injectDefaultCategories(tvCatListContainer: TextView?) {
+        lifecycleScope.launch {
+            val db = AppDatabase.getDatabase(requireContext())
+            val dao = db.categoryDao()
+            
+            val defaultCats = listOf(
+                CategoryEntity(1, "Gaji & Pendapatan", "INCOME", "ic_income"),
+                CategoryEntity(2, "Makanan & Minuman", "EXPENSE", "ic_food"),
+                CategoryEntity(3, "Bahan Bakar & Transportasi", "EXPENSE", "ic_fuel"),
+                CategoryEntity(4, "Tagihan & Utilitas", "EXPENSE", "ic_bill"),
+                CategoryEntity(5, "Rokok & Hiburan Pribadi", "EXPENSE", "ic_smoke"),
+                CategoryEntity(6, "Belanja Kebutuhan Rumah", "EXPENSE", "ic_home"),
+                CategoryEntity(7, "Kesehatan & Medis", "EXPENSE", "ic_medical"),
+                CategoryEntity(8, "Pendidikan & Buku", "EXPENSE", "ic_education"),
+                CategoryEntity(9, "Pakaian & Gaya Hidup", "EXPENSE", "ic_fashion"),
+                CategoryEntity(10, "Investasi & Tabungan", "EXPENSE", "ic_invest"),
+                CategoryEntity(11, "Cicilan & Pinjaman", "EXPENSE", "ic_debt_pay"),
+                CategoryEntity(12, "Hutang (Saya Meminjam)", "INCOME", "ic_debt_get"),
+                CategoryEntity(13, "Piutang (Memberi Pinjaman)", "EXPENSE", "ic_receivable"),
+                CategoryEntity(14, "Bonus & Hadiah", "INCOME", "ic_gift"),
+                CategoryEntity(15, "Lain-lain / Umum", "EXPENSE", "ic_generic")
+            )
+            
+            defaultCats.forEach { dao.insertCategory(it) }
+            Toast.makeText(requireContext(), "15 Kategori Master Berhasil Disinkronkan!", Toast.LENGTH_SHORT).show()
+            
+            if (tvCatListContainer != null) {
+                refreshCategoryList(db, tvCatListContainer)
+            }
         }
     }
 
