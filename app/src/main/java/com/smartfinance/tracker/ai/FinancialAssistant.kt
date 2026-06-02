@@ -15,14 +15,29 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         try {
-            // Bersihkan sisa karakter pembungkus markdown JSON jika model LLM nakal menyertakannya
-            val cleanJson = rawText.replace("```json", "").replace("```", "").trim()
-            val json = JSONObject(cleanJson)
-            
-            val actionType = json.optString("action_type", "CHAT_ONLY")
-            val aiResponse = json.optString("ai_response", "Perintah berhasil diproses.")
+            // Pemotong string berbasis Tag Delimiter <EXEC> dan </EXEC>
+            if (rawText.contains("<EXEC>") && rawText.contains("</EXEC>")) {
+                val parts = rawText.split("<EXEC>")
+                val cleanNarration = parts[0].trim() // Ini teks ramah manusia untuk chat
+                
+                val codePart = parts[1].split("</EXEC>")[0].trim() // Ini isi JSON rahasia
+                
+                // Eksekusi ke SQLite Room
+                executeSilentJsonCommand(codePart)
+                
+                return cleanNarration
+            }
+        } catch (e: Exception) {
+            return rawText
+        }
+        return rawText
+    }
 
-            // EKSEKUSI OPERASI DATABASE NYATA DI BACKGROUND SQLITE ROOM
+    private suspend fun executeSilentJsonCommand(jsonStr: String) {
+        try {
+            val json = JSONObject(jsonStr)
+            val actionType = json.optString("action_type", "CHAT_ONLY")
+
             when (actionType) {
                 "TRANSACTION" -> {
                     val amount = json.optDouble("amount", 0.0)
@@ -47,7 +62,7 @@ class FinancialAssistant(private val context: Context) {
                 "DEBT_RECORD" -> {
                     val amount = json.optDouble("amount", 0.0)
                     val name = json.optString("contact_name", "Teman").uppercase(Locale.ROOT)
-                    var debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
+                    val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
 
                     if (amount > 0.0) {
                         db.debtDao().insertDebt(DebtEntity(
@@ -62,7 +77,7 @@ class FinancialAssistant(private val context: Context) {
                             type = if (isReceivable) "EXPENSE" else "INCOME",
                             categoryId = if (isReceivable) 13L else 12L,
                             categoryName = if (isReceivable) "Piutang (Memberi Pinjaman)" else "Hutang (Saya Meminjam)",
-                            note = if (isReceivable) "PINJAMAN KELUAR KE $name" else "PINJAMAN MASUK DARI $name",
+                            note = "PINJAMAN: $name",
                             timestamp = System.currentTimeMillis()
                         ))
                     }
@@ -86,7 +101,7 @@ class FinancialAssistant(private val context: Context) {
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                             db.transactionDao().insertTransaction(TransactionEntity(
                                 amount = payAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
-                                note = "CICILAN PINJAMAN OLEH ${matchDebt.contactName}", timestamp = System.currentTimeMillis()
+                                note = "CICILAN OLEH ${matchDebt.contactName}", timestamp = System.currentTimeMillis()
                             ))
                         }
                     }
@@ -105,17 +120,12 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
             }
-            
-            // Kembalikan teks narasi manusia yang dikirim Groq di dalam JSON untuk dicetak ke gelembung chat
-            return aiResponse
-            
         } catch (e: Exception) {
-            // Jika Groq melanggar format JSON, tampilkan teks aslinya agar user tahu isi erornya
-            return rawText
+            // Gagal parsing senyap
         }
     }
 
     suspend fun processLocalFallback(input: String, debugError: String): String {
-        return "🤖 Sistem Jaringan Sedang Lambat."
+        return "🤖 Sistem Jaringan Lambat."
     }
 }
