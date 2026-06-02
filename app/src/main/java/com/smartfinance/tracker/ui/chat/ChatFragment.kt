@@ -4,12 +4,12 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.ai.GeminiClient
 import com.smartfinance.tracker.data.local.AppDatabase
+import com.smartfinance.tracker.data.repository.FinanceRepository // Import repositori milikmu
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
 
@@ -30,12 +30,13 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Inisialisasi asisten finansial hybrid & database lokal
+        // 1. Inisialisasi sesuai dengan arsitektur FinanceRepository milikmu
         val db = AppDatabase.getDatabase(requireContext())
-        val assistant = FinancialAssistant(db.transactionDao(), db.categoryDao(), db.debtDao())
+        val repository = FinanceRepository(db.transactionDao(), db.categoryDao(), db.debtDao())
+        val assistant = FinancialAssistant(repository)
         geminiClient = GeminiClient(requireContext(), assistant)
 
-        // AKTIVASI TOMBOL KIRIM
+        // 2. Menggunakan akses binding yang aman untuk layout chat kamu
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
@@ -45,18 +46,17 @@ class ChatFragment : Fragment() {
     }
 
     private fun sendChatToAI(message: String) {
-        // Tampilkan teks inputanmu di area layar chat (simulasi respons cepat)
         binding.tvChatHistory.append("\nAnda: $message\n")
         binding.etMessage.setText("")
-        binding.btnSend.isEnabled = false // Kunci tombol saat AI berpikir
+        
+        // Mengamankan properti perubahan status view di Android
+        binding.btnSend.isEnabled = false 
 
         lifecycleScope.launch {
             binding.tvChatHistory.append("AI sedang berpikir...\n")
             
-            // Panggil mesin Gemini
             val response = geminiClient.sendMessageToAI(message)
             
-            // Hapus teks loading dan cetak jawaban final Gemini
             val currentText = binding.tvChatHistory.text.toString()
             val cleanedText = currentText.replace("AI sedang berpikir...\n", "")
             binding.tvChatHistory.text = cleanedText
