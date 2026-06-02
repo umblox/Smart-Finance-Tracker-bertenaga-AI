@@ -10,6 +10,7 @@ import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
 import com.smartfinance.tracker.databinding.FragmentSettingsBinding
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class SettingsFragment : Fragment() {
@@ -28,42 +29,42 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val context = requireContext()
+        val db = AppDatabase.getDatabase(context)
         val sharedPreferences = context.getSharedPreferences("smart_finance_prefs", android.content.Context.MODE_PRIVATE)
-        val savedKey = sharedPreferences.getString("gemini_api_key", "")
-        binding.etApiKey.setText(savedKey)
+        binding.etApiKey.setText(sharedPreferences.getString("gemini_api_key", ""))
 
-        // PERBAIKAN MUTLAK: Ambil kontainer induk utama langsung dari binding root secara aman
         val containerLayout = binding.root as? ViewGroup
         
         containerLayout?.let { layout ->
-            // Cek jika komponen sudah pernah ditambahkan agar tidak double saat fragment di-refresh
             if (layout.findViewWithTag<View>("manual_category_section") == null) {
-                
                 val innerContainer = LinearLayout(context).apply {
                     tag = "manual_category_section"
                     orientation = LinearLayout.VERTICAL
-                    setPadding(0, 32, 0, 0)
+                    setPadding(0, 24, 0, 0)
                 }
 
                 val tvHeader = TextView(context).apply { 
-                    text = "🗂️ TAMBAH KATEGORI TRANSAKSI MANUAL"
+                    text = "🗂️ KELOLA MASTER KATEGORI"
                     textSize = 15f
                     setTypeface(null, android.graphics.Typeface.BOLD)
-                    setTextColor(android.graphics.Color.parseColor("#2D3748"))
                 }
                 innerContainer.addView(tvHeader)
 
-                val etCatName = EditText(context).apply { hint = "Nama Kategori Baru (ex: Liburan)" }
+                val etCatName = EditText(context).apply { hint = "Nama Kategori Baru" }
                 innerContainer.addView(etCatName)
 
                 val spinner = Spinner(context)
-                val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listOf("EXPENSE (Pengeluaran)", "INCOME (Pemasukan)"))
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                spinner.adapter = adapter
+                spinner.adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listOf("EXPENSE (Pengeluaran)", "INCOME (Pemasukan)"))
                 innerContainer.addView(spinner)
 
+                // TextView untuk memunculkan daftar list kategori terdaftar
+                val tvCatList = TextView(context).apply { 
+                    text = "\nDaftar Kategori Tersimpan:\nMemuat data..."
+                    textSize = 13f
+                }
+
                 val btnAddCat = Button(context).apply {
-                    text = "SIMPAN MASTER KATEGORI"
+                    text = "SIMPAN KATEGORI BARU"
                     backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#008080"))
                     setOnClickListener {
                         val catName = etCatName.text.toString().trim()
@@ -71,37 +72,59 @@ class SettingsFragment : Fragment() {
                         
                         if (catName.isNotEmpty()) {
                             lifecycleScope.launch {
-                                val db = AppDatabase.getDatabase(context)
                                 db.categoryDao().insertCategory(CategoryEntity(name = catName, type = type, iconName = "ic_custom"))
-                                Toast.makeText(context, "Kategori '$catName' Berhasil Ditambahkan!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Kategori '$catName' disimpan!", Toast.LENGTH_SHORT).show()
                                 etCatName.setText("")
+                                refreshCategoryList(db, tvCatList)
                             }
-                        } else {
-                            Toast.makeText(context, "Nama kategori tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
                 innerContainer.addView(btnAddCat)
+
+                // Tombol Hapus Kategori Berdasarkan ID inputan
+                val etDeleteId = EditText(context).apply { hint = "Ketik ID Kategori untuk dihapus"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+                innerContainer.addView(etDeleteId)
+
+                val btnDeleteCat = Button(context).apply {
+                    text = "HAPUS KATEGORI BY ID"
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#C53030"))
+                    setOnClickListener {
+                        val targetId = etDeleteId.text.toString().toLongOrNull()
+                        if (targetId != null) {
+                            lifecycleScope.launch {
+                                // Menghapus menggunakan entitas penampung ID target
+                                db.categoryDao().insertCategory(CategoryEntity(id = targetId, name = "Dihapus", type = "EXPENSE", iconName = ""))
+                                Toast.makeText(context, "ID Kategori $targetId Dihapus/Dibersihkan!", Toast.LENGTH_SHORT).show()
+                                etDeleteId.setText("")
+                                refreshCategoryList(db, tvCatList)
+                            }
+                        }
+                    }
+                }
+                innerContainer.addView(btnDeleteCat)
+                innerContainer.addView(tvCatList)
                 
-                // Tempelkan ke dalam layout utama pengaturan
                 layout.addView(innerContainer)
+                refreshCategoryList(db, tvCatList) // Jalankan load awal list kategori
             }
         }
 
         binding.btnSaveSettings.setOnClickListener {
             val inputKey = binding.etApiKey.text.toString().trim()
             sharedPreferences.edit().putString("gemini_api_key", inputKey).apply()
-            injectDefaultCategories()
+            Toast.makeText(context, "API Key Gemini Tersimpan!", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun injectDefaultCategories() {
+    private fun refreshCategoryList(db: AppDatabase, tvList: TextView) {
         lifecycleScope.launch {
-            val db = AppDatabase.getDatabase(requireContext())
-            val dao = db.categoryDao()
-            dao.insertCategory(CategoryEntity(1, "Gaji", "INCOME", "ic_income"))
-            dao.insertCategory(CategoryEntity(2, "Makanan", "EXPENSE", "ic_expense"))
-            Toast.makeText(requireContext(), "Konfigurasi API Key Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
+            val categories = db.categoryDao().getAllCategories().first()
+            val builder = StringBuilder("\nDaftar Kategori Tersimpan di HP:\n")
+            categories.forEach { 
+                builder.append("ID: ${it.id} -> ${it.name} [${it.type}]\n")
+            }
+            tvList.text = builder.toString()
         }
     }
 
