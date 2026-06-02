@@ -90,25 +90,19 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
         lifecycleScope.launch {
-            val rawResponse = geminiClient.sendMessageToAI(message)
+            // Mengambil narasi cerita bersih manusia yang sudah dipotong dari JSON biner oleh Regex lokal
+            val cleanNarrationResponse = geminiClient.sendMessageToAI(message)
             
             if (messageList.isNotEmpty()) {
                 messageList.removeAt(messageList.size - 1)
             }
-            
-            // PERBAIKAN MUTLAK: Hanya ambil teks respon narasi yang bersih untuk ditampilkan dan di-backup
-            val cleanDisplayResponse = if (rawResponse.contains("[EXEC_RESULT]")) {
-                rawResponse.split("[EXEC_RESULT]")[1].trim()
-            } else {
-                rawResponse.trim()
-            }
 
-            messageList.add(ChatMessage(cleanDisplayResponse, false))
+            messageList.add(ChatMessage(cleanNarrationResponse.trim(), false))
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             binding.btnSend.isEnabled = true
             
-            // Simpan data bersih agar saat balik ke menu chat teks tidak berubah menjadi kode
+            // Simpan data cerita bersih tanpa campuran kode token atau tag penanda yang rawan merusak layout UI
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
