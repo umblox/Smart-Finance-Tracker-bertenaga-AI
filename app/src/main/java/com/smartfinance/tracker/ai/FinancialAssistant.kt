@@ -8,7 +8,6 @@ import com.smartfinance.tracker.data.local.entity.DebtEntity
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.util.Locale
-import java.util.regex.Pattern
 
 class FinancialAssistant(private val context: Context) {
 
@@ -16,29 +15,14 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         try {
-            val jsonPattern = Pattern.compile("\\{[^\\{]*\\}$")
-            val matcher = jsonPattern.matcher(rawText.trim())
-
-            if (matcher.find()) {
-                val jsonString = matcher.group()
-                val cleanNarration = rawText.replace(jsonString, "").trim()
-
-                // Jalankan perintah biner ke SQLite sambil mengirimkan teks asli user untuk proteksi kata kunci
-                executeSilentJsonCommand(jsonString, cleanNarration.lowercase())
-                
-                return cleanNarration
-            }
-        } catch (e: Exception) {
-            return rawText
-        }
-        return rawText
-    }
-
-    private suspend fun executeSilentJsonCommand(jsonStr: String, cleanNarrationLower: String) {
-        try {
-            val json = JSONObject(jsonStr)
+            // Bersihkan sisa karakter pembungkus markdown JSON jika model LLM nakal menyertakannya
+            val cleanJson = rawText.replace("```json", "").replace("```", "").trim()
+            val json = JSONObject(cleanJson)
+            
             val actionType = json.optString("action_type", "CHAT_ONLY")
+            val aiResponse = json.optString("ai_response", "Perintah berhasil diproses.")
 
+            // EKSEKUSI OPERASI DATABASE NYATA DI BACKGROUND SQLITE ROOM
             when (actionType) {
                 "TRANSACTION" -> {
                     val amount = json.optDouble("amount", 0.0)
@@ -65,30 +49,13 @@ class FinancialAssistant(private val context: Context) {
                     val name = json.optString("contact_name", "Teman").uppercase(Locale.ROOT)
                     var debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
 
-                    // 🛡️ INTERCEPTOR PROTECTION MUTLAK: Deteksi kalimat terbalik
-                    // Jika teks mengandung indikasi kuat user yang memberikan pinjaman uang
-                    if (cleanNarrationLower.contains("meminjam uang saya") || 
-                        cleanNarrationLower.contains("meminjamkan") || 
-                        cleanNarrationLower.contains("piutang")) {
-                        debtType = "RECEIVABLE"
-                    }
-
                     if (amount > 0.0) {
-                        // 1. Simpan ke tabel master Hutang-Piutang (DebtEntity)
                         db.debtDao().insertDebt(DebtEntity(
-                            contactName = name, 
-                            contactPhoneNumber = "0812", 
-                            amount = amount,
-                            remainingAmount = amount, 
-                            type = debtType, // Tersimpan akurat sebagai RECEIVABLE
-                            note = "Dicatat otomatis via Chat AI",
-                            timestamp = System.currentTimeMillis(), 
-                            isPaid = false
+                            contactName = name, contactPhoneNumber = "0812", amount = amount,
+                            remainingAmount = amount, type = debtType, note = "Otomatis via Chat AI",
+                            timestamp = System.currentTimeMillis(), isPaid = false
                         ))
 
-                        // 2. Sinkronisasikan efek saldo ke dashboard utama (TransactionEntity)
-                        // Piutang (RECEIVABLE) = Uang kita keluar dipinjam orang (EXPENSE)
-                        // Hutang (DEBT) = Uang masuk ke dompet kita dari orang (INCOME)
                         val isReceivable = debtType == "RECEIVABLE"
                         db.transactionDao().insertTransaction(TransactionEntity(
                             amount = amount,
@@ -138,8 +105,17 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
             }
+            
+            // Kembalikan teks narasi manusia yang dikirim Groq di dalam JSON untuk dicetak ke gelembung chat
+            return aiResponse
+            
         } catch (e: Exception) {
-            // Gagal parsing senyap, abaikan agar tidak crash
+            // Jika Groq melanggar format JSON, tampilkan teks aslinya agar user tahu isi erornya
+            return rawText
         }
+    }
+
+    suspend fun processLocalFallback(input: String, debugError: String): String {
+        return "🤖 Sistem Jaringan Sedang Lambat."
     }
 }
