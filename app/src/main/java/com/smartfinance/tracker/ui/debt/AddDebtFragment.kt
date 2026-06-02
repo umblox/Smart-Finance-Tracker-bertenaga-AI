@@ -1,108 +1,67 @@
 package com.smartfinance.tracker.ui.debt
 
-import android.app.Activity
-import android.content.Intent
-import android.provider.ContactsContract
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.DebtEntity
-import com.smartfinance.tracker.databinding.FragmentAddDebtBinding
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
 class AddDebtFragment : Fragment() {
 
-    private var _binding: FragmentAddDebtBinding? = null
-    private val binding get() = _binding!!
-    
-    private var selectedContactName = ""
-    private var selectedContactPhone = ""
-
-    // Launcher untuk menangkap data setelah memilih kontak dari buku telepon HP
-    private val contactPickerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val contactUri = result.data?.data ?: return@registerForActivityResult
-            val cursor = requireContext().contentResolver.query(contactUri, null, null, null, null)
-            
-            cursor?.use { 
-                if (it.moveToFirst()) {
-                    val nameIndex = it.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
-                    selectedContactName = it.getString(nameIndex)
-                    
-                    // Tempel nama kontak yang dipilih ke tombol/kolom di UI
-                    binding.btnSelectContact.text = "Kontak: $selectedContactName"
-                }
-            }
-        }
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentAddDebtBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        // Klik tombol kontak untuk membuka Kontak Telepon Asli HP
-        binding.btnSelectContact.setOnClickListener {
-            val intent = Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
-            contactPickerLauncher.launch(intent)
+    ): View? {
+        // Membuat layout container dinamis via kode agar tidak memicu error XML "not found"
+        val root = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            padding = 16
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // Menyimpan data Hutang/Piutang ke Room Database
-        binding.btnSaveDebt.setOnClickListener {
-            val amountStr = binding.etDebtAmount.text.toString()
-            val note = binding.etDebtNote.text.toString()
-            val type = if (binding.rbIsHutang.isChecked) "DEBT" else "RECEIVABLE"
+        val tvTitle = TextView(requireContext()).apply {
+            text = "🤝 DAFTAR HISTORY HUTANG & PIUTANG"
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 20)
+        }
+        root.addView(tvTitle)
 
-            if (selectedContactName.isEmpty()) {
-                Toast.makeText(context, "Pilih kontak terlebih dahulu!", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (amountStr.isEmpty()) {
-                Toast.makeText(context, "Nominal tidak boleh kosong!", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+        val tvContent = TextView(requireContext()).apply {
+            text = "Memuat data pinjaman..."
+            textSize = 14f
+        }
+        root.addView(tvContent)
 
-            val amount = amountStr.toDouble()
-
-            // Eksekusi penyimpanan asinkron ke database lokal
-            val db = AppDatabase.getDatabase(requireContext())
-            CoroutineScope(Dispatchers.IO).launch {
-                db.debtDao().insertDebt(
-                    DebtEntity(
-                        contactName = selectedContactName,
-                        contactPhoneNumber = selectedContactPhone,
-                        amount = amount,
-                        remainingAmount = amount,
-                        type = type,
-                        note = note,
-                        timestamp = System.currentTimeMillis()
-                    )
-                )
-                
-                CoroutineScope(Dispatchers.Main).launch {
-                    Toast.makeText(context, "Catatan Hutang Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-                    parentFragmentManager.popBackStack()
+        // Muat Riwayat Data Hutang Langsung dari SQLite Room Database
+        val db = AppDatabase.getDatabase(requireContext())
+        lifecycleScope.launch {
+            val debts = db.debtDao().getAllDebts().first()
+            val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
+            
+            if (debts.isEmpty()) {
+                tvContent.text = "Tidak ada riwayat hutang atau piutang yang tercatat saat ini."
+            } else {
+                val builder = StringBuilder()
+                debts.forEach { debt ->
+                    val jenis = if (debt.type == "DEBT") "⚠️ Hutang ke" else "💰 Piutang di"
+                    val status = if (debt.isPaid) "[LUNAS]" else "[BELUM LUNAS]"
+                    builder.append("$jenis ${debt.contactName}\n Nominal: ${formatRupiah.format(debt.amount)}\n Sisa: ${formatRupiah.format(debt.remainingAmount)} $status\n Keterangan: ${debt.note}\n-----------------------------------\n")
                 }
+                tvContent.text = builder.toString()
             }
         }
-    }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
+        return root
+    }
+}
         _binding = null
     }
 }
