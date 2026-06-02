@@ -21,15 +21,13 @@ class AddDebtFragment : Fragment() {
     ): View? {
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            padding = 16
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setPadding(16, 16, 16, 16)
         }
 
         val tvTitle = TextView(requireContext()).apply {
             text = "🤝 DAFTAR HISTORY HUTANG & PIUTANG"
             textSize = 18f
             setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(0, 0, 0, 20)
         }
         root.addView(tvTitle)
 
@@ -45,13 +43,13 @@ class AddDebtFragment : Fragment() {
             val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
             
             if (debts.isEmpty()) {
-                tvContent.text = "Tidak ada riwayat hutang atau piutang yang tercatat saat ini."
+                tvContent.text = "\nTidak ada riwayat hutang atau piutang yang tercatat."
             } else {
-                val builder = StringBuilder()
+                val builder = StringBuilder("\n")
                 debts.forEach { debt ->
                     val jenis = if (debt.type == "DEBT") "⚠️ Hutang ke" else "💰 Piutang di"
                     val status = if (debt.isPaid) "[LUNAS]" else "[BELUM LUNAS]"
-                    builder.append("$jenis ${debt.contactName}\n Nominal: ${formatRupiah.format(debt.amount)}\n Sisa: ${formatRupiah.format(debt.remainingAmount)} $status\n Keterangan: ${debt.note}\n-----------------------------------\n")
+                    builder.append("$jenis ${debt.contactName}\nNominal: ${formatRupiah.format(debt.amount)}\nSisa: ${formatRupiah.format(debt.remainingAmount)} $status\nKeterangan: ${debt.note}\n---------------------------\n")
                 }
                 tvContent.text = builder.toString()
             }
