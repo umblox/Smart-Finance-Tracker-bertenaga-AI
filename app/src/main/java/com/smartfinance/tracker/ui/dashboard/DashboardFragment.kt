@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.dashboard
 
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -8,7 +9,6 @@ import androidx.fragment.app.Fragment
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
-import com.github.mikephil.charting.utils.ColorTemplate
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 
 class DashboardFragment : Fragment() {
@@ -26,45 +26,42 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // 1. Set data ringkasan teks di Dashboard
+        // 1. Mengisi data teks statis di dashboard
         binding.tvTotalBalance.text = "Rp 5.000.000"
         binding.tvIncomeSummary.text = "Rp 7.500.000"
         binding.tvExpenseSummary.text = "Rp 2.500.000"
 
-        // 2. Setup Grafik BarChart agar tidak kosong dan tidak memicu mental/crash
-        setupDummyChart()
+        // 2. Jalankan pembuatan grafik tanpa parameter error
+        setupReportChart()
     }
 
-    private fun setupDummyChart() {
-        // Membuat data pura-pura (dummy) untuk Pemasukan (Bar 1) dan Pengeluaran (Bar 2)
+    private fun setupReportChart() {
         val entries = ArrayList<BarEntry>()
-        entries.add(BarEntry(1f, 7500000f)) // Pemasukan
-        entries.add(BarEntry(2f, 2500000f)) // Pengeluaran
+        entries.add(BarEntry(1f, 7500000f)) // Batang 1: Pemasukan
+        entries.add(BarEntry(2f, 2500000f)) // Batang 2: Pengeluaran
 
         val dataSet = BarDataSet(entries, "Laporan Keuangan (Rp)")
         
-        // Memberi warna: Hijau untuk pemasukan, Merah untuk pengeluaran
-        dataSet.setColors(intArrOf(
-            android.graphics.Color.parseColor("#2F855A"), // Hijau
-            android.graphics.Color.parseColor("#C53030")  // Merah
-        ), context)
+        // PERBAIKAN MUTLAK: Menggunakan objek List biasa tanpa melempar parameter context
+        val colorsList = ArrayList<Int>()
+        colorsList.add(Color.parseColor("#2F855A")) // Hijau
+        colorsList.add(Color.parseColor("#C53030")) // Merah
+        dataSet.colors = colorsList
         
         dataSet.valueTextSize = 12f
 
         val barData = BarData(dataSet)
         
-        // Masukkan data ke dalam komponen XML BarChart
+        // Hubungkan ke komponen XML BarChart
         binding.reportBarChart.data = barData
         binding.reportBarChart.description.isEnabled = false
-        binding.reportBarChart.animateY(1000) // Efek animasi naik yang mulus
-        binding.reportBarChart.invalidate()  // Refresh grafik
+        binding.reportBarChart.setFitBars(true)
+        binding.reportBarChart.animateY(1000) 
+        binding.reportBarChart.invalidate() 
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
-    
-    // Fungsi pembantu konversi warna internal
-    private fun intArrOf(vararg elements: Int): IntArray = elements
 }
