@@ -42,7 +42,6 @@ class AddDebtFragment : Fragment() {
         etName = EditText(context).apply { hint = "Nama Kontak / Teman" }
         root.addView(etName)
 
-        // TOMBOL PERIZINAN KONTAK ASLI ANDROID
         val btnContact = Button(context).apply { 
             text = "👥 PILIH DARI KONTAK HP"
             setOnClickListener {
@@ -93,7 +92,24 @@ class AddDebtFragment : Fragment() {
                             isPaid = false
                         )
                         db.debtDao().insertDebt(debtTx)
-                        Toast.makeText(context, "Transaksi Pinjaman Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
+
+                        // LOGIKA PENGURANGAN / PENAMBAHAN SALDO AWAL UTANG PIUTANG:
+                        // Piutang (kasih pinjam orang) = EXPENSE (Uang keluar)
+                        // Hutang (kita meminjam uang) = INCOME (Uang masuk)
+                        val mainTxType = if (type == "RECEIVABLE") "EXPENSE" else "INCOME"
+                        val mainTxNote = if (type == "RECEIVABLE") "Memberikan piutang ke $name" else "Menerima hutang dari $name"
+                        
+                        val balanceTx = TransactionEntity(
+                            amount = amount,
+                            type = mainTxType,
+                            categoryId = 5L, // ID Khusus Relasi Utang Piutang
+                            categoryName = if (type == "RECEIVABLE") "Piutang Baru" else "Hutang Baru",
+                            note = "$mainTxNote (${debtTx.note})",
+                            timestamp = System.currentTimeMillis()
+                        )
+                        db.transactionDao().insertTransaction(balanceTx)
+
+                        Toast.makeText(context, "Pinjaman disimpan & Saldo Dashboard ter-update!", Toast.LENGTH_SHORT).show()
                         etName.setText("")
                         etAmount.setText("")
                         etNote.setText("")
@@ -104,7 +120,6 @@ class AddDebtFragment : Fragment() {
         }
         root.addView(btnSave)
 
-        // FORM INPUT CICILAN PEMBAYARAN HUTANG PIUTANG
         val tvPayLabel = TextView(context).apply { text = "\n💵 INPUT CICILAN PEMBAYARAN REKOR"; textStyle(this) }
         root.addView(tvPayLabel)
 
@@ -129,22 +144,22 @@ class AddDebtFragment : Fragment() {
                         if (matchDebt != null) {
                             val nextRemaining = (matchDebt.remainingAmount - payAmount).coerceAtLeast(0.0)
                             
-                            // 1. Update status sisa pinjaman di tabel debt
                             val updatedDebt = matchDebt.copy(
                                 remainingAmount = nextRemaining,
                                 isPaid = nextRemaining <= 0.0
                             )
                             db.debtDao().insertDebt(updatedDebt)
 
-                            // 2. LOGIKA INTERKONEKSI SALDO UTAMA DASHBOARD:
-                            // Jika kita bayar hutang = uang keluar (EXPENSE). Jika teman bayar piutang ke kita = uang masuk (INCOME).
+                            // LOGIKA UPDATE CICILAN SALDO UTAMA DASHBOARD:
+                            // Bayar cicilan hutang kita = EXPENSE (Uang keluar)
+                            // Orang bayar cicilan piutang ke kita = INCOME (Uang masuk)
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                             val newTx = TransactionEntity(
                                 amount = payAmount,
                                 type = txType,
                                 categoryId = 4L,
-                                categoryName = "Cicilan Hutang",
-                                note = "Bayar cicilan ke/dari ${matchDebt.contactName}",
+                                categoryName = "Cicilan Pinjaman",
+                                note = "Cicilan pembayaran pinjaman ${matchDebt.contactName}",
                                 timestamp = System.currentTimeMillis()
                             )
                             db.transactionDao().insertTransaction(newTx)
