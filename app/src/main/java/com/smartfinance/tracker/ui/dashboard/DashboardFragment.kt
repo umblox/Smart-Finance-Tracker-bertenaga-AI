@@ -6,10 +6,16 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
+import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
 class DashboardFragment : Fragment() {
 
@@ -25,38 +31,58 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        // 1. Mengisi data teks statis di dashboard
-        binding.tvTotalBalance.text = "Rp 5.000.000"
-        binding.tvIncomeSummary.text = "Rp 7.500.000"
-        binding.tvExpenseSummary.text = "Rp 2.500.000"
-
-        // 2. Jalankan pembuatan grafik tanpa parameter error
-        setupReportChart()
+        loadRealDatabaseData()
     }
 
-    private fun setupReportChart() {
-        val entries = ArrayList<BarEntry>()
-        entries.add(BarEntry(1f, 7500000f)) // Batang 1: Pemasukan
-        entries.add(BarEntry(2f, 2500000f)) // Batang 2: Pengeluaran
-
-        val dataSet = BarDataSet(entries, "Laporan Keuangan (Rp)")
+    private fun loadRealDatabaseData() {
+        val db = AppDatabase.getDatabase(requireContext())
         
-        // PERBAIKAN MUTLAK: Menggunakan objek List biasa tanpa melempar parameter context
+        lifecycleScope.launch {
+            // Mengambil seluruh riwayat transaksi dari database lokal
+            val allTransactions = db.transactionDao().getAllTransactions().first()
+            
+            var totalIncome = 0.0
+            var totalExpense = 0.0
+
+            for (tx in allTransactions) {
+                if (tx.type == "INCOME") totalIncome += tx.amount
+                else totalExpense += tx.amount
+            }
+
+            val totalBalance = totalIncome - totalExpense
+
+            // Format angka ke Rupiah Indonesia (Rp)
+            val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
+            
+            binding.tvTotalBalance.text = formatRupiah.format(totalBalance)
+            binding.tvIncomeSummary.text = formatRupiah.format(totalIncome)
+            binding.tvExpenseSummary.text = formatRupiah.format(totalExpense)
+
+            // Perbarui grafik berdasarkan data nyata database
+            setupReportChart(totalIncome.toFloat(), totalExpense.toFloat())
+        }
+    }
+
+    private fun setupReportChart(income: Float, expense: Float) {
+        val entries = ArrayList<BarEntry>()
+        // Jika data masih kosong, beri nilai default 10k agar grafik tidak runtuh
+        entries.add(BarEntry(1f, if(income == 0f) 10000f else income))
+        entries.add(BarEntry(2f, if(expense == 0f) 10000f else expense))
+
+        val dataSet = BarDataSet(entries, "Pemasukan vs Pengeluaran (Rp)")
+        
         val colorsList = ArrayList<Int>()
         colorsList.add(Color.parseColor("#2F855A")) // Hijau
         colorsList.add(Color.parseColor("#C53030")) // Merah
         dataSet.colors = colorsList
         
         dataSet.valueTextSize = 12f
-
         val barData = BarData(dataSet)
         
-        // Hubungkan ke komponen XML BarChart
         binding.reportBarChart.data = barData
         binding.reportBarChart.description.isEnabled = false
         binding.reportBarChart.setFitBars(true)
-        binding.reportBarChart.animateY(1000) 
+        binding.reportBarChart.animateY(800) 
         binding.reportBarChart.invalidate() 
     }
 
