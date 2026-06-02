@@ -1,108 +1,75 @@
 package com.smartfinance.tracker.ai
 
-import com.smartfinance.tracker.data.local.entity.CategoryEntity
-import com.smartfinance.tracker.data.local.entity.DebtEntity
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.data.repository.FinanceRepository
-import org.json.JSONObject
-import java.util.Calendar
+import com.smartfinance.tracker.data.local.entity.TransactionEntity
+import com.smartfinance.tracker.data.local.entity.DebtEntity
+import kotlinx.coroutines.flow.first
+import java.util.regex.Pattern
 
 class FinancialAssistant(private val repository: FinanceRepository) {
 
-    // SYSTEM INSTRUCTION: Proteksi ketat instruksi AI sesuai permintaan Anda
     val systemInstruction = """
-        Anda adalah Asisten Keuangan Pribadi Eksklusif di dalam aplikasi Smart Finance Tracker.
-        Tugas utama Anda hanyalah:
-        1. Mencatat transaksi (pemasukan/pengeluaran).
-        2. Membuat kategori baru jika diminta.
-        3. Membaca data untuk memberikan laporan (harian, mingguan, bulanan, tahunan, atau per kategori).
-        
-        ATURAN MUTLAK KEAMANAN & SKOP:
-        - Tolak mentah-mentah menjawab pertanyaan di luar topik asisten keuangan aplikasi ini (misal: tanya resep makanan, coding, gosip, dsb).
-        - JIKA user bertanya tentang teori keuangan umum, tips investasi, atau edukasi finansial makro/mikro secara umum, Anda HARUS MENOLAK. Katakan bahwa Anda hanya bertugas menganalisis dan mengelola data riil yang ada di dalam aplikasi ini saja.
-        - Jawablah menggunakan bahasa Indonesia yang santun, ringkas, dan jelas.
-        - Jika melakukan pencatatan, pastikan nominal angka terdeteksi dengan benar.
+        Anda adalah Asisten Keuangan Pribadi di aplikasi Smart Finance Tracker.
+        Tugas Anda adalah menganalisis pesan keuangan pengguna, memberikan saran anggaran,
+        dan menjawab pertanyaan terkait pengeluaran, pemasukan, atau hutang secara bijak.
+        Jangan menjawab pertanyaan di luar topik keuangan pribadi.
     """.trimIndent()
 
-    // Fungsi untuk memproses teks manual jika Function Calling SDK mengalami kendala (Fallback Parser)
-    suspend fun processNaturalLanguage(text: String): String {
-        val lowerText = text.lowercase()
-        val now = System.currentTimeMillis()
+    suspend fun processNaturalLanguage(input: String): String {
+        val lowerInput = input.lowercase()
 
-        return when {
-            // 1. Logika Input Transaksi Otomatis (Contoh sederhananya)
-            lowerText.contains("catat pengeluaran") || lowerText.contains("bayar") || lowerText.contains("beli") -> {
-                val amount = extractAmount(lowerText)
-                if (amount > 0) {
-                    val note = text.replace(Regex("(?i)(catat pengeluaran|beli|bayar|sebesar|rp|\\d+)"), "").trim()
-                    repository.insertTransaction(
-                        TransactionEntity(
-                            amount = amount,
-                            type = "EXPENSE",
-                            categoryId = 1, // Default Kategori Umum
-                            categoryName = "Pengeluaran",
-                            note = note,
-                            timestamp = now
-                        )
-                    )
-                    "Berhasil mencatat pengeluaran sebesar Rp ${String.format("%,.0f", amount)} untuk '$note'."
-                } else {
-                    "Saya mendeteksi perintah pengeluaran, tetapi nominal rupiahnya kurang jelas. Bisa diulangi?"
-                }
+        // 1. Filter Proteksi Topik Luar Keuangan
+        if (lowerInput.contains("presiden") || lowerInput.contains("cuaca") || lowerInput.contains("siapa kamu")) {
+            return "Maaf, saya adalah Asisten Keuangan Pribadi di aplikasi Smart Finance Tracker. Tugas saya hanya membantu Anda mencatat transaksi, membuat kategori, dan memberikan laporan keuangan berdasarkan data Anda."
+        }
+
+        // 2. Fitur Cek Saldo Otomatis dari Database Real
+        if (lowerInput.contains("berapa saldo") || lowerInput.contains("total uang") || lowerInput.contains("cek saldo")) {
+            val transactions = repository.getAllTransactions().first()
+            var income = 0.0
+            var expense = 0.0
+            transactions.forEach { 
+                if (it.type == "INCOME") income += it.amount else expense += it.amount 
             }
+            val saldo = income - expense
+            return "Saldo uang Anda saat ini adalah *Rp ${String.format("%,.0f", saldo)}*. (Total Pemasukan: Rp ${String.format("%,.0f", income)}, Total Pengeluaran: Rp ${String.format("%,.0f", expense)})."
+        }
 
-            lowerText.contains("catat pemasukan") || lowerText.contains("gaji") || lowerText.contains("terima uang") -> {
-                val amount = extractAmount(lowerText)
-                if (amount > 0) {
-                    val note = text.replace(Regex("(?i)(catat pemasukan|gaji|terima uang|sebesar|rp|\\d+)"), "").trim()
-                    repository.insertTransaction(
-                        TransactionEntity(
-                            amount = amount,
-                            type = "INCOME",
-                            categoryId = 2,
-                            categoryName = "Pemasukan",
-                            note = note,
-                            timestamp = now
-                        )
-                    )
-                    "Alhamdulillah, berhasil mencatat pemasukan sebesar Rp ${String.format("%,.0f", amount)} dari '$note'."
-                } else {
-                    "Nominal pemasukan tidak terdeteksi dengan jelas. Mohon tuliskan angkanya."
-                }
-            }
+        // 3. Fitur Tulis Otomatis Pencatatan Transaksi Pemasukan / Pengeluaran via AI
+        // Pola Regex untuk menangkap: [beli/gaji/catat] [nama_barang] [angka_nominal]
+        val pattern = Pattern.compile("(beli|gaji|bayar|catat|pemasukan|pengeluaran)\\s+([a-zA-Z\\s]+)\\s+(\\d+[\\d\\.]*)")
+        val matcher = pattern.matcher(lowerInput)
 
-            // 2. Logika Pembuatan Kategori Otomatis via Chat
-            lowerText.contains("tambah kategori") || lowerText.contains("buat kategori") -> {
-                val cleanText = text.replace(Regex("(?i)(tambah kategori|buat kategori)"), "").trim()
-                val parts = cleanText.split(" ")
-                val catName = parts.firstOrNull() ?: "Baru"
-                val type = if (lowerText.contains("pemasukan")) "INCOME" else "EXPENSE"
+        if (matcher.find()) {
+            val aksi = matcher.group(1) ?: ""
+            val namaBarang = matcher.group(2)?.trim() ?: "Umum"
+            var nominalStr = matcher.group(3) ?: "0"
+            nominalStr = nominalStr.replace(".", "") // Bersihkan format titik angka
+            val nominal = nominalStr.toDoubleOrNull() ?: 0.0
+
+            if (nominal > 0.0) {
+                val isIncome = aksi.contains("gaji") || aksi.contains("pemasukan")
+                val type = if (isIncome) "INCOME" else "EXPENSE"
                 
-                repository.insertCategory(
-                    CategoryEntity(name = catName, type = type, iconName = "ic_income")
+                // Simpan transaksi baru langsung ke database lewat repositori
+                val newTransaction = TransactionEntity(
+                    amount = nominal,
+                    type = type,
+                    categoryId = if (isIncome) 1 else 2, // Default ID Kategori Gaji atau Makanan
+                    categoryName = if (isIncome) "Gaji" else "Makanan/Umum",
+                    note = namaBarang,
+                    timestamp = System.currentTimeMillis()
                 )
-                "Kategori $type baru bernama '$catName' berhasil ditambahkan ke sistem."
-            }
+                repository.insertTransaction(newTransaction)
 
-            // 3. Logika Laporan Otomatis via Chat
-            lowerText.contains("laporan") -> {
-                getReportSummary(lowerText)
-            }
-
-            // Proteksi Sesuai Permintaan Anda: Menolak Pertanyaan Umum Luar Aplikasi
-            else -> {
-                "Maaf, sebagai asisten finansial aplikasi ini, saya hanya berwenang untuk mencatat transaksi, menambah kategori, dan menyajikan laporan dari data keuangan Anda di aplikasi ini. Saya tidak dapat menjawab pertanyaan atau teori di luar data aplikasi."
+                return "Berhasil mencatat **${if (isIncome) "Pemasukan" else "Pengeluaran"}** untuk *\"$namaBarang\"* sebesar **Rp ${String.format("%,.0f", nominal)}** ke dalam database."
             }
         }
+
+        // Jika tidak masuk kriteria lokal, oper pesan penolakan agar dilempar ke sistem Gemini LLM
+        return "Maaf, sebagai asisten finansial, format penulisan pencatatan atau pertanyaan Anda kurang spesifik. Coba ketik: 'beli rokok 10500' atau 'gaji masuk 5000000'."
     }
-
-    private fun extractAmount(text: String): Double {
-        val matches = Regex("\\d+").findAll(text)
-        var numberStr = ""
-        for (match in matches) {
-            numberStr += match.value
-        }
-        return numberStr.toDoubleOrNull() ?: 0.0
+}
     }
 
     private suspend fun getReportSummary(query: String): String {
