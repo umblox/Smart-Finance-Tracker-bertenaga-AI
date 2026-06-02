@@ -22,29 +22,49 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         }
 
         val db = AppDatabase.getDatabase(context)
+        
+        // 1. Ambil Kategori Aktif
         val categories = db.categoryDao().getAllCategories().first()
         val catContext = StringBuilder()
         categories.forEach { catContext.append("- ID: ${it.id}, Nama: ${it.name}, Tipe: ${it.type}\n") }
 
+        // 2. Ambil Riwayat Hutang Piutang Aktif agar Groq bisa menghitung pelunasan otomatis
+        val debts = db.debtDao().getAllDebts().first()
+        val debtContext = StringBuilder()
+        debts.filter { !it.isPaid }.forEach { 
+            debtContext.append("- ID Pinjaman: ${it.id}, Nama Orang: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
+        }
+
         val systemPrompt = """
-            Anda adalah Otak AI Pemroses Transaksi Keuangan untuk Smart Finance Tracker.
-            Tugas utama Anda adalah mengekstrak kalimat percakapan pengguna ke dalam bentuk JSON perintah terstruktur.
-            
-            DAFTAR KATEGORI NYATA DI APLIKASI SAAT INI:
+            Anda adalah Otak AI Finansial super cerdas untuk aplikasi Smart Finance Tracker.
+            Tugas Anda adalah mengekstrak kalimat user menjadi instruksi JSON murni yang sangat akurat.
+
+            KATEGORI DATABASE:
             $catContext
-            
-            Tentukan jenis tindakan berdasarkan aturan ini:
-            1. Jika user ingin MENCATAT TRANSAKSI UTANG/PIUTANG BARU (misal: "hutang ke budi 50000" atau "budi pinjam uang saya 100000"):
-               Set "action_type" menjadi "DEBT_RECORD", "amount" nominal uang, "contact_name" nama orang tersebut, dan "debt_type" ("DEBT" jika user berhutang, "RECEIVABLE" jika user meminjamkan uang).
-            2. Jika user ingin MEMBUAT KATEGORI BARU (misal: "tambah kategori jajan"):
-               Set "action_type" menjadi "CREATE_CATEGORY", "target_name" nama kategori baru, dan "category_type" ("INCOME" atau "EXPENSE").
-            3. Jika user ingin MENCATAT TRANSAKSI PENGELUARAN/PEMASUKAN BIASA (misal: "beli pertamax 20000"):
-               Set "action_type" menjadi "TRANSACTION", "amount" nominal, dan pilih "category_id" serta "category_name" yang paling cocok dari daftar di atas. Perbaiki typo jika ada. Di bidang "clean_note", isi HANYA nama subjek barangnya (contoh: "PERTAMAX").
-            4. Jika user hanya BERTANYA biasa atau meminta rekap:
-               Set "action_type" menjadi "CHAT_ONLY".
+
+            DAFTAR PINJAMAN BELUM LUNAS DI HP USER:
+            $debtContext
+
+            ATURAN ANALISIS JALUR PERINTAH:
+            1. PENTING (Logika Pendapatan): Kata seperti "gaji", "gajian", "tips", "bonus", "upah", "cuan" SECARA MUTLAK adalah INCOME (Pemasukan). Jangan pernah mengategorikannya sebagai EXPENSE.
+            2. Jika user membuat kategori baru (Contoh: "buat kategori tips kurir"):
+               Analisis kata subjeknya. "Tips" adalah uang masuk, maka set "category_type" menjadi "INCOME".
+            3. Jika user melakukan PELUNASAN / CICILAN HUTANG PIUTANG (Contoh: "arianto melunasi semua hutangnya" atau "arianto bayar cicilan 20000"):
+               Cari nama orang yang cocok dari DAFTAR PINJAMAN BELUM LUNAS di atas. 
+               Set "action_type" menjadi "DEBT_PAYMENT".
+               Isi "debt_id" dengan ID Pinjaman yang cocok.
+               Isi "pay_amount" dengan sisa hutang orang tersebut jika dia "melunasi semua", atau isi sesuai nominal yang disebutkan jika dia menyicil sebagian.
+            4. Jika transaksi biasa (Contoh: "beli rokok 20000"):
+               Set "action_type" menjadi "TRANSACTION". Tentukan "type" ("INCOME" atau "EXPENSE") sesuai logika kategori target.
                
-            Anda WAJIB merespons HANYA dalam bentuk JSON mentah tanpa markdown, contoh:
-            {"action_type":"TRANSACTION", "amount":20000, "category_id":3, "category_name":"Bahan Bakar & Transportasi", "clean_note":"PERTAMAX", "feedback":"Berhasil mencatat pengeluaran Pertamax Rp 20.000"}
+            Format Output WAJIB JSON murni tanpa markdown:
+            {"action_type":"TRANSACTION", "amount":77000, "type":"INCOME", "category_id":1, "category_name":"Gaji & Pendapatan", "clean_note":"GAJI", "feedback":"Sukses"}
+            
+            Format Output jika Pelunasan/Cicilan Pinjaman:
+            {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":40000, "feedback":"Pelunasan terdeteksi"}
+            
+            Format Output jika Tambah Kategori Baru:
+            {"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME", "feedback":"Membuat kategori"}
         """.trimIndent()
 
         try {
@@ -64,7 +84,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.1) // Set suhu rendah agar format JSON konsisten stabil
+                put("temperature", 0.1) 
             }
 
             conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
@@ -74,15 +94,12 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val rawJsonResult = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                // Kirim JSON murni hasil olahan Groq ke FinancialAssistant untuk dieksekusi ke SQLite
                 return@withContext assistant.executeSmartJsonCommand(rawJsonResult)
             } else {
-                return@withContext "⚠️ Server Groq penuh. Mencoba beralih ke sistem lokal...\n\n" + 
-                        assistant.processLocalFallback(userMessage, "HTTP ${conn.responseCode}")
+                return@withContext "⚠️ Hubungan ke server Groq terputus (Code ${conn.responseCode}). Menggunakan mesin lokal..."
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Koneksi lambat. Mencoba beralih ke sistem lokal...\n\n" + 
-                    assistant.processLocalFallback(userMessage, e.message ?: "")
+            return@withContext "⚠️ Batasan limit tercapai. Menggunakan pemroses lokal darurat."
         }
     }
 }
