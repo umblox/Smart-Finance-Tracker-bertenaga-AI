@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:app="http://schemas.android.com/app/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F7FAFC"
@@ -19,7 +19,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🤖 ASISTEN FINANSIAL AI"
+            android:text="🤖 ASISTEN FINANSIAL LLAMAX"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="#2D3748" />
@@ -34,22 +34,14 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"/>
     </LinearLayout>
 
-    <ScrollView
-        android:id="@+id/scrollChat"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvChatHistory"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/layoutHeader"
         android:layout_above="@id/layoutInput"
-        android:layout_marginBottom="12dp">
-        
-        <TextView
-            android:id="@+id/tvChatHistory"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Halo! Saya asisten keuangan AI kamu. Silakan ketik transaksi seperti 'beli rokok 20000' atau 'gajian 2300000'.\n\n"
-            android:textSize="15sp"
-            android:textColor="#2D3748" />
-    </ScrollView>
+        android:layout_marginBottom="12dp"
+        android:scrollbars="vertical"/>
 
     <LinearLayout
         android:id="@+id/layoutInput"
@@ -70,7 +62,7 @@
                 android:id="@+id/etMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Ketik pesan finansial..."
+                android:hint="Ketik transaksi atau tanya laporan..."
                 android:inputType="textLongMessage"
                 android:maxLines="3"/>
         </com.google.android.material.textfield.TextInputLayout>
