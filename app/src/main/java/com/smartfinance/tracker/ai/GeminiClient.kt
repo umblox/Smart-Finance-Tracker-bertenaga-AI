@@ -21,31 +21,36 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         try {
             val currentApiKey = getApiKey()
             
-            // Konfigurasi instruksi sistem dan parameter model yang disesuaikan
             val config = generationConfig {
-                // Konfigurasi tambahan jika diperlukan bisa ditaruh di sini
+                // Tempat konfigurasi parameter tambahan jika diperlukan
             }
 
-            // Inisialisasi Model Gemini 2.5 Flash dengan instruksi sistem terpisah
+            // Inisialisasi Model secara bersih tanpa parameter systemInstruction yang tidak dikenal versi SDK ini
             val model = GenerativeModel(
                 modelName = "gemini-2.5-flash",
                 apiKey = currentApiKey,
-                generationConfig = config,
-                systemInstruction = com.google.ai.client.generativeai.type.content { 
-                    text(assistant.systemInstruction) 
-                }
+                generationConfig = config
             )
 
-            // Jalankan validasi skop asisten keuangan secara lokal & AI hybrid
+            // 1. Jalankan validasi skop asisten keuangan secara lokal (Proteksi Utama)
             val localResponse = assistant.processNaturalLanguage(userMessage)
             
-            // Jika instruksi lokal mendeteksi penolakan atau sudah memproses database, langsung kembalikan hasilnya
+            // Jika instruksi lokal mendeteksi penolakan atau sukses memproses database, langsung kembalikan hasilnya
             if (!localResponse.contains("Maaf, sebagai asisten finansial")) {
                 return@withContext localResponse
             }
 
-            // Kirim ke Gemini untuk pemrosesan konteks bahasa natural yang lebih luas
-            val response = model.generateContent(userMessage)
+            // 2. Gabungkan instruksi sistem ke dalam prompt sebagai konteks pembungkus (Trik Hybrid SDK Lama)
+            val hybridPrompt = """
+                CONTEXT & SYSTEM INSTRUCTION:
+                ${assistant.systemInstruction}
+                
+                USER MESSAGE:
+                $userMessage
+            """.trimIndent()
+
+            // Kirim ke Gemini untuk pemrosesan teks bahasa natural yang aman
+            val response = model.generateContent(hybridPrompt)
             response.text ?: "Maaf, saya tidak dapat memahami pesan tersebut."
             
         } catch (e: Exception) {
