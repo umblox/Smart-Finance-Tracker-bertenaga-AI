@@ -2,46 +2,36 @@ package com.smartfinance.tracker
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
+import androidx.navigation.findNavController
+import androidx.navigation.ui.AppBarConfiguration
+import androidx.navigation.ui.setupActionBarWithNavController
+import androidx.navigation.ui.setupWithNavController
 import com.smartfinance.tracker.databinding.ActivityMainBinding
-import com.smartfinance.tracker.ui.debt.AddDebtFragment
-import com.smartfinance.tracker.ui.settings.SettingsFragment
-import com.smartfinance.tracker.ui.dashboard.DashboardFragment
-import com.smartfinance.tracker.ui.chat.ChatFragment
 
 class MainActivity : AppCompatActivity() {
 
-    // Menggunakan inisialisasi standar Android yang dijamin aman di onCreate
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Inflasi wajib dasar
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Tampilkan DashboardFragment sebagai halaman utama saat pertama buka
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, DashboardFragment())
-                .commit()
-        }
+        val navController = findNavController(R.id.nav_host_fragment_activity_main)
 
-        // Logika klik navigasi bawah
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
-            val selectedFragment: Fragment = when (item.itemId) {
-                R.id.menu_dashboard -> DashboardFragment()
-                R.id.menu_chat -> ChatFragment()
-                R.id.menu_debt -> AddDebtFragment()
-                R.id.menu_settings -> SettingsFragment()
-                else -> DashboardFragment()
-            }
-            
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, selectedFragment)
-                .commit()
-            true
-        }
+        // DAFTARKAN SEMUA 5 ID MENU UTAMA BIAR TIDAK BERKEDIP ATAU KEMBALI KE DASHBOARD
+        val appBarConfiguration = AppBarConfiguration(
+            setOf(
+                R.id.menu_dashboard, 
+                R.id.menu_chat, 
+                R.id.menu_report, // WAJIB ADA DISINI
+                R.id.menu_debt, 
+                R.id.menu_settings
+            )
+        )
+
+        setupActionBarWithNavController(navController, appBarConfiguration)
+        binding.navView.setupWithNavController(navController)
     }
 }
