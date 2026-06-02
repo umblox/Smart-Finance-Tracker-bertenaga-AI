@@ -19,7 +19,6 @@ class AddDebtFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
-        // Membuat layout container dinamis via kode agar tidak memicu error XML "not found"
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             padding = 16
@@ -40,7 +39,6 @@ class AddDebtFragment : Fragment() {
         }
         root.addView(tvContent)
 
-        // Muat Riwayat Data Hutang Langsung dari SQLite Room Database
         val db = AppDatabase.getDatabase(requireContext())
         lifecycleScope.launch {
             val debts = db.debtDao().getAllDebts().first()
@@ -62,7 +60,3 @@ class AddDebtFragment : Fragment() {
         return root
     }
 }
-        _binding = null
-    }
-}
-
