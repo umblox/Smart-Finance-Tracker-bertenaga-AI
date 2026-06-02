@@ -5,10 +5,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
 import android.widget.ScrollView
-import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.ai.FinancialAssistant
@@ -36,7 +34,6 @@ class ChatFragment : Fragment() {
         val assistant = FinancialAssistant(requireContext())
         geminiClient = GeminiClient(requireContext(), assistant)
 
-        // Muat riwayat backup chat permanen
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val savedChat = prefs.getString("chat_history_backup", "")
         if (!savedChat.isNullOrEmpty()) {
@@ -51,17 +48,12 @@ class ChatFragment : Fragment() {
             }
         }
 
-        // FITUR TAMBAHAN: Bersihkan total riwayat obrolan dari memori internal HP
-        binding.root.findViewById<Button>(com.smartfinance.tracker.R.id.btnClearChat)?.setOnClickListener {
+        // BYPASS TRICK: Tekan lama area riwayat obrolan teks untuk mengosongkan seluruh cache riwayat chat
+        binding.tvChatHistory.setOnLongClickListener {
             prefs.edit().remove("chat_history_backup").apply()
             binding.tvChatHistory.text = "Riwayat chat telah dibersihkan.\n\nAda yang bisa saya bantu hari ini?"
-        } ?: run {
-            // Jika ID btnClearChat belum didefinisikan di XML, pasang interaksi Long-Click pada tvChatHistory sebagai alternatif darurat
-            binding.tvChatHistory.setOnLongClickListener {
-                prefs.edit().remove("chat_history_backup").apply()
-                binding.tvChatHistory.text = "Riwayat chat telah dibersihkan."
-                true
-            }
+            Toast.makeText(requireContext(), "Riwayat obrolan berhasil dikosongkan!", Toast.LENGTH_SHORT).show()
+            true
         }
     }
 
@@ -93,7 +85,6 @@ class ChatFragment : Fragment() {
 
     private fun autoScrollToBottom() {
         binding.tvChatHistory.post {
-            // Cari parent scrollview secara dinamis untuk menjamin kecocokan layout XML
             var parentView = binding.tvChatHistory.parent
             while (parentView != null) {
                 if (parentView is ScrollView) {
