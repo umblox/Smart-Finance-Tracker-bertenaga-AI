@@ -22,47 +22,43 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         }
 
         val db = AppDatabase.getDatabase(context)
-        
-        // 1. Ambil Kategori untuk bahan otak Groq
         val categories = db.categoryDao().getAllCategories().first()
         val catContext = StringBuilder()
         categories.forEach { catContext.append("- ID: ${it.id}, Nama: ${it.name}, Tipe: ${it.type}\n") }
 
-        // 2. Ambil semua riwayat pinjaman belum lunas (UNTUK SEMUA NAMA ORANG SIAP DETEKSI TYPO)
         val debts = db.debtDao().getAllDebts().first()
         val debtContext = StringBuilder()
         debts.filter { !it.isPaid }.forEach { 
-            debtContext.append("- ID: ${it.id}, Nama Akurat: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis Tabel: ${it.type}\n")
+            debtContext.append("- ID Pinjaman: ${it.id}, Nama Orang: ${it.contactName}, Sisa Hutang: Rp ${it.remainingAmount}, Jenis: ${it.type}\n")
         }
 
         val systemPrompt = """
-            Anda adalah Otak AI Finansial super cerdas yang menguasai logika matematika bahasa alami Indonesia dan deteksi nama toleransi typo (Fuzzy Matching).
-            Tugas Anda adalah membaca kalimat user, mengekstrak data keuangan, lalu menghasilkan kesimpulan berupa JSON di baris akhir.
-
-            KATEGORI DATABASE APLIKASI:
+            Anda adalah Asisten Keuangan Pribadi yang super cerdas, ramah, dan sangat ahli dalam akuntansi Indonesia. 
+            Jawablah pesan dari user dengan bahasa alami yang sangat santun, jelas, dan solutif.
+            
+            KATEGORI SISTEM YANG TERSEDIA DI HP USER:
             $catContext
 
-            DAFTAR PINJAMAN AKTIF DI SQLITE (SEMUA ORANG):
+            DAFTAR PINJAMAN BELUM LUNAS SAAT INI:
             $debtContext
 
-            📋 ATURAN MATEMATIKA ANGKA & SINGKATAN UMUM:
-            - Jika user menyebut "rb" atau "ribu", kalikan angka di depannya dengan 1.000 (Contoh: "50rb" atau "50 ribu" = 50000).
-            - Jika user menyebut "jt" atau "juta", kalikan dengan 1.000.000 (Contoh: "1.5jt" atau "1 setengah juta" = 1500000).
-            - Jika user menyebut "ratusan" atau "puluhan", hitung secara matematis nominal riilnya.
+            LOGIKA MATEMATIKA INDONESIA:
+            - "rb" atau "ribu" artinya dikali 1.000 (ex: 50rb = 50000).
+            - "jt" atau "juta" artinya dikali 1.000.000 (ex: 1.5jt = 1500000).
+            - Kata "gaji", "gajian", "tips", "bonus", "cuan", "upah" MUTLAK adalah INCOME (Pemasukan). Jangan keliru!
 
-            👤 ATURAN DETEKSI NAMA & TOLERANSI TYPO (FUZZY MATCHING):
-            - Jika user menyebut suatu nama (misal: "ariant", "arianto", "aryanto", "samsul", "samshul", dll), Anda WAJIB menyisir "DAFTAR PINJAMAN AKTIF" di atas.
-            - Cari nama yang memiliki kemiripan karakter paling dekat (toleransi salah ketik hingga 3 huruf). Jika "ariant" mirip dengan "Arianto" yang punya sisa hutang, maka anggap subjek tersebut adalah "Arianto".
+            👤 TOLERANSI TYPO NAMA ORANG:
+            Jika user menyebut nama orang (misal "ariant", "aryanto", "samsul", "samshul"), cocokkan secara cerdas dengan nama terdekat di DAFTAR PINJAMAN BELUM LUNAS di atas.
 
-            ALUR DETERMINASI TINDAKAN (ACTION_TYPE):
-            1. DEBT_PAYMENT (Pelunasan/Cicilan): Jika user/orang lain membayar hutang (Contoh: "ariant bayar hutangnya 150rb" atau "arianto lunas semua"). Jika kata "lunas semua" atau "semua hutangnya", set "pay_amount" sesuai dengan Sisa Hutang riil milik orang tersebut yang tertera di daftar atas secara matematis.
-            2. DEBT_RECORD (Pinjaman Baru): Jika mencatat hutang/piutang baru dari orang baru atau orang lama (Contoh: "saya hutang ke iwan 50000"). Set "debt_type" menjadi "DEBT" (jika user berhutang) atau "RECEIVABLE" (jika user meminjamkan uang).
-            3. TRANSACTION (Transaksi Biasa): Pengeluaran/pemasukan biasa (Contoh: "beli bensin 20rb"). Ingat kata "gaji", "tips", "bonus" harganya MUTLAK bertipe "INCOME".
+            TUGAS TAMBAHAN (STRUKTUR DATA BACKGROUND):
+            Setelah Anda menulis jawaban ramah untuk user, Anda WAJIB menyertakan objek JSON satu baris di baris paling akhir dari jawaban Anda untuk dibaca oleh sistem Android.
+            
+            Aturan JSON Akhir:
+            1. Jika transaksi biasa: {"action_type":"TRANSACTION", "amount":77000, "type":"INCOME", "category_id":1, "category_name":"Gaji & Pendapatan", "clean_note":"GAJI"}
+            2. Jika pelunasan/cicilan hutang: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":150000}
+            3. Jika buat kategori baru: {"action_type":"CREATE_CATEGORY", "target_name":"Tips Kurir", "category_type":"INCOME"}
 
-            Format respons wajib menyelipkan token pembatas khusus [JSON_CMD] di baris paling akhir diikuti data JSON murni satu baris tanpa markdown.
-            Format:
-            Pesan narasi ringkas penjelasan Anda ke user (Gunakan format mata uang Rupiah yang rapi).
-            [JSON_CMD]{"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":150000}
+            INGAT: Jangan pakai kata kunci rahasia lagi. Cukup tulis jawaban normal Anda, lalu taruh objek JSON-nya di baris paling akhir.
         """.trimIndent()
 
         try {
@@ -71,8 +67,8 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            conn.connectTimeout = 7000
-            conn.readTimeout = 7000
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
             conn.doOutput = true
 
             val jsonBody = JSONObject().apply {
@@ -82,7 +78,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.1) // Kunci suhu rendah agar kepatuhan kalkulasi matematis stabil
+                put("temperature", 0.1) 
             }
 
             conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
@@ -92,20 +88,13 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                if (rawResponse.contains("[JSON_CMD]")) {
-                    val textParts = rawResponse.split("[JSON_CMD]")
-                    val aiNarration = textParts[0].trim()
-                    val jsonCommand = textParts[1].trim()
-                    
-                    val executionResult = assistant.executeSmartJsonCommand(jsonCommand)
-                    return@withContext "[EXEC_RESULT]$aiNarration\n\n$executionResult"
-                }
-                return@withContext rawResponse
+                // Kirim respons mentah utuh ke asisten untuk dipilah secara regex aman
+                return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
-                return@withContext "⚠️ Koneksi Groq terputus (HTTP ${conn.responseCode})"
+                return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
             }
         } catch (e: Exception) {
-            return@withContext "⚠️ Sistem Cloud Groq penuh. Silakan ulangi beberapa saat lagi."
+            return@withContext "⚠️ Jaringan sibuk, silakan kirim ulang pesan Anda."
         }
     }
 }
