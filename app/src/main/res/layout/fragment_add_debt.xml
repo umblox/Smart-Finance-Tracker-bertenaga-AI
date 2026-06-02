@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#F7FAFC">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pencatatan Hutang &amp; Piutang"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnSelectContact"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="👥 Pilih Kontak dari HP"
+        android:backgroundTint="#4A5568"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="16dp"/>
+
+    <RadioGroup
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+        <RadioButton
+            android:id="@+id/rbIsHutang"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Saya Berhutang"
+            android:checked="true"/>
+        <RadioButton
+            android:id="@+id/rbIsPiutang"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Orang Lain Berhutang"
+            android:layout_marginStart="16dp"/>
+    </RadioGroup>
+
+    <EditText
+        android:id="@+id/etDebtAmount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nominal (Rp)"
+        android:inputType="numberDecimal"
+        android:layout_marginBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/etDebtNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Catatan Keterangan"
+        android:inputType="text"
+        android:layout_marginBottom="24dp"/>
+
+    <Button
+        android:id="@+id/btnSaveDebt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Simpan Catatan"
+        android:backgroundTint="#008080"
+        android:textColor="#FFFFFF"/>
+</LinearLayout>
