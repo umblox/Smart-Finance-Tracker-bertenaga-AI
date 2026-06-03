@@ -34,7 +34,6 @@ class ReportFragment : Fragment() {
     private lateinit var db: AppDatabase
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
     
-    // Properti navigasi waktu kalender global untuk fitur geser bulan
     private val currentSelectedCalendar = Calendar.getInstance()
     private lateinit var tvMonthLabel: TextView
     private lateinit var contentContainer: LinearLayout
@@ -58,7 +57,7 @@ class ReportFragment : Fragment() {
         }
 
         val tvTitle = TextView(context).apply {
-            text = "📊 ANALISIS LAPORAN INTERAKTIF"
+            text = "📊 ANALISIS LAPORAN DETAIL"
             textSize = 18f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.parseColor("#2D3748"))
@@ -66,9 +65,7 @@ class ReportFragment : Fragment() {
         }
         root.addView(tvTitle)
 
-        // =======================================================
-        // COMPONENT PREMIUM: NAVIGASI GESER BULAN KUSTOM (BARU)
-        // =======================================================
+        // NAVIGASI GESER BULAN
         val monthNavigationLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -159,7 +156,6 @@ class ReportFragment : Fragment() {
         lifecycleScope.launch {
             val transactions = db.transactionDao().getAllTransactions().first()
             
-            // FILTER BERDASARKAN BULAN DAN TAHUN YANG SEDANG DIGESER USER
             val filteredTransactions = transactions.filter { tx ->
                 val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
                 txCal.get(Calendar.MONTH) == currentSelectedCalendar.get(Calendar.MONTH) &&
@@ -177,11 +173,10 @@ class ReportFragment : Fragment() {
             }
 
             if (categoryMap.isEmpty()) {
-                container.addView(createTextView("\nTidak ada transaksi pengeluaran tercatat pada periode bulan ini.", 14f, "#A0AEC0"))
+                container.addView(createTextView("\nTidak ada pengeluaran tercatat pada periode ini.", 14f, "#A0AEC0"))
                 return@launch
             }
 
-            // RENDER CANVAS GRAFIK LINGKARAN
             val chartWrapper = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -195,14 +190,13 @@ class ReportFragment : Fragment() {
             chartCard.addView(chartWrapper)
             container.addView(chartCard)
 
-            container.addView(createTextView("\n💡 KLIK KATEGORI UNTUK LIHAT RINCIAN TRANSAKSI:", 12f, "#718096", true))
+            container.addView(createTextView("\n💡 KLIK KATEGORI UNTUK DETAIL TRANSAKSI:", 12f, "#718096", true))
 
             var colorIdx = 0
             categoryMap.forEach { (catName, amount) ->
                 val color = chartColors[colorIdx % chartColors.size]
                 val percentage = (amount / totalExpense * 100).toInt()
 
-                // KARTU ITEM LIST KATEGORI INTERAKTIF
                 val itemCard = createCardContainer()
                 val row = LinearLayout(context).apply { 
                     orientation = LinearLayout.HORIZONTAL
@@ -217,9 +211,6 @@ class ReportFragment : Fragment() {
                 row.addView(createTextView("${formatRupiah.format(amount)} ($percentage%)", 13f, "#4A5568"))
                 itemCard.addView(row)
 
-                // =======================================================
-                // FEATURE PREMIUM: KLIK KATEGORI MUNCUL RINCIAN POP-UP (BARU)
-                // =======================================================
                 itemCard.setOnClickListener {
                     showCategoryDetailsDialog(catName, filteredTransactions)
                 }
@@ -230,7 +221,6 @@ class ReportFragment : Fragment() {
         }
     }
 
-    // FUNGSI DIALOG POPUP MENAMPILKAN TRANSAKSI DETAIL APA SAJA & KAPAN SAJA
     private fun showCategoryDetailsDialog(categoryName: String, txList: List<TransactionEntity>) {
         val context = requireContext()
         val dialogLayout = LinearLayout(context).apply {
@@ -239,7 +229,6 @@ class ReportFragment : Fragment() {
         }
 
         val sdf = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale("id", "ID"))
-        // Ambil transaksi yang sesuai dengan nama kategori saja
         val matches = txList.filter { it.categoryName == categoryName }
 
         matches.forEach { tx ->
@@ -304,7 +293,7 @@ class ReportFragment : Fragment() {
                 return@launch
             }
 
-            activeDebts.sortedBy { it.timestamp }.forEach { item ->
+            activeDebts.sortedBy { item -> item.timestamp }.forEach { item ->
                 val masehiDibuat = item.timestamp
                 val masehiSekarang = System.currentTimeMillis()
                 val selisihHari = ((masehiSekarang - masehiDibuat) / (1000 * 60 * 60 * 24)).toInt()
