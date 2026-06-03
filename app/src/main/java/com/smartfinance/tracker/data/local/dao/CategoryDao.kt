@@ -9,6 +9,10 @@ interface CategoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(category: CategoryEntity): Long
 
+    // SINKRONISASI AKTIF: Digunakan oleh Room Database Callback saat pertama kali database dibuat
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertDefaultCategories(categories: List<CategoryEntity>)
+
     @Update
     suspend fun updateCategory(category: CategoryEntity)
 
@@ -21,4 +25,3 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE type = :type")
     suspend fun getCategoriesByType(type: String): List<CategoryEntity>
 }
-
