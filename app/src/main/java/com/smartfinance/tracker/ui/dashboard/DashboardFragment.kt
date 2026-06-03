@@ -29,7 +29,7 @@ class DashboardFragment : Fragment() {
     private lateinit var btnFilterTime: Button
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
-    private var selectedFilter = "BULAN INI" // Default filter pasaran tracker premium
+    private var selectedFilter = "BULAN INI"
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -66,19 +66,19 @@ class DashboardFragment : Fragment() {
             setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
             background.setTint(Color.parseColor("#1A202C"))
         }
-        cardMain.addView(TextView(context).apply { text = "SALDO BERSIH"; textColor = Color.parseColor("#A0AEC0"); textSize = 11f })
-        tvBalance = TextView(context).apply { text = "Rp 0"; textColor = Color.WHITE; textSize = 22f; setTypeface(null, Typeface.BOLD) }
+        cardMain.addView(TextView(context).apply { text = "SALDO BERSIH"; setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
+        tvBalance = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 22f; setTypeface(null, Typeface.BOLD) }
         cardMain.addView(tvBalance)
         
         val rowFlow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 20, 0, 0) }
         val colIn = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        colIn.addView(TextView(context).apply { text = "PEMASUKAN"; textColor = Color.parseColor("#48BB78"); textSize = 10f })
-        tvIncome = TextView(context).apply { text = "Rp 0"; textColor = Color.WHITE; textSize = 14f; setTypeface(null, Typeface.BOLD) }
+        colIn.addView(TextView(context).apply { text = "PEMASUKAN"; setTextColor(Color.parseColor("#48BB78")); textSize = 10f })
+        tvIncome = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 14f; setTypeface(null, Typeface.BOLD) }
         colIn.addView(tvIncome)
         
         val colOut = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        colOut.addView(TextView(context).apply { text = "PENGELUARAN"; textColor = Color.parseColor("#F56565"); textSize = 10f })
-        tvExpense = TextView(context).apply { text = "Rp 0"; textColor = Color.WHITE; textSize = 14f; setTypeface(null, Typeface.BOLD) }
+        colOut.addView(TextView(context).apply { text = "PENGELUARAN"; setTextColor(Color.parseColor("#F56565")); textSize = 10f })
+        tvExpense = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 14f; setTypeface(null, Typeface.BOLD) }
         colOut.addView(tvExpense)
         
         rowFlow.addView(colIn)
@@ -144,8 +144,8 @@ class DashboardFragment : Fragment() {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8 }
                 }
                 val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                left.addView(TextView(context).apply { text = item.note; setTypeface(null, Typeface.BOLD); textColor = Color.BLACK })
-                left.addView(TextView(context).apply { text = "${item.categoryName} • ${sdf.format(Date(item.timestamp))}"; textSize = 11f; textColor = Color.GRAY })
+                left.addView(TextView(context).apply { text = item.note; setTypeface(null, Typeface.BOLD); setTextColor(Color.BLACK) })
+                left.addView(TextView(context).apply { text = "${item.categoryName} • ${sdf.format(Date(item.timestamp))}"; textSize = 11f; setTextColor(Color.GRAY) })
                 
                 val right = TextView(context).apply {
                     text = "${if (item.type == "INCOME") "+" else "-"} ${formatRupiah.format(item.amount)}"
@@ -161,19 +161,22 @@ class DashboardFragment : Fragment() {
 
     private fun filterTransactionsByTime(list: List<TransactionEntity>): List<TransactionEntity> {
         val cal = Calendar.getInstance()
-        val now = cal.timeInMillis
         
         return list.filter { tx ->
             val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
             when (selectedFilter) {
                 "HARI INI" -> {
-                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
-                    tx.timestamp >= cal.timeInMillis
+                    val todayCal = Calendar.getInstance().apply {
+                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    }
+                    tx.timestamp >= todayCal.timeInMillis
                 }
                 "MINGGU INI" -> {
-                    cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
-                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
-                    tx.timestamp >= cal.timeInMillis
+                    val weekCal = Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    }
+                    tx.timestamp >= weekCal.timeInMillis
                 }
                 "BULAN INI" -> {
                     txCal.get(Calendar.MONTH) == cal.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == cal.get(Calendar.YEAR)
