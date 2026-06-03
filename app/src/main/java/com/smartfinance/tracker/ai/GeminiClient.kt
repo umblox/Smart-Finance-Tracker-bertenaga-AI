@@ -18,7 +18,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         val apiKey = BuildConfig.GROQ_API_KEY
 
         if (apiKey.isEmpty()) {
-            return@withContext "{\"ai_response\":\"⚠️ API Key Groq aman tidak ditemukan dalam sistem build.\"}"
+            return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build."
         }
 
         val db = AppDatabase.getDatabase(context)
@@ -42,36 +42,24 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             KATEGORI DI DATABASE:
             $catContext
             
-            DAFTAR PINJAMAN AKTIF DI DATABASE (Gunakan ID ini untuk DEBT_PAYMENT):
+            DAFTAR PINJAMAN AKTIF DI DATABASE:
             $debtContext
 
-            MATRIKS LOGIKA SUBJEK PENTING (BACA DENGAN TELITI SEBELUM MENJAWAB):
-
+            MATRIKS LOGIKA SUBJEK PENTING:
             1. KATEGORI: DEBT_RECORD (Pencatatan Hutang/Piutang Baru)
-               A. Tipe: "DEBT" (Hutang Saya / Uang Masuk ke Saya / Kewajiban Membayar)
-                  Terjadi JIKA:
-                  - Saya meminjam/berhutang KEPADA [Nama]. (Subjek: Saya, Objek: Orang Lain)
-                  - [Nama] meminjamkan uangnya KEPADA SAYA. (Subjek: Orang Lain, Objek: Saya)
-                  - Contoh: "saya ngutang ke arneta 500rb", "adit minjemin saya duit 40rb".
-               B. Tipe: "RECEIVABLE" (Piutang Saya / Uang Keluar dari Saya / Hak Menagih)
-                  Terjadi JIKA:
-                  - Saya meminjamkan uang KEPADA [Nama]. (Subjek: Saya, Objek: Orang Lain)
-                  - [Nama] meminjam/berhutang KEPADA SAYA. (Subjek: Orang Lain, Objek: Saya)
-                  - Contoh: "arneta meminjam uang saya 500000", "saya pinjemin adit duit 40000".
+               A. Tipe: "DEBT" (Hutang Saya / Kewajiban Membayar) -> Terjadi jika: Saya meminjam/berhutang KEPADA [Nama], atau [Nama] meminjamkan uangnya KEPADA SAYA.
+               B. Tipe: "RECEIVABLE" (Piutang Saya / Hak Menagih) -> Terjadi jika: Saya meminjamkan uang KEPADA [Nama], atau [Nama] meminjam/berhutang KEPADA SAYA.
 
             2. KATEGORI: DEBT_PAYMENT (Pembayaran Cicilan / Pelunasan)
-               Cari nama kontak di daftar aktif di atas. Tentukan siapa yang menyerahkan uang:
-               A. JIKA: User/Saya yang membayar ke orang lain (Ex: "saya nyicil utang ke adit 20rb")
-                  -> Cari kontak bernama ADIT yang bertipe "DEBT". Ambil ID-nya, set ke 'debt_id'.
-               B. JIKA: Orang lain yang membayar ke saya (Ex: "arneta bayar cicilan utangnya ke saya 50rb")
-                  -> Cari kontak bernama ARNETA yang bertipe "RECEIVABLE". Ambil ID-nya, set ke 'debt_id'.
+               A. User/Saya membayar ke orang lain -> Cari kontak bertipe "DEBT", ambil ID-nya, set ke 'debt_id'.
+               B. Orang lain membayar ke saya -> Cari kontak bertipe "RECEIVABLE", ambil ID-nya, set ke 'debt_id'.
 
             FORMAT RESPONS HARUS BERBENTUK JSON MURNI TANPA MARKDOWN (```json).
             PILIHAN STRUKTUR JSON:
             - Catat Hutang Baru: {"action_type":"DEBT_RECORD", "amount":100000, "contact_name":"BUDI", "debt_type":"DEBT", "ai_response":"Hutang baru dicatat. Anda berhutang Rp 100.000 kepada Budi."}
             - Catat Piutang Baru: {"action_type":"DEBT_RECORD", "amount":50000, "contact_name":"DANI", "debt_type":"RECEIVABLE", "ai_response":"Piutang dicatat. Dani berhutang Rp 50.000 kepada Anda."}
             - Cicilan: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":20000, "ai_response":"Pembayaran cicilan berhasil diperbarui ke database."}
-            - Transaksi Biasa: {"action_type":"TRANSACTION", "amount":15000, "type":"EXPENSE", "category_id":15, "category_name":"Lain-lain / Umum", "clean_note":"BELI KOPI", "ai_response":"Pengeluaran dicatat."}
+            - Transaksi Biasa: {"action_type":"TRANSACTION", "amount":15000, "type":"EXPENSE", "category_id":15, "category_name":"Lain-lain / Umum", "clean_note":"BELI BARANG", "ai_response":"Pengeluaran dicatat."}
         """.trimIndent()
 
         try {
@@ -91,7 +79,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.0) // Suhu 0 murni agar berpikir kaku secara matematis, anti-ngawur
+                put("temperature", 0.0)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
@@ -102,12 +90,15 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
+                // Teruskan data ke asisten lokal untuk dieksekusi
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
-                return@withContext "{\"ai_response\":\"⚠️ Koneksi Groq terputus (HTTP ${conn.responseCode})\"}"
+                val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
+                val errorString = errorReader.readText()
+                return@withContext "⚠️ Eror Server Groq (HTTP ${conn.responseCode}): $errorString"
             }
         } catch (e: Exception) {
-            return@withContext "{\"ai_response\":\"⚠️ Cloud Groq penuh. Silakan ulangi pesan Anda.\"}"
+            return@withContext "⚠️ Gangguan Jaringan Lokal: ${e.localizedMessage ?: "Koneksi Timeout"}"
         }
     }
 }
