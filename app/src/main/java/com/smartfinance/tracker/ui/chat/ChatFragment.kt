@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -25,6 +27,9 @@ class ChatFragment : Fragment() {
     private lateinit var geminiClient: GeminiClient
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
+
+    // Penampung tombol kustom baru agar bisa di-disable/enable saat AI berpikir
+    private var customSendButton: com.google.android.material.card.MaterialCardView? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -44,16 +49,36 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.adapter = chatAdapter
 
         // =======================================================
-        // DEKORASI PREMIUM: MERANGKAI TOMBOL SEND MENJADI TIMBUL
+        // ROMBAK TOTAL: TIMBULKAN & BULATKAN TOMBOL SEND (LOGOSEND)
         // =======================================================
-        binding.btnSend.apply {
-            // Memberikan elevasi bayangan nyata (Timbul di atas background)
-            elevation = 12f 
-            // Memberikan kelengkungan lingkaran penuh agar estetik selevel top-tier tracker app
-            stateListAnimator = null 
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
-            setTextColor(Color.WHITE)
+        // 1. Sembunyikan tombol kotak bawaan XML lama
+        binding.btnSend.visibility = View.GONE
+
+        // 2. Buat MaterialCardView bulat premium penampung icon
+        val density = requireContext().resources.displayMetrics.density
+        val sizePx = (48 * density).toInt() // Ukuran ideal 48dp bulat
+
+        customSendButton = com.google.android.material.card.MaterialCardView(requireContext()).apply {
+            radius = sizePx / 2f // Garansi bulat lingkaran murni
+            cardElevation = 14f  // Efek bayangan tegas memisahkan diri dari bg
+            setCardBackgroundColor(Color.parseColor("#008080")) // Warna kebanggaan Teal
+            layoutParams = LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                leftMargin = (8 * density).toInt()
+            }
         }
+
+        // 3. Masukkan gambar vector pesawat kertas bawaan framework Android core
+        val ivSendIcon = ImageView(requireContext()).apply {
+            setImageResource(android.R.drawable.ic_menu_send)
+            setColorFilter(Color.WHITE)
+            setPadding((12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt())
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        customSendButton?.addView(ivSendIcon)
+
+        // 4. Masukkan paksa ke kontainer input (di sebelah kolom teks etMessage)
+        val inputContainer = binding.etMessage.parent as? LinearLayout
+        inputContainer?.addView(customSendButton)
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val savedChat = prefs.getString("chat_history_backup_v4", "")
@@ -65,7 +90,8 @@ class ChatFragment : Fragment() {
             chatAdapter.notifyDataSetChanged()
         }
 
-        binding.btnSend.setOnClickListener {
+        // 5. Pautkan logika kirim ke tombol premium yang baru
+        customSendButton?.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
                 sendChatToAI(message)
@@ -96,14 +122,16 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
         
         binding.etMessage.setText("")
-        binding.btnSend.isEnabled = false 
+        
+        // Disable tombol kustom & redupkan keanggunannya saat AI bekerja
+        customSendButton?.isEnabled = false 
+        customSendButton?.alpha = 0.5f
 
         messageList.add(ChatMessage("AI sedang berpikir...", false))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
         lifecycleScope.launch {
-            // Mengambil narasi cerita bersih manusia hasil direct-parsing bodi JSON Mode Groq hulu
             val cleanNarrationResponse = geminiClient.sendMessageToAI(message)
             
             if (messageList.isNotEmpty()) {
@@ -113,9 +141,11 @@ class ChatFragment : Fragment() {
             messageList.add(ChatMessage(cleanNarrationResponse.trim(), false))
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
-            binding.btnSend.isEnabled = true
             
-            // Simpan data cerita bersih tanpa campuran kode biner atau eror parser luar
+            // Kembalikan status tombol kustom setelah data turun dari server
+            customSendButton?.isEnabled = true
+            customSendButton?.alpha = 1.0f
+            
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
