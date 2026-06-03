@@ -6,11 +6,13 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_income"
-        android:roundIcon="@drawable/ic_income"
+        android:icon="@drawable/app_logo"
+        android:roundIcon="@drawable/app_logo"
         android:label="Smart Finance Tracker"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"> <activity
+        android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
+        
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
