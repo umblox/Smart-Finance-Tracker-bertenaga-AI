@@ -28,7 +28,6 @@ class ReportFragment : Fragment() {
     private lateinit var db: AppDatabase
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
 
-    // PALET WARNA GRAFIK LINGKARAN PREMIUM APP
     private val chartColors = intArrayOf(
         Color.parseColor("#319795"), // Teal
         Color.parseColor("#3182CE"), // Biru
@@ -114,7 +113,13 @@ class ReportFragment : Fragment() {
                 return@launch
             }
 
-            // INJEKSI ENGINE DONUT CHART KUSTOM NATIVE VIA CANVAS KOTLIN
+            // PERBAIKAN GRAFIK: Dibungkus ke dalam layout penengah yang valid
+            val chartWrapper = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+
             val values = ArrayList<Float>()
             val labels = ArrayList<String>()
             categoryMap.forEach { (name, amt) ->
@@ -123,13 +128,14 @@ class ReportFragment : Fragment() {
             }
 
             val donutChartView = CustomDonutChartView(context, values.toFloatArray(), chartColors)
-            val chartCard = createCardContainer().apply { gravity = Gravity.CENTER }
-            chartCard.addView(donutChartView)
+            chartWrapper.addView(donutChartView)
+            
+            val chartCard = createCardContainer()
+            chartCard.addView(chartWrapper)
             container.addView(chartCard)
 
             container.addView(createTextView("\nLegenda Pembagian Kategori:", 13f, "#718096", true))
 
-            // RENDERING PANEL LEGENDA TAMPILAN PRESTISE
             var colorIdx = 0
             categoryMap.forEach { (catName, amount) ->
                 val color = chartColors[colorIdx % chartColors.size]
@@ -138,7 +144,6 @@ class ReportFragment : Fragment() {
                 val itemCard = createCardContainer()
                 val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                 
-                // Kotak Warna Penanda
                 val colorIndicator = View(context).apply {
                     setBackgroundColor(color)
                     layoutParams = LinearLayout.LayoutParams(28, 28).apply { rightMargin = 20 }
@@ -197,13 +202,13 @@ class ReportFragment : Fragment() {
         }
     }
 
-    // INTERNAL INNER CLASS ENGINE UNTUK MENGGAMBAR DONUT GRAPH DENGAN CANVAS NATIVE
+    // PERBAIKAN INNER CLASS: Menggunakan parameter kontras huruf kecil "context"
     private class CustomDonutChartView(context: Context, private val dataValues: FloatArray, private val colors: IntArray) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 50f }
         private val rectF = RectF()
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            setMeasuredDimension(400, 400) // Kunci Rasio Kotak Sempurna Untuk Lingkaran Grafik
+            setMeasuredDimension(400, 400)
         }
 
         override fun onDraw(canvas: Canvas) {
