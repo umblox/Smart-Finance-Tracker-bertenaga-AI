@@ -19,17 +19,20 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Setup Gradle versi 8.5 secara otomatis di server agar sinkron dengan kode kita
     - name: Setup Gradle 8.5
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: 8.5
 
+    # PROSES AMAN: Alirkan Token Vault dari GitHub Secret ke dalam Environment Kompiler Gradle 8.5
     - name: Build with Gradle 8.5
       run: gradle assembleDebug
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
+        
