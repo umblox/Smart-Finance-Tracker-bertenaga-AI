@@ -2,192 +2,187 @@ package com.smartfinance.tracker.ui.dashboard
 
 import android.app.AlertDialog
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.github.mikephil.charting.data.BarData
-import com.github.mikephil.charting.data.BarDataSet
-import com.github.mikephil.charting.data.BarEntry
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.*
 
 class DashboardFragment : Fragment() {
 
-    private var _binding: FragmentDashboardBinding? = null
-    private val binding get() = _binding!!
+    private lateinit var db: AppDatabase
+    private lateinit var listContainer: LinearLayout
+    private lateinit var tvIncome: TextView
+    private lateinit var tvExpense: TextView
+    private lateinit var tvBalance: TextView
+    private lateinit var btnFilterTime: Button
+
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
+    private var selectedFilter = "BULAN INI" // Default filter pasaran tracker premium
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentDashboardBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        setupManualInputForm()
-        loadRealDashboardData()
-    }
-
-    private fun setupManualInputForm() {
         val context = requireContext()
-        val db = AppDatabase.getDatabase(context)
-        val viewGroup = binding.root as? ViewGroup
+        db = AppDatabase.getDatabase(context)
+
+        val root = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#F7FAFC"))
+            setPadding(44, 44, 44, 44)
+        }
+
+        // HEADER & BUTTON SORTIR
+        val headerRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val tvTitle = TextView(context).apply { text = "📊 RINGKASAN KAS"; textSize = 18f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         
-        viewGroup?.let { parent ->
-            if (parent.findViewWithTag<View>("manual_tx_form") == null) {
-                val formContainer = LinearLayout(context).apply {
-                    tag = "manual_tx_form"
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(16, 16, 16, 16)
-                }
+        btnFilterTime = Button(context).apply {
+            text = "📅 $selectedFilter"
+            textSize = 12f
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
+            setTextColor(Color.WHITE)
+            setOnClickListener { showFilterDialog() }
+        }
+        headerRow.addView(tvTitle)
+        headerRow.addView(btnFilterTime)
+        root.addView(headerRow)
+        root.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(1, 30) })
 
-                val tvTitle = TextView(context).apply {
-                    text = "➕ INPUT TRANSAKSI MANUAL"
-                    textSize = 15f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setTextColor(Color.parseColor("#2D3748"))
-                }
-                formContainer.addView(tvTitle)
+        // KARTU KAS UTAMA
+        val cardMain = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(36, 36, 36, 36)
+            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
+            background.setTint(Color.parseColor("#1A202C"))
+        }
+        cardMain.addView(TextView(context).apply { text = "SALDO BERSIH"; textColor = Color.parseColor("#A0AEC0"); textSize = 11f })
+        tvBalance = TextView(context).apply { text = "Rp 0"; textColor = Color.WHITE; textSize = 22f; setTypeface(null, Typeface.BOLD) }
+        cardMain.addView(tvBalance)
+        
+        val rowFlow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 20, 0, 0) }
+        val colIn = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+        colIn.addView(TextView(context).apply { text = "PEMASUKAN"; textColor = Color.parseColor("#48BB78"); textSize = 10f })
+        tvIncome = TextView(context).apply { text = "Rp 0"; textColor = Color.WHITE; textSize = 14f; setTypeface(null, Typeface.BOLD) }
+        colIn.addView(tvIncome)
+        
+        val colOut = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+        colOut.addView(TextView(context).apply { text = "PENGELUARAN"; textColor = Color.parseColor("#F56565"); textSize = 10f })
+        tvExpense = TextView(context).apply { text = "Rp 0"; textColor = Color.WHITE; textSize = 14f; setTypeface(null, Typeface.BOLD) }
+        colOut.addView(tvExpense)
+        
+        rowFlow.addView(colIn)
+        rowFlow.addView(colOut)
+        cardMain.addView(rowFlow)
+        root.addView(cardMain)
 
-                val etAmount = EditText(context).apply { hint = "Nominal Uang (Rp)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
-                formContainer.addView(etAmount)
+        root.addView(TextView(context).apply { text = "\nRIWAYAT TRANSAKSI TERFILTER:"; textSize = 12f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#718096")) })
 
-                val etNote = EditText(context).apply { hint = "Keterangan (ex: Beli Bakso)" }
-                formContainer.addView(etNote)
+        // SCROLL CONTAINER DATA
+        val sv = ScrollView(context).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
+        listContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        sv.addView(listContainer)
+        root.addView(sv)
 
-                val spinnerCategory = Spinner(context)
-                formContainer.addView(spinnerCategory)
+        calculateAndRenderData()
+        return root
+    }
 
-                // AMBIL KATEGORI NYATA DARI SQLITE UNTUK DROPDOWN SPINNER
-                lifecycleScope.launch {
-                    val categories = db.categoryDao().getAllCategories().first()
-                    val catNames = categories.map { "${it.id} - ${it.name} (${it.type})" }
-                    
-                    val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, catNames.ifEmpty { listOf("1 - Makanan/Umum (EXPENSE)", "2 - Gaji (INCOME)") })
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                    spinnerCategory.adapter = adapter
-                }
-
-                val btnSave = Button(context).apply {
-                    text = "SIMPAN TRANSAKSI"
-                    backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
-                    setOnClickListener {
-                        val amount = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-                        val note = etNote.text.toString().trim()
-                        val selectedCat = spinnerCategory.selectedItem?.toString() ?: ""
-
-                        if (amount > 0.0 && selectedCat.isNotEmpty()) {
-                            lifecycleScope.launch {
-                                val parts = selectedCat.split("-")
-                                val catId = parts[0].trim().toLongOrNull() ?: 1L
-                                val isIncome = selectedCat.contains("INCOME")
-                                val catName = if (parts.size > 1) parts[1].split("(")[0].trim() else "Umum"
-
-                                val newTx = TransactionEntity(
-                                    amount = amount,
-                                    type = if (isIncome) "INCOME" else "EXPENSE",
-                                    categoryId = catId,
-                                    categoryName = catName,
-                                    note = if (note.isEmpty()) "INPUT MANUAL" else note.uppercase(),
-                                    timestamp = System.currentTimeMillis()
-                                )
-                                db.transactionDao().insertTransaction(newTx)
-                                Toast.makeText(context, "Transaksi Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
-                                
-                                etAmount.setText("")
-                                etNote.setText("")
-                                loadRealDashboardData()
-                            }
-                        }
-                    }
-                }
-                formContainer.addView(btnSave)
-                
-                val targetLinearLayout = parent.getChildAt(0) as? LinearLayout
-                targetLinearLayout?.addView(formContainer, 2)
+    private fun showFilterDialog() {
+        val options = arrayOf("HARI INI", "MINGGU INI", "BULAN INI", "TAHUN INI", "SEMUA")
+        AlertDialog.Builder(requireContext()).apply {
+            setTitle("Sortir Rentang Waktu")
+            setItems(options) { _, which ->
+                selectedFilter = options[which]
+                btnFilterTime.text = "📅 $selectedFilter"
+                calculateAndRenderData()
             }
+            show()
         }
     }
 
-    private fun loadRealDashboardData() {
-        val db = AppDatabase.getDatabase(requireContext())
-        
+    private fun calculateAndRenderData() {
+        listContainer.removeAllViews()
+        val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+
         lifecycleScope.launch {
-            val allTransactions = db.transactionDao().getAllTransactions().first()
-            
-            var totalIncome = 0.0
-            var totalExpense = 0.0
-            var harian = 0.0
-            var mingguan = 0.0
-            var bulanan = 0.0
+            val allTx = db.transactionDao().getAllTransactions().first()
+            val filteredTx = filterTransactionsByTime(allTx)
 
-            val now = System.currentTimeMillis()
-            val calTx = Calendar.getInstance()
-            val calNow = Calendar.getInstance().apply { timeInMillis = now }
+            var totalIn = 0.0
+            var totalOut = 0.0
 
-            for (tx in allTransactions) {
-                if (tx.type == "INCOME") totalIncome += tx.amount else totalExpense += tx.amount
-
-                calTx.timeInMillis = tx.timestamp
-                val diffDays = (now - tx.timestamp) / (1000 * 60 * 60 * 24)
-
-                if (diffDays <= 0) harian += if (tx.type == "EXPENSE") tx.amount else 0.0
-                if (diffDays <= 7) mingguan += if (tx.type == "EXPENSE") tx.amount else 0.0
-                if (calTx.get(Calendar.MONTH) == calNow.get(Calendar.MONTH)) {
-                    bulanan += if (tx.type == "EXPENSE") tx.amount else 0.0
-                }
+            filteredTx.forEach { 
+                if (it.type == "INCOME") totalIn += it.amount else totalOut += it.amount 
             }
 
-            val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
-            binding.tvTotalBalance.text = formatRupiah.format(totalIncome - totalExpense)
-            binding.tvIncomeSummary.text = formatRupiah.format(totalIncome)
-            binding.tvExpenseSummary.text = formatRupiah.format(totalExpense)
+            tvIncome.text = formatRupiah.format(totalIn)
+            tvExpense.text = formatRupiah.format(totalOut)
+            tvBalance.text = formatRupiah.format(totalIn - totalOut)
 
-            val reportBuilder = StringBuilder()
-            reportBuilder.append("📋 PENGELUARAN BERKALA\n")
-            reportBuilder.append("▪️ Hari Ini: ${formatRupiah.format(harian)}\n")
-            reportBuilder.append("▪️ 7 Hari Terakhir: ${formatRupiah.format(mingguan)}\n")
-            reportBuilder.append("▪️ Bulan Ini: ${formatRupiah.format(bulanan)}\n\n")
-            
-            reportBuilder.append("🕒 HISTORY TRANSAKSI TERBARU (KLIK UNTUK DETAIL)\n")
-            if (allTransactions.isEmpty()) {
-                reportBuilder.append("Belum ada transaksi.")
-            } else {
-                allTransactions.take(5).forEach { tx ->
-                    val sign = if (tx.type == "INCOME") "🟢 +" else "🔴 -"
-                    reportBuilder.append("$sign ${tx.categoryName}: ${formatRupiah.format(tx.amount)} (${tx.note})\n")
-                }
+            if (filteredTx.isEmpty()) {
+                listContainer.addView(TextView(context).apply { text = "\nBelum ada transaksi di periode ini."; gravity = Gravity.CENTER; setTextColor(Color.GRAY) })
+                return@launch
             }
 
-            binding.tvDashboardReport.text = reportBuilder.toString()
-            setupReportChart(totalIncome.toFloat(), totalExpense.toFloat())
+            filteredTx.forEach { item ->
+                val row = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(20, 20, 20, 20)
+                    setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
+                    background.setTint(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8 }
+                }
+                val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+                left.addView(TextView(context).apply { text = item.note; setTypeface(null, Typeface.BOLD); textColor = Color.BLACK })
+                left.addView(TextView(context).apply { text = "${item.categoryName} • ${sdf.format(Date(item.timestamp))}"; textSize = 11f; textColor = Color.GRAY })
+                
+                val right = TextView(context).apply {
+                    text = "${if (item.type == "INCOME") "+" else "-"} ${formatRupiah.format(item.amount)}"
+                    setTextColor(if (item.type == "INCOME") Color.parseColor("#2F855A") else Color.parseColor("#C53030"))
+                    setTypeface(null, Typeface.BOLD)
+                }
+                row.addView(left)
+                row.addView(right)
+                listContainer.addView(row)
+            }
         }
     }
 
-    private fun setupReportChart(income: Float, expense: Float) {
-        val entries = ArrayList<BarEntry>()
-        entries.add(BarEntry(1f, if(income == 0f) 1f else income))
-        entries.add(BarEntry(2f, if(expense == 0f) 1f else expense))
-
-        val dataSet = BarDataSet(entries, "Pemasukan vs Pengeluaran")
-        dataSet.colors = arrayListOf(Color.parseColor("#2F855A"), Color.parseColor("#C53030"))
-        binding.reportBarChart.data = BarData(dataSet)
-        binding.reportBarChart.description.isEnabled = false
-        binding.reportBarChart.invalidate()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    private fun filterTransactionsByTime(list: List<TransactionEntity>): List<TransactionEntity> {
+        val cal = Calendar.getInstance()
+        val now = cal.timeInMillis
+        
+        return list.filter { tx ->
+            val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+            when (selectedFilter) {
+                "HARI INI" -> {
+                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
+                    tx.timestamp >= cal.timeInMillis
+                }
+                "MINGGU INI" -> {
+                    cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
+                    tx.timestamp >= cal.timeInMillis
+                }
+                "BULAN INI" -> {
+                    txCal.get(Calendar.MONTH) == cal.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == cal.get(Calendar.YEAR)
+                }
+                "TAHUN INI" -> {
+                    txCal.get(Calendar.YEAR) == cal.get(Calendar.YEAR)
+                }
+                else -> true
+            }
+        }
     }
 }
