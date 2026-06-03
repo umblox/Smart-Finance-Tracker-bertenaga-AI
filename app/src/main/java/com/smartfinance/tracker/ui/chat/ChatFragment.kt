@@ -11,7 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.smartfinance.tracker.ai.FinancialAssistant
-import com.smartfinance.tracker.ai.GeminiClient
+import com.smartfinance.tracker.ai.GroqClient // Menggunakan GroqClient yang baru
 import com.smartfinance.tracker.data.model.ChatMessage
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ class ChatFragment : Fragment() {
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
     
-    private lateinit var geminiClient: GeminiClient
+    private lateinit var groqClient: GroqClient // Menggunakan GroqClient
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
 
@@ -36,41 +36,25 @@ class ChatFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val assistant = FinancialAssistant(requireContext())
-        geminiClient = GeminiClient(requireContext(), assistant)
+        groqClient = GroqClient(requireContext(), assistant) // Menggunakan GroqClient
 
         chatAdapter = ChatAdapter(messageList)
         binding.rvChatHistory.layoutManager = LinearLayoutManager(requireContext())
         binding.rvChatHistory.adapter = chatAdapter
 
-        // =======================================================
-        // REKAYASA PREMIUM: MANFAATKAN BUTTON XML ASLI MENJADI BULAT & TIMBUL
-        // =======================================================
         binding.btnSend.apply {
-            // 1. Pastikan komponen aktif dan terlihat di layar
             visibility = View.VISIBLE 
-            
-            // 2. Bersihkan teks dan atribut bawaan template XML agar bersih
             text = "" 
             icon = null 
-            
-            // 3. Suntikkan icon pesawat kertas resmi Android Core tepat di tengah-tengah tombol
             setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_send, 0, 0, 0)
             
-            // 4. Hitung kompensasi padding biner agar posisi pesawat seimbang sempurna di tengah lingkaran
             val density = requireContext().resources.displayMetrics.density
             val dynamicPaddingLeft = (14 * density).toInt() 
             setPadding(dynamicPaddingLeft, 0, 0, 0)
             
-            // 5. Matikan animator default Android agar nilai elevasi tidak dikunci oleh sistem tema
             stateListAnimator = null 
-            
-            // 6. Naikkan nilai bayangan (Elevation) setinggi 14dp agar tombol terlihat sangat timbul dan premium
             elevation = 14 * density 
-            
-            // 7. Paksa bentuknya berubah wujud menjadi bundar murni (Corner Radius diset setengah dari ukuran tinggi tombol 54dp)
             cornerRadius = (27 * density).toInt() 
-            
-            // 8. Berikan warna dasar Hijau Teal kebanggaan aplikasi kita
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
         }
 
@@ -84,7 +68,6 @@ class ChatFragment : Fragment() {
             chatAdapter.notifyDataSetChanged()
         }
 
-        // Pautkan aksi klik langsung ke komponen tombol asli XML yang sudah dimodifikasi
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
@@ -117,7 +100,6 @@ class ChatFragment : Fragment() {
         
         binding.etMessage.setText("")
         
-        // Redupkan dan kunci tombol saat AI sedang memproses data di server
         binding.btnSend.isEnabled = false 
         binding.btnSend.alpha = 0.5f
 
@@ -126,7 +108,7 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
         lifecycleScope.launch {
-            val cleanNarrationResponse = geminiClient.sendMessageToAI(message)
+            val cleanNarrationResponse = groqClient.sendMessageToAI(message) // Panggil sendMessageToAI dari GroqClient
             
             if (messageList.isNotEmpty()) {
                 messageList.removeAt(messageList.size - 1)
@@ -136,7 +118,6 @@ class ChatFragment : Fragment() {
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             
-            // Kembalikan keanggunan tombol setelah respons kas turun
             binding.btnSend.isEnabled = true
             binding.btnSend.alpha = 1.0f
             
