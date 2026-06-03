@@ -34,25 +34,22 @@ class GeminiClient(private val context: Context, private val assistant: Financia
 
         // WAJIB MENYERTAKAN KATA "JSON" DI DALAM PROMPT AGAR GROQ BERFUNGSI NORMAL
         val rawSystemPrompt = """
-            Anda adalah core engine kecerdasan buatan akuntansi premium. Anda WAJIB merespons HANYA dalam format JSON objek murni yang valid. DILARANG KERAS membalas dengan teks biasa atau markdown.
+            Anda adalah core engine AI finansial akuntansi. Anda WAJIB merespons HANYA dengan objek JSON murni.
 
-            KATEGORI PENGIKAT DI DATABASE:
-            CONTEXT_CATEGORIES
-
-            DAFTAR PINJAMAN AKTIF DI DATABASE:
-            CONTEXT_DEBTS
-
-            ⚠️ ATURAN EVALUASI LOGIKA SUBJEK:
-            - Kalimat: 'Saya meminjam uang KEPADA Dani' / 'Saya ngutang KEPADA Dani' -> action_type adalah 'DEBT_RECORD', debt_type adalah 'DEBT' (Hutang Anda bertambah). ID Kategori wajib 12.
-            - Kalimat: 'Dani meminjam uang KEPADA SAYA' / 'Saya meminjamkan uang KE Dani' -> action_type adalah 'DEBT_RECORD', debt_type adalah 'RECEIVABLE' (Piutang Anda bertambah). ID Kategori wajib 13.
-            - Kalimat: 'Dani membayar cicilan hutang ke saya' -> action_type adalah 'DEBT_PAYMENT'. Cari objek Dani di daftar aktif untuk mendapatkan 'debt_id'.
-
-            OUTPUT YANG DIWAJIBKAN:
-            Anda harus menyusun objek JSON dengan struktur kunci: 'action_type', 'amount', 'contact_name', 'debt_type', 'debt_id', 'pay_amount', 'category_id', 'category_name', 'clean_note', dan 'ai_response'.
-            Variasikan kalimat pada kunci 'ai_response' agar sangat detail, ramah, profesional, menyebutkan nominal riil, nama kontak, dan hindari balasan kaku yang monoton.
-
-            CONTOH RESPONS JSON RESMI:
-            {'action_type':'TRANSACTION', 'amount':15000, 'type':'EXPENSE', 'category_id':2, 'category_name':'Makanan & Minuman', 'clean_note':'BELI NASI GORENG', 'ai_response':'Nasi gorengnya kelihatan lezat! Pengeluaran makan malam sebesar Rp 15.000 sudah berhasil diamankan ke sistem.'}
+            ⚠️ ATURAN LOGIKA ARAH UANG (SUBJEK vs OBJEK):
+            - "SAYA meminjam KE [Nama]" -> Hutang (DEBT).
+            - "[Nama] meminjam KE SAYA" -> Piutang (RECEIVABLE).
+            - "[Nama] membayar cicilan KE SAYA" -> Cicilan Piutang (DEBT_PAYMENT).
+            - "SAYA membayar cicilan KE [Nama]" -> Cicilan Hutang (DEBT_PAYMENT).
+            - KATA KUNCI:
+                - "KEPADA", "KE": Menunjukkan penerima uang.
+                - "DARI", "OLEH": Menunjukkan sumber uang.
+            
+            JIKA user bilang "Gajian", maka itu adalah INCOME, Category ID 1.
+            JIKA user bilang "Beli", maka itu adalah EXPENSE, Category ID sesuai yang relevan.
+            
+            JSON FORMAT WAJIB:
+            {'action_type':'...', 'amount':..., 'contact_name':'...', 'debt_type':'...', 'category_id':..., 'type':'...', 'clean_note':'...', 'ai_response':'...'}
         """.trimIndent()
 
         val finalSystemPrompt = rawSystemPrompt
