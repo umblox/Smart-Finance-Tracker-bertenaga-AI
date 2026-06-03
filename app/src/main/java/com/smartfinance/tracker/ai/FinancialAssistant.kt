@@ -20,7 +20,10 @@ class FinancialAssistant(private val context: Context) {
 
             when (actionType) {
                 "TRANSACTION" -> {
-                    val amount = json.optDouble("amount", 0.0)
+                    // KONVERSI AMAN: Paksa string angka menjadi Double primitif
+                    val amountStr = json.optString("amount", "0")
+                    val amount = amountStr.toDoubleOrNull() ?: json.optDouble("amount", 0.0)
+                    
                     val catId = json.optLong("category_id", 15L)
                     val catName = json.optString("category_name", "Lain-lain / Umum")
                     val cleanNote = json.optString("clean_note", "Transaksi AI").uppercase(Locale.ROOT)
@@ -35,19 +38,19 @@ class FinancialAssistant(private val context: Context) {
                 }
                 
                 "DEBT_RECORD" -> {
-                    val amount = json.optDouble("amount", 0.0)
+                    val amountStr = json.optString("amount", "0")
+                    val amount = amountStr.toDoubleOrNull() ?: json.optDouble("amount", 0.0)
+                    
                     val name = json.optString("contact_name", "TEMAN").uppercase(Locale.ROOT)
                     val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
 
                     if (amount > 0.0) {
-                        // 1. Catat transaksi hutang piutang master
                         db.debtDao().insertDebt(DebtEntity(
                             contactName = name, contactPhoneNumber = "0812", amount = amount,
                             remainingAmount = amount, type = debtType, note = "Otomatis via Chat AI",
                             timestamp = System.currentTimeMillis(), isPaid = false
                         ))
 
-                        // 2. SINKRONISASI SALDO UTAMA SECARA NYATA
                         val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
                         val catId = if (debtType == "DEBT") 12L else 13L
                         val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
@@ -62,7 +65,8 @@ class FinancialAssistant(private val context: Context) {
                 
                 "DEBT_PAYMENT" -> {
                     val targetId = json.optLong("debt_id", -1L)
-                    val payAmount = json.optDouble("pay_amount", 0.0)
+                    val payAmountStr = json.optString("pay_amount", "0")
+                    val payAmount = payAmountStr.toDoubleOrNull() ?: json.optDouble("pay_amount", 0.0)
 
                     if (targetId != -1L && payAmount > 0.0) {
                         val debts = db.debtDao().getAllDebts().first()
@@ -88,7 +92,6 @@ class FinancialAssistant(private val context: Context) {
             }
             return aiResponse
         } catch (e: Exception) {
-            // Bongkar pesan kesalahan asli SQLite/Parser ke layar chat agar transparan
             return "❌ Gagal Eksekusi Database Lokal: ${e.localizedMessage ?: "Format JSON Melenceng"}\nRespon Mentah: $rawText"
         }
     }
