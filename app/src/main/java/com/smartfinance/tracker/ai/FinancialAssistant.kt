@@ -6,6 +6,7 @@ import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.data.local.entity.DebtEntity
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
+import java.text.SimpleDateFormat
 import java.util.Locale
 
 class FinancialAssistant(private val context: Context) {
@@ -14,7 +15,6 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         try {
-            // Bersihkan teks jika AI mengembalikan markdown block ```json ... ```
             val cleanJsonStr = rawText.trim()
                 .removePrefix("```json")
                 .removePrefix("```")
@@ -25,90 +25,103 @@ class FinancialAssistant(private val context: Context) {
             val actionType = json.optString("action_type", "CHAT_ONLY").trim().uppercase(Locale.ROOT)
             val aiResponse = json.optString("ai_response", "Catatan berhasil diproses.")
 
+            // PARSING TANGGAL DINAMIS DARI AI
+            val dateStr = json.optString("transaction_date", "").trim()
+            val sdfParser = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
+            val targetTimestamp = if (dateStr.isNotEmpty()) {
+                try {
+                    sdfParser.parse(dateStr)?.time ?: System.currentTimeMillis()
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
+                }
+            } else {
+                System.currentTimeMillis()
+            }
+
+            // EKSTRAKSI NOMINAL AMAN (MENDUKUNG NUMBER DAN STRING)
+            val amount = json.optDouble("amount", 0.0)
+            val finalAmount = if (amount == 0.0) {
+                json.optString("amount", "0").toDoubleOrNull() ?: 0.0
+            } else {
+                amount
+            }
+
             when (actionType) {
                 "TRANSACTION" -> {
-                    // 1. Ekstraksi Nominal Aman (String to Double)
-                    val amountStr = json.optString("amount", "0").replace(",", "")
-                    val amount = amountStr.toDoubleOrNull() ?: json.optDouble("amount", 0.0)
-                    
                     val cleanNote = json.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
                     var type = json.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
                     
-                    // 2. PROTEKSI TINGGI: Jika ada kata GAJI / INCOME / PEMASUKAN, paksa tipe menjadi INCOME
-                    if (cleanNote.contains("GAJI") || cleanNote.contains("PAYDAY") || cleanNote.contains("PEMASUKAN") || type == "INCOME") {
+                    // PROTEKSI GAJIAN: Cegah Llama salah deteksi jenis aliran kas
+                    if (cleanNote.contains("GAJI") || cleanNote.contains("PAYDAY") || cleanNote.contains("PEMASUKAN")) {
                         type = "INCOME"
                     }
 
-                    // 3. Normalisasi Category ID & Name agar tidak melanggar Foreign Key DB
                     var catId = json.optLong("category_id", 15L)
                     var catName = json.optString("category_name", "Lain-lain / Umum").trim()
 
                     if (type == "INCOME") {
-                        // Kunci ke kategori pendapatan bawaan aplikasi jika terdeteksi gajian
-                        catId = 1L 
+                        catId = 1L
                         catName = "Gaji & Pendapatan"
                     }
 
-                    if (amount > 0.0) {
+                    if (finalAmount > 0.0) {
                         db.transactionDao().insertTransaction(TransactionEntity(
-                            amount = amount,
+                            amount = finalAmount,
                             type = type,
                             categoryId = catId,
                             categoryName = catName,
                             note = cleanNote,
-                            timestamp = System.currentTimeMillis()
+                            timestamp = targetTimestamp // MASUK SESUAI TANGGAL REKOMENDASI AI
                         ))
-                    } else {
-                        return "⚠️ AI mendeteksi nominal kosong atau 0, transaksi dibatalkan."
                     }
                 }
                 
                 "DEBT_RECORD" -> {
-                    val amountStr = json.optString("amount", "0").replace(",", "")
-                    val amount = amountStr.toDoubleOrNull() ?: json.optDouble("amount", 0.0)
-                    
                     val name = json.optString("contact_name", "TEMAN").trim().uppercase(Locale.ROOT)
                     val debtType = json.optString("debt_type", "DEBT").trim().uppercase(Locale.ROOT)
 
-                    if (amount > 0.0) {
+                    if (finalAmount > 0.0) {
                         db.debtDao().insertDebt(DebtEntity(
                             contactName = name,
                             contactPhoneNumber = "0812",
-                            amount = amount,
-                            remainingAmount = amount,
+                            amount = finalAmount,
+                            remainingAmount = finalAmount,
                             type = debtType,
                             note = "Otomatis via Chat AI",
-                            timestamp = System.currentTimeMillis(),
+                            timestamp = targetTimestamp,
                             isPaid = false
                         ))
 
-                        // Sinkronisasi otomatis ke tabel transaksi utama
                         val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
                         val catId = if (debtType == "DEBT") 12L else 13L
                         val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
 
                         db.transactionDao().insertTransaction(TransactionEntity(
-                            amount = amount,
+                            amount = finalAmount,
                             type = flowType,
                             categoryId = catId,
                             categoryName = catName,
                             note = if (debtType == "DEBT") "HUTANG MASUK DARI $name" else "PIUTANG KELUAR KE $name",
-                            timestamp = System.currentTimeMillis()
+                            timestamp = targetTimestamp
                         ))
                     }
                 }
                 
                 "DEBT_PAYMENT" -> {
                     val targetId = json.optLong("debt_id", -1L)
-                    val payAmountStr = json.optString("pay_amount", "0").replace(",", "")
-                    val payAmount = payAmountStr.toDoubleOrNull() ?: json.optDouble("pay_amount", 0.0)
+                    val payAmount = json.optDouble("pay_amount", 0.0)
+                    val finalPayAmount = if (payAmount == 0.0) {
+                        json.optString("pay_amount", "0").toDoubleOrNull() ?: 0.0
+                    } else {
+                        payAmount
+                    }
 
-                    if (targetId != -1L && payAmount > 0.0) {
+                    if (targetId != -1L && finalPayAmount > 0.0) {
                         val debts = db.debtDao().getAllDebts().first()
                         val matchDebt = debts.find { it.id == targetId }
                         
                         if (matchDebt != null) {
-                            val nextRemaining = (matchDebt.remainingAmount - payAmount).coerceAtLeast(0.0)
+                            val nextRemaining = (matchDebt.remainingAmount - finalPayAmount).coerceAtLeast(0.0)
                             db.debtDao().insertDebt(matchDebt.copy(
                                 remainingAmount = nextRemaining,
                                 isPaid = nextRemaining <= 0.0
@@ -116,15 +129,13 @@ class FinancialAssistant(private val context: Context) {
 
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                             db.transactionDao().insertTransaction(TransactionEntity(
-                                amount = payAmount,
+                                amount = finalPayAmount,
                                 type = txType,
                                 categoryId = 11L,
                                 categoryName = "Cicilan & Pinjaman",
                                 note = "CICILAN OLEH ${matchDebt.contactName}",
-                                timestamp = System.currentTimeMillis()
+                                timestamp = targetTimestamp
                             ))
-                        } else {
-                            return "⚠️ Gagal mencatat cicilan: Target ID pinjaman tidak valid."
                         }
                     }
                 }
