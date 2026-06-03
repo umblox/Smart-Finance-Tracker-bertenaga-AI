@@ -16,7 +16,7 @@ class FinancialAssistant(private val context: Context) {
         try {
             val json = JSONObject(rawText)
             val actionType = json.optString("action_type", "CHAT_ONLY")
-            val aiResponse = json.optString("ai_response", "Catatan berhasil diamankan ke SQLite.")
+            val aiResponse = json.optString("ai_response", "Catatan berhasil diamankan.")
 
             when (actionType) {
                 "TRANSACTION" -> {
@@ -34,22 +34,20 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
                 
-              "DEBT_RECORD" -> {
+                "DEBT_RECORD" -> {
                     val amount = json.optDouble("amount", 0.0)
                     val name = json.optString("contact_name", "TEMAN").uppercase(Locale.ROOT)
                     val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
 
                     if (amount > 0.0) {
-                        // 1. Catat ke tabel master hutang
+                        // 1. Catat transaksi hutang piutang master
                         db.debtDao().insertDebt(DebtEntity(
                             contactName = name, contactPhoneNumber = "0812", amount = amount,
                             remainingAmount = amount, type = debtType, note = "Otomatis via Chat AI",
                             timestamp = System.currentTimeMillis(), isPaid = false
                         ))
 
-                        // 2. SINKRONISASI SALDO UTAMA: Suntik mutasi kas pendamping
-                        // Jika kita hutang (DEBT) = Kas masuk/bertambah (+ INCOME)
-                        // Jika kita memberi piutang (RECEIVABLE) = Kas keluar/berkurang (- EXPENSE)
+                        // 2. SINKRONISASI SALDO UTAMA SECARA NYATA
                         val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
                         val catId = if (debtType == "DEBT") 12L else 13L
                         val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
@@ -82,13 +80,16 @@ class FinancialAssistant(private val context: Context) {
                                 amount = payAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
                                 note = "CICILAN OLEH ${matchDebt.contactName}", timestamp = System.currentTimeMillis()
                             ))
+                        } else {
+                            return "⚠️ Gagal mencatat cicilan: ID transaksi pinjaman tidak ditemukan dalam database lokal."
                         }
                     }
                 }
             }
             return aiResponse
         } catch (e: Exception) {
-            return "🤖 AI memahami maksud Anda, namun struktur JSON biner terhambat."
+            // Bongkar pesan kesalahan asli SQLite/Parser ke layar chat agar transparan
+            return "❌ Gagal Eksekusi Database Lokal: ${e.localizedMessage ?: "Format JSON Melenceng"}\nRespon Mentah: $rawText"
         }
     }
 }
