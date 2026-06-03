@@ -51,16 +51,25 @@ class DashboardFragment : Fragment() {
         db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
-        val root = RelativeLayout(context).apply { setBackgroundColor(Color.parseColor("#F7FAFC")) }
-        val nsv = NestedScrollView(context).apply { isFillViewport = true }
+        val root = RelativeLayout(context).apply { 
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.parseColor("#F7FAFC")) 
+        }
+        
+        val nsv = NestedScrollView(context).apply { 
+            isFillViewport = true
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
+        }
         
         val mainLayout = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             setPadding((18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt()) 
         }
 
-        // HEADER APLIKASI
+        // HEADER APLIKASI (FULL WIDTH)
         mainLayout.addView(TextView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             text = "Smart Finance AI"
             textSize = 24f
             setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
@@ -68,54 +77,102 @@ class DashboardFragment : Fragment() {
             setPadding(0, 0, 0, (16 * density).toInt())
         })
 
-        // 1. KARTU SALDO UTAMA (INTEGRASI WARNA TEAL PREMIUM)
+        // 1. KARTU SALDO UTAMA MEWAH (GARANSI FULL SCREEN KANAN)
         val cardBalance = MaterialCardView(context).apply { 
             radius = 20 * density
             cardElevation = 0f
             strokeWidth = (1 * density).toInt()
             setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
             setCardBackgroundColor(Color.parseColor("#008080")) 
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        val balanceLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding((24 * density).toInt(), (24 * density).toInt(), (24 * density).toInt(), (24 * density).toInt()) }
+        val balanceLayout = LinearLayout(context).apply { 
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding((24 * density).toInt(), (24 * density).toInt(), (24 * density).toInt(), (24 * density).toInt()) 
+        }
         balanceLayout.addView(TextView(context).apply { text = "TOTAL SALDO BERSIH"; setTextColor(Color.parseColor("#E6FFFA")); textSize = 11f; setTypeface(null, Typeface.BOLD) })
         tvBalance = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 30f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
         balanceLayout.addView(tvBalance)
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-        // 2. KARTU ANALISIS VISUAL & PIE/DONUT CHART (MENGHINDARI AREA KOSONG)
-        mainLayout.addView(TextView(context).apply { text = "GRAFIK & ALIRAN KAS KEUANGAN"; textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#A0AEC0")); setPadding(0, (20 * density).toInt(), 0, (8 * density).toInt()) })
+        // LABEL AREA GRAFIK
+        mainLayout.addView(TextView(context).apply { 
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            text = "GRAFIK & ALIRAN KAS KEUANGAN"
+            textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#A0AEC0"))
+            setPadding(0, (20 * density).toInt(), 0, (8 * density).toInt()) 
+        })
         
+        // 2. KARTU REKAYASA STRUKTUR BARU (MONEY LOVER STYLE)
         val cardChart = MaterialCardView(context).apply {
             radius = 16 * density; cardElevation = 0f
             strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
             setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             setOnClickListener { (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment()) }
         }
-        val chartMainRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()); gravity = Gravity.CENTER_VERTICAL }
         
-        // Slot Kiri: Penampung Grafis Donut Lingkaran
+        // Layout Induk di Dalam Kartu Analisis (Vertikal Kebawah)
+        val chartInsideVerticalLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding((18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt())
+        }
+
+        // BARIS BARU: Menaruh Angka Pemasukan & Pengeluaran Bersebelahan di Bagian Atas
+        val numbersHorizontalRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            weightSum = 2f
+        }
+        
+        tvIncomeSummary = TextView(context).apply { 
+            text = "Pemasukan\nRp 0"
+            setTextColor(Color.parseColor("#38A169")); setTypeface(null, Typeface.BOLD); textSize = 13f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            gravity = Gravity.CENTER
+        }
+        tvExpenseSummary = TextView(context).apply { 
+            text = "Pengeluaran\nRp 0"
+            setTextColor(Color.parseColor("#E53E3E")); setTypeface(null, Typeface.BOLD); textSize = 13f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            gravity = Gravity.CENTER
+        }
+        numbersHorizontalRow.addView(tvIncomeSummary)
+        numbersHorizontalRow.addView(tvExpenseSummary)
+        chartInsideVerticalLayout.addView(numbersHorizontalRow)
+
+        // BARIS BARU: Menaruh Pie/Donut Chart Tepat di Bawah Angka Ringkasan
         chartContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams((110 * density).toInt(), (110 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (120 * density).toInt()).apply { 
+                topMargin = (16 * density).toInt()
+                bottomMargin = (6 * density).toInt()
+            }
         }
-        chartMainRow.addView(chartContainer)
+        chartInsideVerticalLayout.addView(chartContainer)
 
-        // Slot Kanan: Informasi Angka Resep Kas
-        val chartInfoLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        tvIncomeSummary = TextView(context).apply { text = "Pemasukan: Rp 0"; setTextColor(Color.parseColor("#38A169")); setTypeface(null, Typeface.BOLD); textSize = 13f }
-        tvExpenseSummary = TextView(context).apply { text = "Pengeluaran: Rp 0"; setTextColor(Color.parseColor("#E53E3E")); setTypeface(null, Typeface.BOLD); textSize = 13f; setPadding(0, (4 * density).toInt(), 0, 0) }
-        chartInfoLayout.addView(tvIncomeSummary)
-        chartInfoLayout.addView(tvExpenseSummary)
-        chartInfoLayout.addView(TextView(context).apply { text = "Lihat Analisis Detail Lap ▶"; textSize = 11f; setTextColor(Color.parseColor("#008080")); setPadding(0, (8 * density).toInt(), 0, 0); setTypeface(null, Typeface.BOLD) })
-        chartMainRow.addView(chartInfoLayout)
+        // Tombol Navigasi Bawah Klik Tambahan Internal
+        chartInsideVerticalLayout.addView(TextView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            text = "Lihat Analisis Detail Laporan Lengkap ▶"
+            textSize = 11f; setTextColor(Color.parseColor("#008080")); setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, (8 * density).toInt(), 0, 0)
+        })
         
-        cardChart.addView(chartMainRow)
+        cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // 3. SEKTOR 3 PENGELUARAN TERATAS (DENGAN AREA BARIS KHUSUS)
-        val topHeaderRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, (20 * density).toInt(), 0, (8 * density).toInt()) }
+        // 3. SEKTOR 3 PENGELUARAN TERATAS (STRUKTUR LOCK FULL SCREEN)
+        val topHeaderRow = LinearLayout(context).apply { 
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding(0, (20 * density).toInt(), 0, (8 * density).toInt()) 
+        }
         topHeaderRow.addView(TextView(context).apply { text = "3 PENGELUARAN TERGEDE"; textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#A0AEC0")); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
         btnTopExpenseFilter = Button(context).apply {
             text = "📅 $selectedTopFilter"
@@ -127,12 +184,23 @@ class DashboardFragment : Fragment() {
         topHeaderRow.addView(btnTopExpenseFilter)
         mainLayout.addView(topHeaderRow)
 
-        topExpenseContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        topExpenseContainer = LinearLayout(context).apply { 
+            orientation = LinearLayout.VERTICAL 
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
         mainLayout.addView(topExpenseContainer)
 
-        // 4. SEKTOR TRANSAKSI TERKINI (STRUKTUR YANG DIJAGA TETAP PRESISI)
-        mainLayout.addView(TextView(context).apply { text = "MUTASI TRANSAKSI TERKINI"; textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#A0AEC0")); setPadding(0, (16 * density).toInt(), 0, (8 * density).toInt()) })
-        recentTxContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        // 4. SEKTOR TRANSAKSI TERKINI (FULL WIDTH)
+        mainLayout.addView(TextView(context).apply { 
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            text = "MUTASI TRANSAKSI TERKINI"
+            textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#A0AEC0"))
+            setPadding(0, (16 * density).toInt(), 0, (8 * density).toInt()) 
+        })
+        recentTxContainer = LinearLayout(context).apply { 
+            orientation = LinearLayout.VERTICAL 
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
         mainLayout.addView(recentTxContainer)
 
         nsv.addView(mainLayout)
@@ -169,7 +237,6 @@ class DashboardFragment : Fragment() {
             var expenseSum = 0.0
 
             allTx.forEach { tx ->
-                // PERBAIKAN FORMULA SINKRONISASI AKTIF
                 if (tx.type.trim().uppercase() == "INCOME") {
                     balanceTotal += tx.amount
                     incomeSum += tx.amount
@@ -180,10 +247,10 @@ class DashboardFragment : Fragment() {
             }
             
             tvBalance.text = formatRupiah.format(balanceTotal)
-            tvIncomeSummary.text = "🟢 Pemasukan: ${formatRupiah.format(incomeSum)}"
-            tvExpenseSummary.text = "🔴 Pengeluaran: ${formatRupiah.format(expenseSum)}"
+            tvIncomeSummary.text = "Pemasukan\n${formatRupiah.format(incomeSum)}"
+            tvExpenseSummary.text = "Pengeluaran\n${formatRupiah.format(expenseSum)}"
 
-            // RENDER GRAFIK PIE/DONUT CHART (JIKA KOSONG, BUAT LINGKARAN PLACEHOLDER ABU-ABU)
+            // RENDER GRAFIK DI BAWAH ANGKA RINGKASAN
             chartContainer.removeAllViews()
             if (expenseSum == 0.0 && incomeSum == 0.0) {
                 chartContainer.addView(MiniDonutView(context, floatArrayOf(1f), intArrayOf(Color.parseColor("#E2E8F0"))))
@@ -191,7 +258,7 @@ class DashboardFragment : Fragment() {
                 chartContainer.addView(MiniDonutView(context, floatArrayOf(incomeSum.toFloat(), expenseSum.toFloat()), intArrayOf(Color.parseColor("#38A169"), Color.parseColor("#E53E3E"))))
             }
 
-            // RENDER AREA 3 PENGELUARAN TERATAS (JIKA KOSONG, TAMPILKAN BARIS AREA KOSONG KHUSUS)
+            // AREA 3 PENGELUARAN TERATAS
             topExpenseContainer.removeAllViews()
             val nowTime = System.currentTimeMillis()
             val filteredExpenses = allTx.filter { it.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
@@ -204,7 +271,6 @@ class DashboardFragment : Fragment() {
             }.sortedByDescending { it.amount }.take(3)
 
             if (filteredExpenses.isEmpty()) {
-                // Skenario Kolom Kosong Terjadwal (Placeholder Dinamis)
                 for (i in 1..3) {
                     topExpenseContainer.addView(createPlaceholderRow("Baris Data Kosong ${i}", "Belum ada alokasi pengeluaran"))
                 }
@@ -222,7 +288,7 @@ class DashboardFragment : Fragment() {
                 }
             }
 
-            // RENDER MUTASI TRANSAKSI TERKINI (SISTEM PLACEHOLDER FIX GRID)
+            // MUTASI TRANSAKSI TERKINI
             recentTxContainer.removeAllViews()
             val recentTxList = allTx.sortedByDescending { it.timestamp }.take(5)
             if (recentTxList.isEmpty()) {
@@ -278,7 +344,7 @@ class DashboardFragment : Fragment() {
     }
 
     private class MiniDonutView(ctx: Context, private val values: FloatArray, private val colors: IntArray) : View(ctx) {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 26f }
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 24f }
         private val rectF = RectF()
 
         override fun onDraw(canvas: Canvas) {
@@ -286,16 +352,12 @@ class DashboardFragment : Fragment() {
             val total = values.sum()
             if (total == 0f) return
             
-            val pad = 20f
-            rectF.set(pad, pad, width.toFloat() - pad, height.toFloat() - pad)
+            // Perhitungan kompensasi canvas simetris di tengah
+            val size = Math.min(width, height).toFloat()
+            val pad = 24f
+            rectF.set(pad, pad, size - pad, size - pad)
             var startAngle = -90f
 
             for (i in values.indices) {
                 val sweep = (values[i] / total) * 360f
-                paint.color = colors[i % colors.size]
-                canvas.drawArc(rectF, startAngle, sweep, false, paint)
-                startAngle += sweep
-            }
-        }
-    }
-}
+                paint.color = colo
