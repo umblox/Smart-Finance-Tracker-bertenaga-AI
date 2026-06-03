@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.databinding.FragmentSettingsBinding
+import com.smartfinance.tracker.ui.category.CategoryManagerDialog // IMPORT DARI PACKAGE BARU SURGATAL
 
 class SettingsFragment : Fragment() {
 
@@ -33,7 +34,7 @@ class SettingsFragment : Fragment() {
             showApiKeyDialog()
         }
 
-        // SUB-MENU 2: PANGGIL KELAS TERPISAH KUSTOM UNTUK SUB-MENU KATEGORI (CRUD)
+        // SUB-MENU 2: PANGGIL KELAS TERPISAH DARI PACKAGE BARU
         binding.menuManageCategories.setOnClickListener {
             CategoryManagerDialog(requireContext(), lifecycleScope).show()
         }
