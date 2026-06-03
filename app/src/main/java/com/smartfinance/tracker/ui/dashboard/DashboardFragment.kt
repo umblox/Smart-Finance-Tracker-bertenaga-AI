@@ -1,6 +1,7 @@
 package com.smartfinance.tracker.ui.dashboard
 
 import android.app.AlertDialog
+import android.content.Context // IMPORT UTAMA YANG TADI KETINGGALAN
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -257,7 +258,7 @@ class DashboardFragment : Fragment() {
             // AREA 3 PENGELUARAN TERATAS
             topExpenseContainer.removeAllViews()
             val nowTime = System.currentTimeMillis()
-            val filteredExpenses = allTx.filter { it.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
+            val filteredExpenses = allTx.filter { item -> item.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
                 if (selectedTopFilter == "PERMINGGU") {
                     (nowTime - tx.timestamp) <= (7L * 24 * 60 * 60 * 1000)
                 } else {
@@ -286,7 +287,7 @@ class DashboardFragment : Fragment() {
 
             // MUTASI TRANSAKSI TERKINI
             recentTxContainer.removeAllViews()
-            val recentTxList = allTx.sortedByDescending { it.timestamp }.take(5)
+            val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(5)
             if (recentTxList.isEmpty()) {
                 for (i in 1..5) {
                     recentTxContainer.addView(createPlaceholderRow("Riwayat Kosong ${i}", "Menunggu catatan keuangan baru"))
@@ -361,4 +362,4 @@ class DashboardFragment : Fragment() {
             }
         }
     }
-} // KURUNG PENUTUP KELAS UTAMA SEKARANG SUDAH AMAN DAN TERKUNCI RAPAT
+}
