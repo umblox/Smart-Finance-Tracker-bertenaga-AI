@@ -16,6 +16,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // SUNTIKKAN SEED DATA DARI REPOSITORY SECRET GITHUB SECARA AMAN
+        val groqKey = System.getenv("GROQ_API_KEY") ?: ""
+        buildConfigField("String", "GROQ_API_KEY", "\"$groqKey\"")
     }
 
     buildTypes {
@@ -36,6 +40,8 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        // Aktifkan generator kelas BuildConfig otomatis
+        buildConfig = true
     }
 }
 
