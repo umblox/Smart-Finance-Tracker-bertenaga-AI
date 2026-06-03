@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ui.dashboard
 
 import android.app.AlertDialog
-import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -67,7 +66,7 @@ class DashboardFragment : Fragment() {
             setPadding((18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt()) 
         }
 
-        // HEADER APLIKASI (FULL WIDTH)
+        // HEADER APLIKASI
         mainLayout.addView(TextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             text = "Smart Finance AI"
@@ -77,7 +76,7 @@ class DashboardFragment : Fragment() {
             setPadding(0, 0, 0, (16 * density).toInt())
         })
 
-        // 1. KARTU SALDO UTAMA MEWAH (GARANSI FULL SCREEN KANAN)
+        // 1. KARTU SALDO UTAMA
         val cardBalance = MaterialCardView(context).apply { 
             radius = 20 * density
             cardElevation = 0f
@@ -105,7 +104,7 @@ class DashboardFragment : Fragment() {
             setPadding(0, (20 * density).toInt(), 0, (8 * density).toInt()) 
         })
         
-        // 2. KARTU REKAYASA STRUKTUR BARU (MONEY LOVER STYLE)
+        // 2. KARTU ANALISIS VISUAL (MONEY LOVER STYLE)
         val cardChart = MaterialCardView(context).apply {
             radius = 16 * density; cardElevation = 0f
             strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
@@ -114,14 +113,13 @@ class DashboardFragment : Fragment() {
             setOnClickListener { (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment()) }
         }
         
-        // Layout Induk di Dalam Kartu Analisis (Vertikal Kebawah)
         val chartInsideVerticalLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             setPadding((18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt())
         }
 
-        // BARIS BARU: Menaruh Angka Pemasukan & Pengeluaran Bersebelahan di Bagian Atas
+        // Pemasukan & Pengeluaran Bersebelahan
         val numbersHorizontalRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -144,7 +142,7 @@ class DashboardFragment : Fragment() {
         numbersHorizontalRow.addView(tvExpenseSummary)
         chartInsideVerticalLayout.addView(numbersHorizontalRow)
 
-        // BARIS BARU: Menaruh Pie/Donut Chart Tepat di Bawah Angka Ringkasan
+        // Pie/Donut Chart di Bawah Angka Ringkasan
         chartContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -155,7 +153,6 @@ class DashboardFragment : Fragment() {
         }
         chartInsideVerticalLayout.addView(chartContainer)
 
-        // Tombol Navigasi Bawah Klik Tambahan Internal
         chartInsideVerticalLayout.addView(TextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             text = "Lihat Analisis Detail Laporan Lengkap ▶"
@@ -167,7 +164,7 @@ class DashboardFragment : Fragment() {
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // 3. SEKTOR 3 PENGELUARAN TERATAS (STRUKTUR LOCK FULL SCREEN)
+        // 3. SEKTOR 3 PENGELUARAN TERATAS
         val topHeaderRow = LinearLayout(context).apply { 
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -190,7 +187,7 @@ class DashboardFragment : Fragment() {
         }
         mainLayout.addView(topExpenseContainer)
 
-        // 4. SEKTOR TRANSAKSI TERKINI (FULL WIDTH)
+        // 4. SEKTOR TRANSAKSI TERKINI
         mainLayout.addView(TextView(context).apply { 
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             text = "MUTASI TRANSAKSI TERKINI"
@@ -250,7 +247,6 @@ class DashboardFragment : Fragment() {
             tvIncomeSummary.text = "Pemasukan\n${formatRupiah.format(incomeSum)}"
             tvExpenseSummary.text = "Pengeluaran\n${formatRupiah.format(expenseSum)}"
 
-            // RENDER GRAFIK DI BAWAH ANGKA RINGKASAN
             chartContainer.removeAllViews()
             if (expenseSum == 0.0 && incomeSum == 0.0) {
                 chartContainer.addView(MiniDonutView(context, floatArrayOf(1f), intArrayOf(Color.parseColor("#E2E8F0"))))
@@ -352,7 +348,6 @@ class DashboardFragment : Fragment() {
             val total = values.sum()
             if (total == 0f) return
             
-            // Perhitungan kompensasi canvas simetris di tengah
             val size = Math.min(width, height).toFloat()
             val pad = 24f
             rectF.set(pad, pad, size - pad, size - pad)
@@ -360,4 +355,10 @@ class DashboardFragment : Fragment() {
 
             for (i in values.indices) {
                 val sweep = (values[i] / total) * 360f
-                paint.color = colo
+                paint.color = colors[i % colors.size]
+                canvas.drawArc(rectF, startAngle, sweep, false, paint)
+                startAngle += sweep
+            }
+        }
+    }
+} // KURUNG PENUTUP KELAS UTAMA SEKARANG SUDAH AMAN DAN TERKUNCI RAPAT
