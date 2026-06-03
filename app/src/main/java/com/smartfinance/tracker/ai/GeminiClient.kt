@@ -35,36 +35,42 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             debtContext.append("- ID: ${it.id}, Kontak: ${it.contactName}, Sisa: Rp ${it.remainingAmount}, Tipe: ${it.type}\n")
         }
 
-        val systemPrompt = """
+        // Gunakan trik petik tunggal (') untuk menghindari bentrokan karakter '$' dan '{' di Kotlin String
+        val rawSystemPrompt = """
             Anda adalah core engine AI finansial pintar berbasis aturan linguistik akuntansi kaku untuk database SQLite.
-            Tugas Anda adalah membedakan SUBJEK (Pelaku) and OBJEK (Target) dari kalimat user agar tipe transaksi tidak tertukar.
+            Tugas Anda adalah membedakan SUBJEK (Pelaku) dan OBJEK (Target) dari kalimat user agar tipe transaksi tidak tertukar.
 
             KATEGORI DI DATABASE:
-            ${catContext}
+            CONTEXT_CATEGORIES
             
             DAFTAR PINJAMAN AKTIF DI DATABASE:
-            ${debtContext}
+            CONTEXT_DEBTS
 
             MATRIKS LOGIKA SUBJEK PENTING:
             1. KATEGORI: DEBT_RECORD (Pencatatan Hutang/Piutang Baru)
-               A. Tipe: "DEBT" (Hutang Saya / Kewajiban Membayar) -> Terjadi jika: Saya meminjam/berhutang KEPADA [Nama], atau [Nama] meminjamkan uangnya KEPADA SAYA.
-               B. Tipe: "RECEIVABLE" (Piutang Saya / Hak Menagih) -> Terjadi jika: Saya meminjamkan uang KEPADA [Nama], atau [Nama] meminjam/berhutang KEPADA SAYA.
+               A. Tipe: 'DEBT' (Hutang Saya / Kewajiban Membayar) -> Terjadi jika: Saya meminjam/berhutang KEPADA [Nama], atau [Nama] meminjamkan uangnya KEPADA SAYA.
+               B. Tipe: 'RECEIVABLE' (Piutang Saya / Hak Menagih) -> Terjadi jika: Saya meminjamkan uang KEPADA [Nama], atau [Nama] meminjam/berhutang KEPADA SAYA.
 
             2. KATEGORI: DEBT_PAYMENT (Pembayaran Cicilan / Pelunasan)
-               A. User/Saya membayar ke orang lain -> Cari kontak bertipe "DEBT", ambil ID-nya, set ke 'debt_id'.
-               B. Orang lain membayar ke saya -> Cari kontak bertipe "RECEIVABLE", ambil ID-nya, set ke 'debt_id'.
+               A. User/Saya membayar ke orang lain -> Cari kontak bertipe 'DEBT', ambil ID-nya, set ke 'debt_id'.
+               B. Orang lain membayar ke saya -> Cari kontak bertipe 'RECEIVABLE', ambil ID-nya, set ke 'debt_id'.
 
-            FORMAT RESPONS HARUS BERBENTUK JSON MURNI TANPA MARKDOWN (```json).
-            PILIHAN STRUKTUR JSON:
-            - Catat Hutang Baru: {"action_type":"DEBT_RECORD", "amount":100000, "contact_name":"BUDI", "debt_type":"DEBT", "ai_response":"Hutang baru dicatat. Anda berhutang Rp 100.000 kepada Budi."}
-            - Catat Piutang Baru: {"action_type":"DEBT_RECORD", "amount":50000, "contact_name":"DANI", "debt_type":"RECEIVABLE", "ai_response":"Piutang dicatat. Dani berhutang Rp 50.000 kepada Anda."}
-            - Cicilan: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":20000, "ai_response":"Pembayaran cicilan berhasil diperbarui ke database."}
-            - Transaksi Biasa: {"action_type":"TRANSACTION", "amount":15000, "type":"EXPENSE", "category_id":15, "category_name":"Lain-lain / Umum", "clean_note":"BELI BARANG", "ai_response":"Pengeluaran dicatat."}
+            FORMAT RESPONS HARUS BERBENTUK JSON MURNI TANPA MARKDOWN.
+            PILIHAN STRUKTUR JSON YANG WAJIB ANDA GUNAKAN:
+            - Catat Hutang Baru: {'action_type':'DEBT_RECORD', 'amount':100000, 'contact_name':'BUDI', 'debt_type':'DEBT', 'ai_response':'Hutang baru dicatat. Anda berhutang Rp 100.000 kepada Budi.'}
+            - Catat Piutang Baru: {'action_type':'DEBT_RECORD', 'amount':50000, 'contact_name':'DANI', 'debt_type':'RECEIVABLE', 'ai_response':'Piutang dicatat. Dani berhutang Rp 50.000 kepada Anda.'}
+            - Cicilan: {'action_type':'DEBT_PAYMENT', 'debt_id':1, 'pay_amount':20000, 'ai_response':'Pembayaran cicilan berhasil diperbarui ke database.'}
+            - Transaksi Biasa: {'action_type':'TRANSACTION', 'amount':15000, 'type':'EXPENSE', 'category_id':15, 'category_name':'Lain-lain / Umum', 'clean_note':'BELI BARANG', 'ai_response':'Pengeluaran dicatat.'}
         """.trimIndent()
 
+        // Ganti placeholder dengan data asli dan ubah petik tunggal menjadi petik dua standar JSON resmi
+        val finalSystemPrompt = rawSystemPrompt
+            .replace("CONTEXT_CATEGORIES", catContext.toString())
+            .replace("CONTEXT_DEBTS", debtContext.toString())
+            .replace("'", "\"")
+
         try {
-            // URL KUNCI: BENAR-BENAR BERSIH 100% TANPA EMBEL-EMBEL MARKDOWN
-            val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
+            val url = URL("https://api.groq.com/openai/v1/chat/completions")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
@@ -76,7 +82,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             val jsonBody = JSONObject().apply {
                 put("model", "llama-3.1-8b-instant")
                 val messagesArray = org.json.JSONArray().apply {
-                    put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+                    put(JSONObject().apply { put("role", "system"); put("content", finalSystemPrompt) })
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
