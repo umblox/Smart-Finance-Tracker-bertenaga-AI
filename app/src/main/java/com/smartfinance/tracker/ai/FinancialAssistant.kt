@@ -14,30 +14,15 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         try {
-            if (rawText.contains("<EXEC>") && rawText.contains("</EXEC>")) {
-                val parts = rawText.split("<EXEC>")
-                val cleanNarration = parts[0].trim()
-                val codePart = parts[1].split("</EXEC>")[0].trim()
-                
-                executeSilentJsonCommand(codePart)
-                return cleanNarration
-            }
-        } catch (e: Exception) {
-            return rawText
-        }
-        return rawText
-    }
-
-    private suspend fun executeSilentJsonCommand(jsonStr: String) {
-        try {
-            val json = JSONObject(jsonStr)
+            val json = JSONObject(rawText)
             val actionType = json.optString("action_type", "CHAT_ONLY")
+            val aiResponse = json.optString("ai_response", "Catatan berhasil diamankan ke SQLite.")
 
             when (actionType) {
                 "TRANSACTION" -> {
                     val amount = json.optDouble("amount", 0.0)
                     val catId = json.optLong("category_id", 15L)
-                    val catName = json.optString("category_name", "Lain-lain")
+                    val catName = json.optString("category_name", "Lain-lain / Umum")
                     val cleanNote = json.optString("clean_note", "Transaksi AI").uppercase(Locale.ROOT)
                     val type = json.optString("type", "EXPENSE").uppercase(Locale.ROOT)
 
@@ -73,13 +58,11 @@ class FinancialAssistant(private val context: Context) {
                         
                         if (matchDebt != null) {
                             val nextRemaining = (matchDebt.remainingAmount - payAmount).coerceAtLeast(0.0)
-                            // Update sisa hutang nyata di SQLite
                             db.debtDao().insertDebt(matchDebt.copy(
                                 remainingAmount = nextRemaining,
                                 isPaid = nextRemaining <= 0.0
                             ))
 
-                            // Masukkan log transaksi kas masuk/keluar akibat cicilan tersebut
                             val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                             db.transactionDao().insertTransaction(TransactionEntity(
                                 amount = payAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
@@ -89,8 +72,9 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
             }
+            return aiResponse
         } catch (e: Exception) {
-            e.printStackTrace()
+            return "🤖 AI memahami maksud Anda, namun struktur JSON biner terhambat."
         }
     }
 }
