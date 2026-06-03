@@ -2,6 +2,7 @@ package com.smartfinance.tracker.ai
 
 import android.content.Context
 import com.smartfinance.tracker.data.local.AppDatabase
+import com.smartfinance.tracker.BuildConfig // WAJIB DIIMPORT UNTUK MENANGKAP VARIABEL AMAN
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -14,11 +15,11 @@ import java.net.URL
 class GeminiClient(private val context: Context, private val assistant: FinancialAssistant) {
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
-        val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+        // AMBIL API KEY SECARA GAIB DARI SISTEM NATIVE BUILD CONFIG
+        val apiKey = BuildConfig.GROQ_API_KEY
 
         if (apiKey.isEmpty()) {
-            return@withContext "⚠️ API Key Groq belum diatur di menu Pengaturan."
+            return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build biner."
         }
 
         val db = AppDatabase.getDatabase(context)
@@ -61,7 +62,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.0) // Set ke 0 mutlak agar AI patuh aturan, tidak ngawur/berhalusinasi
+                put("temperature", 0.0)
             }
 
             conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
