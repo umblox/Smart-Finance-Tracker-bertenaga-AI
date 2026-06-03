@@ -34,16 +34,30 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
                 
-                "DEBT_RECORD" -> {
+              "DEBT_RECORD" -> {
                     val amount = json.optDouble("amount", 0.0)
                     val name = json.optString("contact_name", "TEMAN").uppercase(Locale.ROOT)
                     val debtType = json.optString("debt_type", "DEBT").uppercase(Locale.ROOT)
 
                     if (amount > 0.0) {
+                        // 1. Catat ke tabel master hutang
                         db.debtDao().insertDebt(DebtEntity(
                             contactName = name, contactPhoneNumber = "0812", amount = amount,
                             remainingAmount = amount, type = debtType, note = "Otomatis via Chat AI",
                             timestamp = System.currentTimeMillis(), isPaid = false
+                        ))
+
+                        // 2. SINKRONISASI SALDO UTAMA: Suntik mutasi kas pendamping
+                        // Jika kita hutang (DEBT) = Kas masuk/bertambah (+ INCOME)
+                        // Jika kita memberi piutang (RECEIVABLE) = Kas keluar/berkurang (- EXPENSE)
+                        val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
+                        val catId = if (debtType == "DEBT") 12L else 13L
+                        val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
+
+                        db.transactionDao().insertTransaction(TransactionEntity(
+                            amount = amount, type = flowType, categoryId = catId, categoryName = catName,
+                            note = if (debtType == "DEBT") "HUTANG MASUK DARI $name" else "PIUTANG KELUAR KE $name",
+                            timestamp = System.currentTimeMillis()
                         ))
                     }
                 }
