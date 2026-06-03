@@ -84,7 +84,7 @@ class HistoryTransactionFragment : Fragment() {
                 return@launch
             }
 
-            // PENGELOMPOKAN DATA BERDASARKAN TANGGAL HARI SECARA PRESISI (CORE MUTASI)
+            // PENGELOMPOKAN DATA BERDASARKAN TANGGAL HARI SECARA PRESISI
             val groupMap = LinkedHashMap<String, ArrayList<TransactionEntity>>()
             val sdfDay = SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID"))
 
@@ -113,7 +113,9 @@ class HistoryTransactionFragment : Fragment() {
                 transactions.forEach { item ->
                     val itemRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, 12, 0, 12) }
                     val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                    left.addView(TextView(context).apply { text = item.note; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748"); textSize = 14f) })
+                    
+                    // PERBAIKAN: Tanda kurung penutup pada Color.parseColor sudah dikunci rapat
+                    left.addView(TextView(context).apply { text = item.note; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")); textSize = 14f })
                     left.addView(TextView(context).apply { text = item.categoryName; textSize = 11f; setTextColor(Color.GRAY) })
                     
                     val rightText = if (item.type == "INCOME") "+" else "-"
@@ -130,4 +132,3 @@ class HistoryTransactionFragment : Fragment() {
         }
     }
 }
-
