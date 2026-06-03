@@ -2,6 +2,7 @@ package com.smartfinance.tracker.ui.chat
 
 import android.app.AlertDialog
 import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -41,6 +42,18 @@ class ChatFragment : Fragment() {
         chatAdapter = ChatAdapter(messageList)
         binding.rvChatHistory.layoutManager = LinearLayoutManager(requireContext())
         binding.rvChatHistory.adapter = chatAdapter
+
+        // =======================================================
+        // DEKORASI PREMIUM: MERANGKAI TOMBOL SEND MENJADI TIMBUL
+        // =======================================================
+        binding.btnSend.apply {
+            // Memberikan elevasi bayangan nyata (Timbul di atas background)
+            elevation = 12f 
+            // Memberikan kelengkungan lingkaran penuh agar estetik selevel top-tier tracker app
+            stateListAnimator = null 
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
+            setTextColor(Color.WHITE)
+        }
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val savedChat = prefs.getString("chat_history_backup_v4", "")
@@ -90,7 +103,7 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
         lifecycleScope.launch {
-            // Mengambil narasi cerita bersih manusia yang sudah dipotong dari JSON biner oleh Regex lokal
+            // Mengambil narasi cerita bersih manusia hasil direct-parsing bodi JSON Mode Groq hulu
             val cleanNarrationResponse = geminiClient.sendMessageToAI(message)
             
             if (messageList.isNotEmpty()) {
@@ -102,7 +115,7 @@ class ChatFragment : Fragment() {
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             binding.btnSend.isEnabled = true
             
-            // Simpan data cerita bersih tanpa campuran kode token atau tag penanda yang rawan merusak layout UI
+            // Simpan data cerita bersih tanpa campuran kode biner atau eror parser luar
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
