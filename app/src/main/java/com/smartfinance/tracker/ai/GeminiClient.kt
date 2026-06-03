@@ -34,9 +34,8 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         debts.filter { !it.isPaid }.forEach { 
             debtContext.append("- ID: ${it.id}, Kontak: ${it.contactName}, Sisa: Rp ${it.remainingAmount}, Tipe: ${it.type}\n")
         }
-
         val systemPrompt = """
-            Anda adalah core engine AI finansial pintar. Anda wajib merespons pesan user dalam skema JSON terstruktur berikut tanpa markdown kode atau teks bebas di luarnya.
+            Anda adalah core engine AI finansial pintar. Respons wajib berbentuk JSON terstruktur kaku.
             
             KATEGORI DI DATABASE:
             $catContext
@@ -44,15 +43,16 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             DAFTAR PINJAMAN AKTIF DI DATABASE:
             $debtContext
             
-            ATURAN EKSTRAKSI DATA:
-            1. Jika transaksi biasa (pemasukan/pengeluaran), tentukan tipe, amount, category_id, category_name secara logis.
-            2. Jika cicilan hutang, cari kontak di daftar pinjaman aktif. Ambil 'id' pinjamannya dan set ke 'debt_id'.
-            3. Selalu isi 'ai_response' dengan kalimat balasan bahasa manusia yang ramah, sopan, dan mengabarkan keberhasilan aksi akuntansi Anda.
+            ⚠️ ATURAN EMAS BAHASA ALAMI INDONESIA (JANGAN TERBALIK):
+            - "Saya meminjam uang KEPADA [Nama]" ATAU "Saya berhutang KEPADA [Nama]" = DEBT (Hutang Saya, Kewajiban Membayar).
+            - "[Nama] meminjam uang KEPADA SAYA" ATAU "Saya meminjamkan uang KEPADA [Nama]" = RECEIVABLE (Piutang Saya, Hak Menagih).
+            - "Dani membayar cicilan" = DEBT_PAYMENT. Cocokkan debt_id dari daftar aktif di atas.
 
-            SKEMA FORMAT JSON YANG WAJIB DIHASILKAN (PILIH SALAH SATU):
-            - Transaksi: {"action_type":"TRANSACTION", "amount":50000, "type":"EXPENSE", "category_id":2, "category_name":"Makanan & Minuman", "clean_note":"BELI NASI", "ai_response":"Siap! Pengeluaran Rp 50.000 untuk Makanan & Minuman sudah saya catat."}
-            - Cicilan: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":20000, "ai_response":"Terima kasih! Pembayaran cicilan sebesar Rp 20.000 sudah sukses diperbarui."}
-            - Hutang Baru: {"action_type":"DEBT_RECORD", "amount":100000, "contact_name":"BUDI", "debt_type":"RECEIVABLE", "ai_response":"Catatan piutang baru terkunci. Budi berhutang Rp 100.000 kepada Anda."}
+            SKEMA FORMAT JSON YANG WAJIB DIHASILKAN:
+            - Transaksi Biasa: {"action_type":"TRANSACTION", "amount":50000, "type":"EXPENSE", "category_id":15, "category_name":"Lain-lain", "clean_note":"BELI BARANG", "ai_response":"Kalimat balasan manusia"}
+            - Catat Hutang Baru (Saya yang utang): {"action_type":"DEBT_RECORD", "amount":100000, "contact_name":"BUDI", "debt_type":"DEBT", "ai_response":"Hutang Anda kepada Budi sebesar Rp 100.000 berhasil dicatat."}
+            - Catat Piutang Baru (Orang lain utang ke saya): {"action_type":"DEBT_RECORD", "amount":50000, "contact_name":"DANI", "debt_type":"RECEIVABLE", "ai_response":"Piutang baru tercatat. Dani meminjam Rp 50.000 kepada Anda."}
+            - Cicilan: {"action_type":"DEBT_PAYMENT", "debt_id":1, "pay_amount":20000, "ai_response":"Pembayaran cicilan Rp 20.000 berhasil."}
         """.trimIndent()
 
         try {
