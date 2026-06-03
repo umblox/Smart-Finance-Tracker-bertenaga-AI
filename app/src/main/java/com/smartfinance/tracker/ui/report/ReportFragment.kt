@@ -1,6 +1,9 @@
 package com.smartfinance.tracker.ui.report
 
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -13,6 +16,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.data.local.AppDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -23,6 +27,16 @@ class ReportFragment : Fragment() {
 
     private lateinit var db: AppDatabase
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
+
+    // PALET WARNA GRAFIK LINGKARAN PREMIUM APP
+    private val chartColors = intArrayOf(
+        Color.parseColor("#319795"), // Teal
+        Color.parseColor("#3182CE"), // Biru
+        Color.parseColor("#DD6B20"), // Oranye
+        Color.parseColor("#805AD5"), // Ungu
+        Color.parseColor("#E53E3E"), // Merah
+        Color.parseColor("#38A169")  // Hijau
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -37,31 +51,26 @@ class ReportFragment : Fragment() {
         }
 
         val tvTitle = TextView(context).apply {
-            text = "📊 ANALISIS LAPORAN KEUANGAN"
+            text = "📊 ANALISIS LAPORAN PREMIUM"
             textSize = 18f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.parseColor("#2D3748"))
-            setPadding(44, 44, 44, 20)
+            setPadding(48, 48, 48, 24)
         }
         root.addView(tvTitle)
 
         val tabLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(44, 0, 44, 20)
+            setPadding(48, 0, 48, 24)
         }
-        val btnTabTx = Button(context).apply { text = "Kategori Transaksi"; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        val btnTabDebt = Button(context).apply { text = "Hutang Piutang"; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+        val btnTabTx = Button(context).apply { text = "Distribusi Kategori"; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+        val btnTabDebt = Button(context).apply { text = "Struktur Pinjaman"; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         tabLayout.addView(btnTabTx)
         tabLayout.addView(btnTabDebt)
         root.addView(tabLayout)
 
-        val scrollView = ScrollView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
-        val contentContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(44, 0, 44, 44)
-        }
+        val scrollView = ScrollView(context).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
+        val contentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 0, 48, 48) }
         scrollView.addView(contentContainer)
         root.addView(scrollView)
 
@@ -81,7 +90,6 @@ class ReportFragment : Fragment() {
         }
 
         loadTransactionReport(contentContainer)
-
         return root
     }
 
@@ -91,133 +99,92 @@ class ReportFragment : Fragment() {
 
         lifecycleScope.launch {
             val transactions = db.transactionDao().getAllTransactions().first()
-            
-            var totalIncome = 0.0
             var totalExpense = 0.0
             val categoryMap = HashMap<String, Double>()
 
             transactions.forEach { tx ->
-                if (tx.type == "INCOME") {
-                    totalIncome += tx.amount
-                } else {
+                if (tx.type == "EXPENSE") {
                     totalExpense += tx.amount
-                    val currentAmount = categoryMap[tx.categoryName] ?: 0.0
-                    categoryMap[tx.categoryName] = currentAmount + tx.amount
+                    categoryMap[tx.categoryName] = (categoryMap[tx.categoryName] ?: 0.0) + tx.amount
                 }
             }
 
-            val summaryCard = createCardContainer()
-            summaryCard.addView(createTextView("Pemasukan Bersih", 13f, "#718096"))
-            summaryCard.addView(createTextView(formatRupiah.format(totalIncome), 20f, "#2F855A", true))
-            summaryCard.addView(createTextView("\nPengeluaran Struktur", 13f, "#718096"))
-            summaryCard.addView(createTextView(formatRupiah.format(totalExpense), 20f, "#C53030", true))
-            container.addView(summaryCard)
-
-            container.addView(createTextView("\nDistribusi Pengeluaran Per Kategori:", 14f, "#2D3748", true))
-
             if (categoryMap.isEmpty()) {
-                container.addView(createTextView("\nBelum ada data pengeluaran tercatat.", 14f, "#A0AEC0"))
+                container.addView(createTextView("\nBelum ada data pengeluaran ter-analisis.", 14f, "#A0AEC0"))
                 return@launch
             }
 
+            // INJEKSI ENGINE DONUT CHART KUSTOM NATIVE VIA CANVAS KOTLIN
+            val values = ArrayList<Float>()
+            val labels = ArrayList<String>()
+            categoryMap.forEach { (name, amt) ->
+                labels.add(name)
+                values.add(amt.toFloat())
+            }
+
+            val donutChartView = CustomDonutChartView(context, values.toFloatArray(), chartColors)
+            val chartCard = createCardContainer().apply { gravity = Gravity.CENTER }
+            chartCard.addView(donutChartView)
+            container.addView(chartCard)
+
+            container.addView(createTextView("\nLegenda Pembagian Kategori:", 13f, "#718096", true))
+
+            // RENDERING PANEL LEGENDA TAMPILAN PRESTISE
+            var colorIdx = 0
             categoryMap.forEach { (catName, amount) ->
-                val percentage = if (totalExpense > 0) (amount / totalExpense * 100).toInt() else 0
-                val catItemRow = createCardContainer().apply { orientation = LinearLayout.VERTICAL }
+                val color = chartColors[colorIdx % chartColors.size]
+                val percentage = (amount / totalExpense * 100).toInt()
+
+                val itemCard = createCardContainer()
+                val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                 
-                val textRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-                textRow.addView(createTextView(catName, 14f, "#4A5568", true).apply { 
+                // Kotak Warna Penanda
+                val colorIndicator = View(context).apply {
+                    setBackgroundColor(color)
+                    layoutParams = LinearLayout.LayoutParams(28, 28).apply { rightMargin = 20 }
+                }
+                row.addView(colorIndicator)
+
+                row.addView(createTextView(catName, 14f, "#2D3748", true).apply { 
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) 
                 })
-                textRow.addView(createTextView("$percentage%", 14f, "#008080", true))
-                catItemRow.addView(textRow)
-
-                val barTrack = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    setBackgroundColor(Color.parseColor("#E2E8F0"))
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 16).apply { topMargin = 12; bottomMargin = 8 }
-                }
-                val barProgress = View(context).apply {
-                    setBackgroundColor(Color.parseColor("#008080"))
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, percentage.toFloat().coerceAtLeast(1f))
-                }
-                val barEmpty = View(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, (100 - percentage).toFloat().coerceAtLeast(0f))
-                }
-                barTrack.addView(barProgress)
-                barTrack.addView(barEmpty)
-                catItemRow.addView(barTrack)
-
-                catItemRow.addView(createTextView("Total Alokasi: ${formatRupiah.format(amount)}", 12f, "#A0AEC0"))
-                container.addView(catItemRow)
+                row.addView(createTextView("${formatRupiah.format(amount)} ($percentage%)", 13f, "#4A5568"))
+                
+                itemCard.addView(row)
+                container.addView(itemCard)
+                colorIdx++
             }
         }
     }
 
     private fun loadDebtReport(container: LinearLayout) {
         container.removeAllViews()
-        
         lifecycleScope.launch {
             val debts = db.debtDao().getAllDebts().first()
+            var totalHutang = 0.0
+            var totalPiutang = 0.0
 
-            var totalHutangSaya = 0.0
-            var totalPiutangOrang = 0.0
-
-            debts.filter { !it.isPaid }.forEach { debt ->
-                if (debt.type == "DEBT") {
-                    totalHutangSaya += debt.remainingAmount
-                } else {
-                    totalPiutangOrang += debt.remainingAmount
-                }
+            debts.filter { !it.isPaid }.forEach {
+                if (it.type == "DEBT") totalHutang += it.remainingAmount else totalPiutang += it.remainingAmount
             }
 
-            val summaryCard = createCardContainer()
-            summaryCard.addView(createTextView("Piutang Saya (Uang Ada Di Orang)", 13f, "#718096"))
-            summaryCard.addView(createTextView(formatRupiah.format(totalPiutangOrang), 18f, "#2B6CB0", true))
-            summaryCard.addView(createTextView("\nHutang Saya (Wajib Dibayar Balik)", 13f, "#718096"))
-            summaryCard.addView(createTextView(formatRupiah.format(totalHutangSaya), 18f, "#D69E2E", true))
-            container.addView(summaryCard)
-
-            container.addView(createTextView("\nDaftar Rincian Kontak Aktif:", 14f, "#2D3748", true))
-
-            val activeDebts = debts.filter { !it.isPaid }
-            if (activeDebts.isEmpty()) {
-                container.addView(createTextView("\nBebas Hutang! Tidak ada catatan pinjaman aktif.", 14f, "#2F855A"))
-                return@launch
-            }
-
-            activeDebts.forEach { item ->
-                val itemCard = createCardContainer().apply { orientation = LinearLayout.HORIZONTAL }
-                
-                val leftLayout = LinearLayout(requireContext()).apply { 
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                leftLayout.addView(createTextView(item.contactName, 15f, "#2D3748", true))
-                
-                val labelJenis = if (item.type == "DEBT") "⚠️ Hutang Anda" else "💰 Piutang Anda"
-                leftLayout.addView(createTextView(labelJenis, 12f, if (item.type == "DEBT") "#D69E2E" else "#2B6CB0"))
-                itemCard.addView(leftLayout)
-
-                val tvNominal = createTextView(formatRupiah.format(item.remainingAmount), 14f, "#4A5568", true).apply {
-                    gravity = Gravity.END
-                }
-                itemCard.addView(tvNominal)
-
-                container.addView(itemCard)
-            }
+            val itemCard = createCardContainer()
+            itemCard.addView(createTextView("STRUKTUR FINANSIAL UTANG PIUTANG", 12f, "#718096", true))
+            itemCard.addView(createTextView("\n💰 Piutang (Uang Anda di Orang):", 14f, "#2B6CB0"))
+            itemCard.addView(createTextView(formatRupiah.format(totalPiutang), 20f, "#2B6CB0", true))
+            itemCard.addView(createTextView("\n⚠️ Hutang (Kewajiban Anda):", 14f, "#D69E2E"))
+            itemCard.addView(createTextView(formatRupiah.format(totalHutang), 20f, "#D69E2E", true))
+            container.addView(itemCard)
         }
     }
 
-    private fun createCardContainer(): LinearLayout {
-        return LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 24, 24, 24)
-            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-            background.setTint(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 12 }
+    private fun createCardContainer(): MaterialCardView {
+        return MaterialCardView(requireContext()).apply {
+            radius = 24f
+            cardElevation = 2f
+            setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16 }
+            setPadding(32, 32, 32, 32)
         }
     }
 
@@ -227,6 +194,32 @@ class ReportFragment : Fragment() {
             textSize = size
             setTextColor(Color.parseColor(colorHex))
             if (isBold) setTypeface(null, Typeface.BOLD)
+        }
+    }
+
+    // INTERNAL INNER CLASS ENGINE UNTUK MENGGAMBAR DONUT GRAPH DENGAN CANVAS NATIVE
+    private class CustomDonutChartView(context: Context, private val dataValues: FloatArray, private val colors: IntArray) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 50f }
+        private val rectF = RectF()
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            setMeasuredDimension(400, 400) // Kunci Rasio Kotak Sempurna Untuk Lingkaran Grafik
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val total = dataValues.sum()
+            if (total == 0f) return
+
+            rectF.set(50f, 50f, width.toFloat() - 50f, height.toFloat() - 50f)
+            var startAngle = 0f
+
+            for (i in dataValues.indices) {
+                val sweepAngle = (dataValues[i] / total) * 360f
+                paint.color = colors[i % colors.size]
+                canvas.drawArc(rectF, startAngle, sweepAngle, false, paint)
+                startAngle += sweepAngle
+            }
         }
     }
 }
