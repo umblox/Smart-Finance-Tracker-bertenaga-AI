@@ -15,7 +15,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class GeminiClient(private val context: Context, private val assistant: FinancialAssistant) {
+// Nama kelas resmi diganti menjadi GroqClient agar sinkron dengan nama file baru
+class GroqClient(private val context: Context, private val assistant: FinancialAssistant) {
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GROQ_API_KEY
@@ -90,7 +91,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.2) // Set ke 0.2 agar Llama tidak pusing dan lancar menyusun JSON objek
+                put("temperature", 0.2)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
