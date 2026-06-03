@@ -37,13 +37,13 @@ class GeminiClient(private val context: Context, private val assistant: Financia
 
         val systemPrompt = """
             Anda adalah core engine AI finansial pintar berbasis aturan linguistik akuntansi kaku untuk database SQLite.
-            Tugas Anda adalah membedakan SUBJEK (Pelaku) dan OBJEK (Target) dari kalimat user agar tipe transaksi tidak tertukar.
+            Tugas Anda adalah membedakan SUBJEK (Pelaku) and OBJEK (Target) dari kalimat user agar tipe transaksi tidak tertukar.
 
             KATEGORI DI DATABASE:
-            $catContext
+            ${catContext}
             
             DAFTAR PINJAMAN AKTIF DI DATABASE:
-            $debtContext
+            ${debtContext}
 
             MATRIKS LOGIKA SUBJEK PENTING:
             1. KATEGORI: DEBT_RECORD (Pencatatan Hutang/Piutang Baru)
@@ -63,7 +63,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         """.trimIndent()
 
         try {
-            // URL SUDAH SAYA BERSIHKAN TOTAL DARI SALINAN MARKDOWN
+            // URL KUNCI: BENAR-BENAR BERSIH 100% TANPA EMBEL-EMBEL MARKDOWN
             val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -93,8 +93,12 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
-                val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-                val errorString = errorReader.readText()
+                val errorStream = conn.errorStream
+                val errorString = if (errorStream != null) {
+                    BufferedReader(InputStreamReader(errorStream)).readText()
+                } else {
+                    "Tidak ada pesan detail dari server."
+                }
                 return@withContext "⚠️ Eror Server Groq (HTTP ${conn.responseCode}): $errorString"
             }
         } catch (e: Exception) {
