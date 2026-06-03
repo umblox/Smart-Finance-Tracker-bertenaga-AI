@@ -35,13 +35,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "smart_finance_db"
                 )
-                // Menyuntikkan fallback migrasi destruktif aman jika versi naik
                 .fallbackToDestructiveMigration()
-                // REGISTER LOGIKA SUNTIK OTOMATIS SAAT DATABASE DI-CREAT PERTAMA KALI
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        // Jalankan di Background Thread agar aplikasi tidak freeze saat instalasi awal
                         Executors.newSingleThreadExecutor().execute {
                             val database = getDatabase(context)
                             database.categoryDao().insertDefaultCategories(get15DefaultCategories())
@@ -54,24 +51,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // KUMPULAN 15 KATEGORI DEFAULT PRESET PREMIUM (ANTI-KOSONG)
+        // KUMPULAN 15 KATEGORI DEFAULT LENGKAP DENGAN PARAMETER PARAM ICON_NAME
         private fun get15DefaultCategories(): List<CategoryEntity> {
             return listOf(
-                CategoryEntity(id = 1, name = "Gaji & Pendapatan", type = "INCOME"),
-                CategoryEntity(id = 2, name = "Makanan & Minuman", type = "EXPENSE"),
-                CategoryEntity(id = 3, name = "Belanja & Kebutuhan", type = "EXPENSE"),
-                CategoryEntity(id = 4, name = "Transportasi & Bensin", type = "EXPENSE"),
-                CategoryEntity(id = 5, name = "Tagihan & Listrik", type = "EXPENSE"),
-                CategoryEntity(id = 6, name = "Hiburan & Hiburan", type = "EXPENSE"),
-                CategoryEntity(id = 7, name = "Kesehatan & Medis", type = "EXPENSE"),
-                CategoryEntity(id = 8, name = "Edukasi & Buku", type = "EXPENSE"),
-                CategoryEntity(id = 9, name = "Investasi & Saham", type = "INCOME"),
-                CategoryEntity(id = 10, name = "Hadiah & Donasi", type = "EXPENSE"),
-                CategoryEntity(id = 11, name = "Cicilan & Pinjaman", type = "EXPENSE"),
-                CategoryEntity(id = 12, name = "Hutang (Saya Meminjam)", type = "INCOME"),
-                CategoryEntity(id = 13, name = "Piutang (Memberi Pinjaman)", type = "EXPENSE"),
-                CategoryEntity(id = 14, name = "Bonus & Sampingan", type = "INCOME"),
-                CategoryEntity(id = 15, name = "Lain-lain / Umum", type = "EXPENSE")
+                CategoryEntity(id = 1, name = "Gaji & Pendapatan", type = "INCOME", iconName = "ic_salary"),
+                CategoryEntity(id = 2, name = "Makanan & Minuman", type = "EXPENSE", iconName = "ic_food"),
+                CategoryEntity(id = 3, name = "Belanja & Kebutuhan", type = "EXPENSE", iconName = "ic_shopping"),
+                CategoryEntity(id = 4, name = "Transportasi & Bensin", type = "EXPENSE", iconName = "ic_transport"),
+                CategoryEntity(id = 5, name = "Tagihan & Listrik", type = "EXPENSE", iconName = "ic_bill"),
+                CategoryEntity(id = 6, name = "Hiburan & Hiburan", type = "EXPENSE", iconName = "ic_entertainment"),
+                CategoryEntity(id = 7, name = "Kesehatan & Medis", type = "EXPENSE", iconName = "ic_health"),
+                CategoryEntity(id = 8, name = "Edukasi & Buku", type = "EXPENSE", iconName = "ic_education"),
+                CategoryEntity(id = 9, name = "Investasi & Saham", type = "INCOME", iconName = "ic_investment"),
+                CategoryEntity(id = 10, name = "Hadiah & Donasi", type = "EXPENSE", iconName = "ic_gift"),
+                CategoryEntity(id = 11, name = "Cicilan & Pinjaman", type = "EXPENSE", iconName = "ic_loan"),
+                CategoryEntity(id = 12, name = "Hutang (Saya Meminjam)", type = "INCOME", iconName = "ic_debt"),
+                CategoryEntity(id = 13, name = "Piutang (Memberi Pinjaman)", type = "EXPENSE", iconName = "ic_receivable"),
+                CategoryEntity(id = 14, name = "Bonus & Sampingan", type = "INCOME", iconName = "ic_bonus"),
+                CategoryEntity(id = 15, name = "Lain-lain / Umum", type = "EXPENSE", iconName = "ic_others")
             )
         }
     }
