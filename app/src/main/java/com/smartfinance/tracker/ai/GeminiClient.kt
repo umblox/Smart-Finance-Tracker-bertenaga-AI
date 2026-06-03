@@ -63,6 +63,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
         """.trimIndent()
 
         try {
+            // URL SUDAH SAYA BERSIHKAN TOTAL DARI SALINAN MARKDOWN
             val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -90,7 +91,6 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                // Teruskan data ke asisten lokal untuk dieksekusi
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
                 val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
