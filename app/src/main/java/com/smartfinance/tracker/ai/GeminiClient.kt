@@ -35,12 +35,11 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             debtContext.append("- ID: ${it.id}, Kontak: ${it.contactName}, Sisa: Rp ${it.remainingAmount}, Tipe: ${it.type}\n")
         }
 
-        // Ambil info tanggal hari ini sebagai jangkar acuan kalkulasi waktu AI
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
         val rawSystemPrompt = """
-            Anda adalah core engine AI finansial akuntansi premium. Anda WAJIB merespons HANYA dengan objek JSON murni tanpa markdown (tanpa ```json).
+            Anda adalah core engine AI finansial akuntansi premium. Anda WAJIB merespons HANYA dengan objek JSON murni yang valid tanpa markdown block.
             
             JANGKAR ACUAN WAKTU HARI INI:
             $todayString
@@ -51,28 +50,21 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             DAFTAR PINJAMAN AKTIF DI SQLITE:
             CONTEXT_DEBTS
 
-            ⚠️ ATURAN DETEKSI WAKTU & KALENDER (MANDATORI):
-            - Analisis informasi waktu dari pesan user (contoh: "kemarin", "2 hari lalu", "januari lalu", "tanggal 12", "besok").
-            - Hitung tanggalnya berdasarkan JANGKAR ACUAN WAKTU HARI INI yang diberikan di atas.
-            - Masukkan hasil kalkulasi tanggal tersebut ke dalam field 'transaction_date' dengan format kaku 'YYYY-MM-DD'.
-            - Jika user tidak menyebutkan keterangan waktu, isi field 'transaction_date' dengan tanggal hari ini.
+            ⚠️ ATURAN KALENDER:
+            - Hitung tanggal transaksi berdasarkan JANGKAR ACUAN WAKTU HARI INI.
+            - Masukkan ke field 'transaction_date' dengan format 'YYYY-MM-DD'.
 
-            ⚠️ ATURAN EVALUASI LOGIKA KLASIFIKASI:
-            - "Gajian" / "Pemasukan" -> type: 'INCOME', Kategori ID: 1 (Gaji & Pendapatan). JANGAN PERNAH terbalik jadi EXPENSE!
-            - "Beli" / "Pengeluaran" / "Bayar makan" -> type: 'EXPENSE'.
-            - "Saya meminjam KEPADA [Nama]" -> action_type: 'DEBT_RECORD', debt_type: 'DEBT' (Hutang), Kategori ID: 12.
-            - "[Nama] meminjam DARI SAYA" / "Saya meminjamkan KE [Nama]" -> action_type: 'DEBT_RECORD', debt_type: 'RECEIVABLE' (Piutang), Kategori ID: 13.
-
-            STRUKTUR JSON YANG WAJIB DIHASILKAN:
+            ⚠️ STRUKTUR KAKU OUTPUT JSON:
+            Anda harus mengisi field berikut:
             {
-              'action_type': 'TRANSACTION' atau 'DEBT_RECORD' atau 'DEBT_PAYMENT',
+              'action_type': 'TRANSACTION',
               'amount': 2300000,
-              'type': 'INCOME' atau 'EXPENSE',
+              'type': 'INCOME',
               'category_id': 1,
               'category_name': 'Gaji & Pendapatan',
               'clean_note': 'GAJIAN UTAMA',
               'transaction_date': 'YYYY-MM-DD',
-              'ai_response': 'Kalimat balasan premium yang ramah, ekspresif, menyebutkan nominal riil, info tanggal transaksi, dan nama kontak jika ada.'
+              'ai_response': 'Berhasil mencatat pendapatan gajian sebesar Rp 2.300.000, Mam!'
             }
         """.trimIndent()
 
@@ -82,7 +74,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
             .replace("'", "\"")
 
         try {
-            val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
+            val url = URL("https://api.groq.com/openai/v1/chat/completions")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
@@ -98,7 +90,7 @@ class GeminiClient(private val context: Context, private val assistant: Financia
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.0) // Kunci ke 0 agar AI patuh matematika kalender
+                put("temperature", 0.2) // Set ke 0.2 agar Llama tidak pusing dan lancar menyusun JSON objek
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
