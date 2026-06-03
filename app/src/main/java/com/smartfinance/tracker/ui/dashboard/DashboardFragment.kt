@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.dashboard
 
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -13,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.MainActivity
+import com.smartfinance.tracker.R // IMPORT RESOURCE UTAMA LOKAL
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.ui.report.ReportFragment
@@ -33,8 +35,8 @@ class DashboardFragment : Fragment() {
     private lateinit var tvExpenseSummary: TextView
     private lateinit var btnTopExpenseFilter: Button
 
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
-    private var selectedTopFilter = "BULAN INI" // Saringan default top expense pengeluaran teratas
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    private var selectedTopFilter = "BULAN INI"
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -118,7 +120,6 @@ class DashboardFragment : Fragment() {
             val allTx = db.transactionDao().getAllTransactions().first()
             val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
 
-            // 1. Hitung Saldo Total Keseluruhan
             var balanceTotal = 0.0
             var incomeSum = 0.0
             var expenseSum = 0.0
@@ -130,7 +131,6 @@ class DashboardFragment : Fragment() {
             tvIncomeSummary.text = "🟢 Total Pemasukan: ${formatRupiah.format(incomeSum)}"
             tvExpenseSummary.text = "🔴 Total Pengeluaran: ${formatRupiah.format(expenseSum)}"
 
-            // 2. Render Pengeluaran Teratas (Maksimal 3 Data Terbesar Terfilter Rentang Waktu)
             topExpenseContainer.removeAllViews()
             val nowTime = System.currentTimeMillis()
             val filteredExpenses = allTx.filter { it.type == "EXPENSE" }.filter { tx ->
@@ -162,7 +162,6 @@ class DashboardFragment : Fragment() {
                 }
             }
 
-            // 3. Render Transaksi Terkini (5 Mutasi Terbaru - Klik Lompat Ke Tab Transaksi Navigasi Bawah)
             recentTxContainer.removeAllViews()
             val recentTxList = allTx.sortedByDescending { it.timestamp }.take(5)
             if (recentTxList.isEmpty()) {
@@ -172,6 +171,7 @@ class DashboardFragment : Fragment() {
                     val rowCard = MaterialCardView(requireContext()).apply {
                         radius = 20f; cardElevation = 2f; setCardBackgroundColor(Color.WHITE)
                         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12 }
+                        // PERBAIKAN: Referensi R.id.menu_report dari import eksplisit
                         setOnClickListener { (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report) }
                     }
                     val inner = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(24, 24, 24, 24); gravity = Gravity.CENTER_VERTICAL }
