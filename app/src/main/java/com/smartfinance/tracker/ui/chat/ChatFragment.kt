@@ -7,9 +7,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -27,9 +24,6 @@ class ChatFragment : Fragment() {
     private lateinit var geminiClient: GeminiClient
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
-
-    // Penampung tombol kustom baru agar bisa di-disable/enable saat AI berpikir
-    private var customSendButton: com.google.android.material.card.MaterialCardView? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -49,36 +43,36 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.adapter = chatAdapter
 
         // =======================================================
-        // ROMBAK TOTAL: TIMBULKAN & BULATKAN TOMBOL SEND (LOGOSEND)
+        // REKAYASA PREMIUM: MANFAATKAN BUTTON XML ASLI MENJADI BULAT & TIMBUL
         // =======================================================
-        // 1. Sembunyikan tombol kotak bawaan XML lama
-        binding.btnSend.visibility = View.GONE
-
-        // 2. Buat MaterialCardView bulat premium penampung icon
-        val density = requireContext().resources.displayMetrics.density
-        val sizePx = (48 * density).toInt() // Ukuran ideal 48dp bulat
-
-        customSendButton = com.google.android.material.card.MaterialCardView(requireContext()).apply {
-            radius = sizePx / 2f // Garansi bulat lingkaran murni
-            cardElevation = 14f  // Efek bayangan tegas memisahkan diri dari bg
-            setCardBackgroundColor(Color.parseColor("#008080")) // Warna kebanggaan Teal
-            layoutParams = LinearLayout.LayoutParams(sizePx, sizePx).apply {
-                leftMargin = (8 * density).toInt()
-            }
+        binding.btnSend.apply {
+            // 1. Pastikan komponen aktif dan terlihat di layar
+            visibility = View.VISIBLE 
+            
+            // 2. Bersihkan teks dan atribut bawaan template XML agar bersih
+            text = "" 
+            icon = null 
+            
+            // 3. Suntikkan icon pesawat kertas resmi Android Core tepat di tengah-tengah tombol
+            setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_send, 0, 0, 0)
+            
+            // 4. Hitung kompensasi padding biner agar posisi pesawat seimbang sempurna di tengah lingkaran
+            val density = requireContext().resources.displayMetrics.density
+            val dynamicPaddingLeft = (14 * density).toInt() 
+            setPadding(dynamicPaddingLeft, 0, 0, 0)
+            
+            // 5. Matikan animator default Android agar nilai elevasi tidak dikunci oleh sistem tema
+            stateListAnimator = null 
+            
+            // 6. Naikkan nilai bayangan (Elevation) setinggi 14dp agar tombol terlihat sangat timbul dan premium
+            elevation = 14 * density 
+            
+            // 7. Paksa bentuknya berubah wujud menjadi bundar murni (Corner Radius diset setengah dari ukuran tinggi tombol 54dp)
+            cornerRadius = (27 * density).toInt() 
+            
+            // 8. Berikan warna dasar Hijau Teal kebanggaan aplikasi kita
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
         }
-
-        // 3. Masukkan gambar vector pesawat kertas bawaan framework Android core
-        val ivSendIcon = ImageView(requireContext()).apply {
-            setImageResource(android.R.drawable.ic_menu_send)
-            setColorFilter(Color.WHITE)
-            setPadding((12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt())
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
-        customSendButton?.addView(ivSendIcon)
-
-        // 4. Masukkan paksa ke kontainer input (di sebelah kolom teks etMessage)
-        val inputContainer = binding.etMessage.parent as? LinearLayout
-        inputContainer?.addView(customSendButton)
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val savedChat = prefs.getString("chat_history_backup_v4", "")
@@ -90,8 +84,8 @@ class ChatFragment : Fragment() {
             chatAdapter.notifyDataSetChanged()
         }
 
-        // 5. Pautkan logika kirim ke tombol premium yang baru
-        customSendButton?.setOnClickListener {
+        // Pautkan aksi klik langsung ke komponen tombol asli XML yang sudah dimodifikasi
+        binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
                 sendChatToAI(message)
@@ -123,9 +117,9 @@ class ChatFragment : Fragment() {
         
         binding.etMessage.setText("")
         
-        // Disable tombol kustom & redupkan keanggunannya saat AI bekerja
-        customSendButton?.isEnabled = false 
-        customSendButton?.alpha = 0.5f
+        // Redupkan dan kunci tombol saat AI sedang memproses data di server
+        binding.btnSend.isEnabled = false 
+        binding.btnSend.alpha = 0.5f
 
         messageList.add(ChatMessage("AI sedang berpikir...", false))
         chatAdapter.notifyItemInserted(messageList.size - 1)
@@ -142,9 +136,9 @@ class ChatFragment : Fragment() {
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             
-            // Kembalikan status tombol kustom setelah data turun dari server
-            customSendButton?.isEnabled = true
-            customSendButton?.alpha = 1.0f
+            // Kembalikan keanggunan tombol setelah respons kas turun
+            binding.btnSend.isEnabled = true
+            binding.btnSend.alpha = 1.0f
             
             val backupBuilder = StringBuilder()
             messageList.forEach { 
