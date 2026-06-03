@@ -228,6 +228,7 @@ class ReportFragment : Fragment() {
 
                 itemCard.addView(mainRow)
                 container.addView(itemCard)
+            }
         }
     }
     
