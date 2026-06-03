@@ -164,25 +164,73 @@ class ReportFragment : Fragment() {
 
     private fun loadDebtReport(container: LinearLayout) {
         container.removeAllViews()
+        val context = requireContext()
+
         lifecycleScope.launch {
             val debts = db.debtDao().getAllDebts().first()
             var totalHutang = 0.0
             var totalPiutang = 0.0
 
-            debts.filter { !it.isPaid }.forEach {
+            // LOGIKA FILTER OTOMATIS: Bersihkan/abaikan yang sudah lunas
+            val activeDebts = debts.filter { !it.isPaid && it.remainingAmount > 0.0 }
+
+            activeDebts.forEach {
                 if (it.type == "DEBT") totalHutang += it.remainingAmount else totalPiutang += it.remainingAmount
             }
 
-            val itemCard = createCardContainer()
-            itemCard.addView(createTextView("STRUKTUR FINANSIAL UTANG PIUTANG", 12f, "#718096", true))
-            itemCard.addView(createTextView("\n💰 Piutang (Uang Anda di Orang):", 14f, "#2B6CB0"))
-            itemCard.addView(createTextView(formatRupiah.format(totalPiutang), 20f, "#2B6CB0", true))
-            itemCard.addView(createTextView("\n⚠️ Hutang (Kewajiban Anda):", 14f, "#D69E2E"))
-            itemCard.addView(createTextView(formatRupiah.format(totalHutang), 20f, "#D69E2E", true))
-            container.addView(itemCard)
+            // KARTU SUMMARY ATAS
+            val summaryCard = createCardContainer()
+            summaryCard.addView(createTextView("RINGKASAN STRUKTUR AKTIF", 12f, "#718096", true))
+            summaryCard.addView(createTextView("\n💰 Total Piutang Anda di Orang:", 14f, "#2B6CB0"))
+            summaryCard.addView(createTextView(formatRupiah.format(totalPiutang), 18f, "#2B6CB0", true))
+            summaryCard.addView(createTextView("\n⚠️ Total Hutang Kewajiban Anda:", 14f, "#D69E2E"))
+            summaryCard.addView(createTextView(formatRupiah.format(totalHutang), 18f, "#D69E2E", true))
+            container.addView(summaryCard)
+
+            container.addView(createTextView("\n⏰ DETAIL JATUH TEMPO PER KONTAK (SORTIR AKTIF):", 13f, "#2D3748", true))
+
+            if (activeDebts.isEmpty()) {
+                container.addView(createTextView("\nSemua catatan bersih! Bebas tunggakan tempo.", 14f, "#38A169"))
+                return@launch
+            }
+
+            // Urutkan berdasarkan sisa waktu paling mendesak (simulasi sortir tempo)
+            activeDebts.sortedBy { it.timestamp }.forEach { item ->
+                // Simulasi Hitung Sisa Hari Tempo (Standar Batas Premium 30 Hari sejak dibuat)
+                val masehiDibuat = item.timestamp
+                val masehiSekarang = System.currentTimeMillis()
+                val selisihMilidetik = masehiSekarang - masehiDibuat
+                val selisihHari = (selisihMilidetik / (1000 * 60 * 60 * 24)).toInt()
+                val sisaHariTempo = (30 - selisihHari).coerceAtLeast(0)
+
+                // LOGIKA AUTO RESET/ARCHIVE SISTEM PREMIUM:
+                // Jika sisa nominal 0 atau ditandai lunas, otomatis dikeluarkan dari ringkasan laporan aktif
+                if (item.remainingAmount <= 0.0) return@forEach 
+
+                val itemCard = createCardContainer()
+                val mainRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+
+                val leftInfo = LinearLayout(context).apply { 
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                leftInfo.addView(createTextView(item.contactName, 15f, "#2D3748", true))
+                
+                val jenisLabel = if (item.type == "DEBT") "⚠️ Hutang (Kewajiban Anda)" else "💰 Piutang (Hak Tagih Anda)"
+                leftInfo.addView(createTextView(jenisLabel, 12f, if (item.type == "DEBT") "#D69E2E" else "#2B6CB0"))
+                
+                // Indikator Hari Jatuh Tempo Mewah
+                val tempoText = if (sisaHariTempo == 0) "🔴 TEMPO HABIS (Wajib Selesai)" else "⏳ Sisa Tempo: $sisaHariTempo Hari"
+                leftInfo.addView(createTextView(tempoText, 11f, if (sisaHariTempo == 0) "#E53E3E" else "#718096"))
+
+                mainRow.addView(leftInfo)
+                mainRow.addView(createTextView(formatRupiah.format(item.remainingAmount), 14f, "#2D3748", true))
+
+                itemCard.addView(mainRow)
+                container.addView(itemCard)
         }
     }
-
+    
     private fun createCardContainer(): MaterialCardView {
         return MaterialCardView(requireContext()).apply {
             radius = 24f
