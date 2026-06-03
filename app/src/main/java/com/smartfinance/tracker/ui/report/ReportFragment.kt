@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.report
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -113,7 +114,6 @@ class ReportFragment : Fragment() {
                 return@launch
             }
 
-            // PERBAIKAN GRAFIK: Dibungkus ke dalam layout penengah yang valid
             val chartWrapper = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -202,8 +202,8 @@ class ReportFragment : Fragment() {
         }
     }
 
-    // PERBAIKAN INNER CLASS: Menggunakan parameter kontras huruf kecil "context"
-    private class CustomDonutChartView(context: Context, private val dataValues: FloatArray, private val colors: IntArray) : View(context) {
+    // TETAP DIKUNCI MENGGUNAKAN KONTEKS HURUF KECIL DAN IMPORT EKSTERNAL YANG VALID
+    private class CustomDonutChartView(ctx: Context, private val dataValues: FloatArray, private val colors: IntArray) : View(ctx) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 50f }
         private val rectF = RectF()
 
