@@ -77,7 +77,6 @@ class TransactionEditorDialog(
             layoutParams = lp
         }
 
-        // 1. Edit Nominal Angka
         formLayout.addView(TextView(context).apply { text = "Nominal Transaksi (Rp)"; setTextColor(Color.parseColor("#718096")); textSize = 12f })
         val etAmount = EditText(context).apply {
             setText(transaction.amount.toLong().toString())
@@ -87,7 +86,6 @@ class TransactionEditorDialog(
         }
         formLayout.addView(etAmount)
 
-        // 2. Edit Catatan Deskripsi
         formLayout.addView(TextView(context).apply { text = "Catatan"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val etNote = EditText(context).apply {
             setText(transaction.note)
@@ -96,7 +94,6 @@ class TransactionEditorDialog(
         }
         formLayout.addView(etNote)
 
-        // 3. Edit Tanggal Transaksi (Format YsubY-MM-DD)
         formLayout.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val etDate = EditText(context).apply {
@@ -106,7 +103,6 @@ class TransactionEditorDialog(
         }
         formLayout.addView(etDate)
 
-        // 4. Pilihan Spinner Kategori Dinamis
         formLayout.addView(TextView(context).apply { text = "Kategori Pengikat"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, (4 * density).toInt()) })
         val spinnerCategory = Spinner(context).apply { setBackgroundColor(Color.WHITE); setPadding((10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt()) }
         formLayout.addView(spinnerCategory)
@@ -124,7 +120,6 @@ class TransactionEditorDialog(
             if (selectedIdx != -1) spinnerCategory.setSelection(selectedIdx)
         }
 
-        // --- TOMBOL SIMPAN DI BOTTOM TENGAH ---
         val btnSave = Button(context).apply {
             text = "Simpan Perubahan"
             textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE)
@@ -144,6 +139,7 @@ class TransactionEditorDialog(
 
         btnDelete.setOnClickListener {
             lifecycleScope.launch {
+                // SEKARANG BERHASIL: deleteTransaction terdaftar legal di DAO Room
                 db.transactionDao().deleteTransaction(transaction)
                 onUpdateAction()
                 editorDialog.dismiss()
@@ -168,7 +164,7 @@ class TransactionEditorDialog(
                         categoryName = selectedCategory.name,
                         type = selectedCategory.type
                     )
-                    db.transactionDao().insertTransaction(updatedTx) // Mengganti record lama karena ID primary key sama
+                    db.transactionDao().insertTransaction(updatedTx)
                     onUpdateAction()
                     editorDialog.dismiss()
                 }
