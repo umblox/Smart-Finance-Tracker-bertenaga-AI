@@ -15,7 +15,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Nama kelas resmi diganti menjadi GroqClient agar sinkron dengan nama file baru
 class GroqClient(private val context: Context, private val assistant: FinancialAssistant) {
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
@@ -40,7 +39,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val todayString = sdfToday.format(Date())
 
         val rawSystemPrompt = """
-            Anda adalah core engine AI finansial akuntansi premium. Anda WAJIB merespons HANYA dengan objek JSON murni yang valid tanpa markdown block.
+            Anda adalah core engine AI finansial akuntansi premium. Anda WAJIB merespons HANYA dengan objek JSON murni yang valid tanpa markdown block (JANGAN gunakan ```json).
             
             JANGKAR ACUAN WAKTU HARI INI:
             $todayString
@@ -51,21 +50,32 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             DAFTAR PINJAMAN AKTIF DI SQLITE:
             CONTEXT_DEBTS
 
-            ⚠️ ATURAN KALENDER:
-            - Hitung tanggal transaksi berdasarkan JANGKAR ACUAN WAKTU HARI INI.
-            - Masukkan ke field 'transaction_date' dengan format 'YYYY-MM-DD'.
+            ⚠️ MATRIKS KAKU UTANG PIUTANG (JANGAN TERBALIK!):
+            1. 'action_type': 'DEBT_RECORD' (Pencatatan Utang/Piutang Baru)
+               - Jika SAYA MEMINJAM uang ke orang lain / SAYA UTANG ke orang lain -> 'debt_type' WAJIB 'DEBT' (Kategori ID: 12).
+               - Jika ORANG LAIN MEMINJAM uang ke saya / SAYA MEMINJAMKAN uang -> 'debt_type' WAJIB 'RECEIVABLE' (Kategori ID: 13).
+            
+            2. 'action_type': 'DEBT_PAYMENT' (Bayar/Cicil Utang Lama)
+               - Jika saya bayar utang saya ke orang lain -> Ambil ID kontak dari daftar bertipe 'DEBT'.
+               - Jika orang lain bayar utangnya ke saya -> Ambil ID kontak dari daftar bertipe 'RECEIVABLE'.
+
+            3. 'action_type': 'VIEW_REPORT' (User ingin melihat grafik/laporan/analisis keuangan)
+               - Jika user meminta laporan, ringkasan, atau ingin tahu total pengeluaran/pendapatan, set 'action_type' menjadi 'VIEW_REPORT'.
 
             ⚠️ STRUKTUR KAKU OUTPUT JSON:
-            Anda harus mengisi field berikut:
             {
-              'action_type': 'TRANSACTION',
-              'amount': 2300000,
-              'type': 'INCOME',
-              'category_id': 1,
-              'category_name': 'Gaji & Pendapatan',
-              'clean_note': 'GAJIAN UTAMA',
+              'action_type': 'TRANSACTION' / 'DEBT_RECORD' / 'DEBT_PAYMENT' / 'VIEW_REPORT',
+              'amount': 50000,
+              'type': 'EXPENSE' / 'INCOME',
+              'contact_name': 'NAMA_ORANG',
+              'debt_type': 'DEBT' / 'RECEIVABLE',
+              'debt_id': -1,
+              'pay_amount': 0,
+              'category_id': 2,
+              'category_name': 'Makanan & Minuman',
+              'clean_note': 'CATATAN BERSIH',
               'transaction_date': 'YYYY-MM-DD',
-              'ai_response': 'Berhasil mencatat pendapatan gajian sebesar Rp 2.300.000, Mam!'
+              'ai_response': 'Tulis kalimat respons manusiawi, detail, ramah, dan jelaskan aksi keuangan yang terjadi secara lengkap.'
             }
         """.trimIndent()
 
@@ -75,7 +85,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("'", "\"")
 
         try {
-            val url = URL("https://api.groq.com/openai/v1/chat/completions")
+            val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
@@ -91,7 +101,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.2)
+                put("temperature", 0.2) // Longgar dan fleksibel agar JSON terbentuk rapi sempurna
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
