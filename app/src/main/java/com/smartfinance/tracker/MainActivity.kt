@@ -6,6 +6,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
+import com.smartfinance.tracker.ui.debt.AddDebtFragment // MEMULIHKAN IMPORT HUTANG
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 
@@ -17,7 +18,7 @@ class MainActivity : AppCompatActivity() {
 
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottom_navigation)
         
-        // Atur agar teks menu laporan berubah menjadi Transaksi di runtime jika belum diubah di XML
+        // Mengubah label menu laporan menjadi Transaksi di runtime
         bottomNavigation.menu.findItem(R.id.menu_report)?.title = "Transaksi"
 
         if (savedInstanceState == null) {
@@ -28,7 +29,8 @@ class MainActivity : AppCompatActivity() {
             val selectedFragment: Fragment = when (item.itemId) {
                 R.id.menu_dashboard -> DashboardFragment()
                 R.id.menu_chat -> ChatFragment()
-                R.id.menu_report -> HistoryTransactionFragment() // DIUBAH KE TRANSAKSI
+                R.id.menu_report -> HistoryTransactionFragment()
+                R.id.menu_debt -> AddDebtFragment() // MEMULIHKAN MENU HUTANG
                 R.id.menu_settings -> SettingsFragment()
                 else -> DashboardFragment()
             }
