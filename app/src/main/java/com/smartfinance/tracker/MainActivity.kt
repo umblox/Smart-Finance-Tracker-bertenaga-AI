@@ -6,10 +6,8 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
-import com.smartfinance.tracker.ui.debt.AddDebtFragment
+import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
-import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment // TAB BARU PENAMPUNG MUTASI KAS PER HARI
-import com.smartfinance.tracker.ui.report.ReportFragment
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,42 +15,30 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+        val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+        
+        // Atur agar teks menu laporan berubah menjadi Transaksi di runtime jika belum diubah di XML
+        bottomNavigation.menu.findItem(R.id.menu_report)?.title = "Transaksi"
 
         if (savedInstanceState == null) {
-            loadFragment(DashboardFragment())
+            supportFragmentManager.beginTransaction().replace(R.id.fragment_container, DashboardFragment()).commit()
         }
 
-        bottomNav.setOnItemSelectedListener { item ->
-            val targetFragment: Fragment = when (item.itemId) {
+        bottomNavigation.setOnItemSelectedListener { item ->
+            val selectedFragment: Fragment = when (item.itemId) {
                 R.id.menu_dashboard -> DashboardFragment()
                 R.id.menu_chat -> ChatFragment()
-                // MENGUBAH FUNGSI KLIK MENJADI HALAMAN DAFTAR TRANSAKSI
-                R.id.menu_report -> HistoryTransactionFragment() 
-                R.id.menu_debt -> AddDebtFragment()
+                R.id.menu_report -> HistoryTransactionFragment() // DIUBAH KE TRANSAKSI
                 R.id.menu_settings -> SettingsFragment()
                 else -> DashboardFragment()
             }
-            loadFragment(targetFragment)
+            supportFragmentManager.beginTransaction().replace(R.id.fragment_container, selectedFragment).commit()
             true
         }
     }
 
-    // FUNGSI UTAMA AKSES SHORTCUT INTERNAL UNTUK MELOMPAT ANTAR LAYAR FRAGMENT
     fun navigateToSpecificFragment(fragment: Fragment, activeMenuId: Int? = null) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragmentContainer, fragment)
-            .addToBackStack(null)
-            .commit()
-            
-        if (activeMenuId != null) {
-            findViewById<BottomNavigationView>(R.id.bottomNavigation).selectedItemId = activeMenuId
-        }
-    }
-
-    private fun loadFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragmentContainer, fragment)
-            .commit()
+        supportFragmentManager.beginTransaction().replace(R.id.fragment_container, fragment).addToBackStack(null).commit()
+        activeMenuId?.let { findViewById<BottomNavigationView>(R.id.bottom_navigation).selectedItemId = it }
     }
 }
