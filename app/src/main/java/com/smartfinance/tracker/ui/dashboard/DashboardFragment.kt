@@ -383,4 +383,168 @@ class DashboardFragment : Fragment() {
 
                     val iconCircle = FrameLayout(context).apply {
                         layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                        background = android.graphics.drawable.GradientDrawable().apply { shape = 
+                        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#E2E8F0")) }
+                        val txt = TextView(context).apply { text = "💰"; textSize = 16f; gravity = Gravity.CENTER }
+                        addView(txt)
+                    }
+                    rowLayout.addView(iconCircle)
+
+                    val centerInfo = LinearLayout(context).apply { 
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    centerInfo.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                    centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#718096")); textSize = 12f })
+                    rowLayout.addView(centerInfo)
+
+                    rowLayout.addView(TextView(context).apply { 
+                        text = "$percentage%"
+                        setTextColor(Color.parseColor("#E53E3E"))
+                        setTypeface(null, Typeface.BOLD)
+                        textSize = 14f
+                    })
+
+                    topExpenseContainer.addView(rowLayout)
+                }
+            }
+
+            // TRANSAKSI TERKINI
+            recentTxContainer.removeAllViews()
+            val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
+            
+            if (recentTxList.isEmpty()) {
+                for (i in 1..3) {
+                    recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
+                }
+            } else {
+                recentTxList.forEachIndexed { index, item ->
+                    val rowLayout = LinearLayout(context).apply { 
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+                        setOnClickListener { (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report) }
+                    }
+
+                    val iconCircle = FrameLayout(context).apply {
+                        layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
+                        val txt = TextView(context).apply { text = if (item.type == "INCOME") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
+                        addView(txt)
+                    }
+                    rowLayout.addView(iconCircle)
+
+                    val centerInfo = LinearLayout(context).apply { 
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    centerInfo.addView(TextView(context).apply { text = item.note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                    centerInfo.addView(TextView(context).apply { text = sdf.format(Date(item.timestamp)); setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
+                    rowLayout.addView(centerInfo)
+
+                    val isInc = item.type.trim().uppercase() == "INCOME"
+                    val colorHex = if (isInc) "#2B6CB0" else "#E53E3E"
+                    rowLayout.addView(TextView(context).apply { 
+                        text = formatRupiah.format(item.amount)
+                        setTextColor(Color.parseColor(colorHex))
+                        setTypeface(null, Typeface.BOLD)
+                        textSize = 14f
+                    })
+
+                    recentTxContainer.addView(rowLayout)
+                    
+                    if (index < recentTxList.size - 1) {
+                        recentTxContainer.addView(View(context).apply {
+                            setBackgroundColor(Color.parseColor("#F7FAFC"))
+                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { 
+                                leftMargin = (50 * density).toInt() 
+                            }
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    private fun createPlaceholderRow(mainTitle: String, subTitle: String): View {
+        val context = requireContext()
+        val density = context.resources.displayMetrics.density
+        val layout = LinearLayout(context).apply { 
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
+            alpha = 0.5f
+        }
+        val centerInfo = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+        centerInfo.addView(TextView(context).apply { text = mainTitle; textSize = 14f; setTextColor(Color.parseColor("#A0AEC0")); setTypeface(null, Typeface.ITALIC) })
+        centerInfo.addView(TextView(context).apply { text = subTitle; textSize = 11f; setTextColor(Color.parseColor("#CBD5E0")) })
+        layout.addView(centerInfo)
+        layout.addView(TextView(context).apply { text = "Rp 0"; setTextColor(Color.parseColor("#CBD5E0")); textSize = 14f })
+        return layout
+    }
+
+    private class QuadVerticalBarChartView(
+        ctx: Context,
+        private val incLast: Float,
+        private val incThis: Float,
+        private val expLast: Float,
+        private val expThis: Float
+    ) : View(ctx) {
+        
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { 
+            color = Color.parseColor("#718096")
+            textSize = 24f
+            textAlign = Paint.Align.CENTER
+        }
+        private val rectF = RectF()
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val maxVal = Math.max(Math.max(incLast, incThis), Math.max(expLast, expThis))
+            
+            val canvasWidth = width.toFloat()
+            val canvasHeight = height.toFloat()
+            val usableHeight = canvasHeight - 40f 
+
+            val barWidth = canvasWidth / 6f
+            val spacing = barWidth / 3f
+
+            if (maxVal == 0f) {
+                paint.color = Color.parseColor("#E2E8F0")
+                canvas.drawLine(0f, usableHeight, canvasWidth, usableHeight, paint)
+                canvas.drawText("Belum ada data bulan lalu & ini", canvasWidth / 2, usableHeight / 2, textPaint)
+                return
+            }
+
+            // --- GRUP 1: PEMASUKAN ---
+            val xIncLast = spacing
+            val hIncLast = (incLast / maxVal) * usableHeight
+            paint.color = Color.parseColor("#63B3ED")
+            rectF.set(xIncLast, usableHeight - hIncLast, xIncLast + barWidth, usableHeight)
+            canvas.drawRoundRect(rectF, 8f, 8f, paint)
+
+            val xIncThis = xIncLast + barWidth + (spacing / 2)
+            val hIncThis = (incThis / maxVal) * usableHeight
+            paint.color = Color.parseColor("#2B6CB0")
+            rectF.set(xIncThis, usableHeight - hIncThis, xIncThis + barWidth, usableHeight)
+            canvas.drawRoundRect(rectF, 8f, 8f, paint)
+            
+            canvas.drawText("Pemasukan", (xIncLast + xIncThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
+
+            // --- GRUP 2: PENGELUARAN ---
+            val xExpLast = xIncThis + barWidth + (spacing * 2)
+            val hExpLast = (expLast / maxVal) * usableHeight
+            paint.color = Color.parseColor("#FEB2B2")
+            rectF.set(xExpLast, usableHeight - hExpLast, xExpLast + barWidth, usableHeight)
+            canvas.drawRoundRect(rectF, 8f, 8f, paint)
+
+            val xExpThis = xExpLast + barWidth + (spacing / 2)
+            val hExpThis = (expThis / maxVal) * usableHeight
+            paint.color = Color.parseColor("#E53E3E")
+            rectF.set(xExpThis, usableHeight - hExpThis, xExpThis + barWidth, usableHeight)
+            canvas.drawRoundRect(rectF, 8f, 8f, paint)
+
+            canvas.drawText("Pengeluaran", (xExpLast + xExpThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
+        }
+    }
+} // KURUNG PENUTUP SEKARANG SUDAH AMAN DAN TERKUNCI SEMPURNA
