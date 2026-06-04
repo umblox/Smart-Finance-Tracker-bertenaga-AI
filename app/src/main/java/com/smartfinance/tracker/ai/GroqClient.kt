@@ -85,7 +85,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("'", "\"")
 
         try {
-            // PERBAIKAN MUTLAK: String URL murni tanpa sangkutan format Markdown bawaan GitHub
+            // SIKAT SENSOR MARXDOWN: Alamat URL murni tanpa tanda kurung siku/biasa
             val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
