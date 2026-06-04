@@ -96,7 +96,7 @@ class DashboardFragment : Fragment() {
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-        // SEKTOR 1: LAPORAN BULAN INI (BOX GRAFIK VERTIKAL KEMBAR)
+        // SEKTOR 1: LAPORAN BULAN INI
         val headerReportRow = createHeaderSectionRow("Laporan bulan ini", "Melihat laporan-laporan") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -140,7 +140,6 @@ class DashboardFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (12 * density).toInt() }
         })
 
-        // Slot Penampung Dinamis Grafik Batang Vertikal
         chartContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -322,11 +321,9 @@ class DashboardFragment : Fragment() {
 
             chartContainer.removeAllViews()
             
-            // Masukkan Komponen Grafis 4 Batang Vertikal Baru ke Layar
             val barView = QuadVerticalBarChartView(context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat())
             chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-            // Informasi Rangkuman Komparasi Tekstual di Bawah Batang
             val summaryLayout = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, (12 * density).toInt(), 0, 0)
@@ -385,4 +382,5 @@ class DashboardFragment : Fragment() {
                     }
 
                     val iconCircle = FrameLayout(context).apply {
-                        layout
+                        layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                        background = android.graphics.drawable.GradientDrawable().apply { shape = 
