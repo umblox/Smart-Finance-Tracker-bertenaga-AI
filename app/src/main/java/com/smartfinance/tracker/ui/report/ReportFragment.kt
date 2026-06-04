@@ -1,369 +1,191 @@
 package com.smartfinance.tracker.ui.report
 
-import android.app.AlertDialog
-import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
+import android.widget.*
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import com.smartfinance.tracker.MainActivity
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 class ReportFragment : Fragment() {
 
     private lateinit var db: AppDatabase
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
-    
-    private val currentSelectedCalendar = Calendar.getInstance()
-    private lateinit var tvMonthLabel: TextView
-    private lateinit var contentContainer: LinearLayout
-    private var isTxTabActive = true
-
-    private val chartColors = intArrayOf(
-        Color.parseColor("#319795"), Color.parseColor("#3182CE"),
-        Color.parseColor("#DD6B20"), Color.parseColor("#805AD5"),
-        Color.parseColor("#E53E3E"), Color.parseColor("#38A169")
-    )
+    private lateinit var listContainer: LinearLayout
+    private lateinit var tvReportIncome: TextView
+    private lateinit var tvReportExpense: TextView
+    private lateinit var tvReportNet: TextView
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
         db = AppDatabase.getDatabase(context)
+        val density = context.resources.displayMetrics.density
 
-        val root = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
+        val root = RelativeLayout(context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundColor(Color.parseColor("#F7FAFC"))
         }
 
-        val tvTitle = TextView(context).apply {
-            text = "📊 ANALISIS LAPORAN DETAIL"
-            textSize = 18f
+        val nsv = NestedScrollView(context).apply {
+            isFillViewport = true
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
+        }
+
+        val mainLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+
+        mainLayout.addView(TextView(context).apply {
+            text = "Laporan Keuangan"
+            textSize = 22f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.parseColor("#2D3748"))
-            setPadding(48, 48, 48, 16)
-        }
-        root.addView(tvTitle)
+            setTextColor(Color.parseColor("#1A202C"))
+            setPadding(0, 0, 0, (16 * density).toInt())
+        })
 
-        // NAVIGASI GESER BULAN
-        val monthNavigationLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(48, 0, 48, 24)
+        val cardSummary = MaterialCardView(context).apply {
+            radius = 12 * density; cardElevation = 0f
+            strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
+            setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
         }
 
-        val btnPrevMonth = Button(context).apply { 
-            text = "◀"
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0"))
-            setTextColor(Color.parseColor("#4A5568"))
-            setOnClickListener {
-                currentSelectedCalendar.add(Calendar.MONTH, -1)
-                updateMonthLabelAndReload()
-            }
+        val summaryInside = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
-        
-        tvMonthLabel = TextView(context).apply {
-            textSize = 15f
+
+        tvReportIncome = TextView(context).apply { text = "Pemasukan: Rp 0"; setTextColor(Color.parseColor("#2B6CB0")); textSize = 15f; setPadding(0, 0, 0, (4 * density).toInt()) }
+        tvReportExpense = TextView(context).apply { text = "Pengeluaran: Rp 0"; setTextColor(Color.parseColor("#E53E3E")); textSize = 15f; setPadding(0, 0, 0, (8 * density).toInt()) }
+        tvReportNet = TextView(context).apply { text = "Selisih Bersih: Rp 0"; setTextColor(Color.parseColor("#2D3748")); textSize = 16f; setTypeface(null, Typeface.BOLD) }
+
+        summaryInside.addView(tvReportIncome)
+        summaryInside.addView(tvReportExpense)
+        summaryInside.addView(View(context).apply { setBackgroundColor(Color.parseColor("#E2E8F0")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { bottomMargin = (8 * density).toInt() } })
+        summaryInside.addView(tvReportNet)
+        cardSummary.addView(summaryInside)
+        mainLayout.addView(cardSummary)
+
+        mainLayout.addView(TextView(context).apply {
+            text = "Semua Riwayat Transaksi"
+            textSize = 14f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.parseColor("#2D3748"))
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setTextColor(Color.parseColor("#718096"))
+            setPadding(0, 0, 0, (8 * density).toInt())
+        })
+
+        val cardList = MaterialCardView(context).apply {
+            radius = 12 * density; cardElevation = 0f
+            strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
+            setCardBackgroundColor(Color.WHITE)
         }
 
-        val btnNextMonth = Button(context).apply { 
-            text = "▶"
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0"))
-            setTextColor(Color.parseColor("#4A5568"))
-            setOnClickListener {
-                currentSelectedCalendar.add(Calendar.MONTH, 1)
-                updateMonthLabelAndReload()
-            }
+        listContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
         }
+        cardList.addView(listContainer)
+        mainLayout.addView(cardList)
 
-        monthNavigationLayout.addView(btnPrevMonth)
-        monthNavigationLayout.addView(tvMonthLabel)
-        monthNavigationLayout.addView(btnNextMonth)
-        root.addView(monthNavigationLayout)
+        nsv.addView(mainLayout)
+        root.addView(nsv)
 
-        // FILTER TAB ATAS
-        val tabLayout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(48, 0, 48, 24) }
-        val btnTabTx = Button(context).apply { text = "Distribusi Kategori"; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        val btnTabDebt = Button(context).apply { text = "Struktur Pinjaman"; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        tabLayout.addView(btnTabTx)
-        tabLayout.addView(btnTabDebt)
-        root.addView(tabLayout)
-
-        val scrollView = ScrollView(context).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
-        contentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 0, 48, 48) }
-        scrollView.addView(contentContainer)
-        root.addView(scrollView)
-
-        btnTabTx.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
-        btnTabDebt.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0"))
-
-        btnTabTx.setOnClickListener {
-            isTxTabActive = true
-            btnTabTx.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
-            btnTabDebt.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0"))
-            renderSelectedData()
-        }
-
-        btnTabDebt.setOnClickListener {
-            isTxTabActive = false
-            btnTabDebt.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
-            btnTabTx.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0"))
-            renderSelectedData()
-        }
-
-        updateMonthLabelAndReload()
+        loadReportData()
         return root
     }
 
-    private fun updateMonthLabelAndReload() {
-        val sdf = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
-        tvMonthLabel.text = sdf.format(currentSelectedCalendar.time).uppercase()
-        renderSelectedData()
-    }
-
-    private fun renderSelectedData() {
-        if (isTxTabActive) loadTransactionReport(contentContainer) else loadDebtReport(contentContainer)
-    }
-
-    private fun loadTransactionReport(container: LinearLayout) {
-        container.removeAllViews()
+    private fun loadReportData() {
+        if (!isAdded) return
         val context = requireContext()
+        val density = context.resources.displayMetrics.density
 
         lifecycleScope.launch {
-            val transactions = db.transactionDao().getAllTransactions().first()
-            
-            val filteredTransactions = transactions.filter { tx ->
-                val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                txCal.get(Calendar.MONTH) == currentSelectedCalendar.get(Calendar.MONTH) &&
-                txCal.get(Calendar.YEAR) == currentSelectedCalendar.get(Calendar.YEAR)
+            val allTx = db.transactionDao().getAllTransactions().first()
+            val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+
+            var incomeSum = 0.0
+            var expenseSum = 0.0
+
+            allTx.forEach { tx ->
+                if (tx.type.trim().uppercase() == "INCOME") incomeSum += tx.amount
+                else if (tx.type.trim().uppercase() == "EXPENSE") expenseSum += tx.amount
             }
 
-            var totalExpense = 0.0
-            val categoryMap = HashMap<String, Double>()
+            tvReportIncome.text = "Pemasukan: ${formatRupiah.format(incomeSum)}"
+            tvReportExpense.text = "Pengeluaran: ${formatRupiah.format(expenseSum)}"
+            tvReportNet.text = "Selisih Bersih: ${formatRupiah.format(incomeSum - expenseSum)}"
 
-            filteredTransactions.forEach { tx ->
-                if (tx.type == "EXPENSE") {
-                    totalExpense += tx.amount
-                    categoryMap[tx.categoryName] = (categoryMap[tx.categoryName] ?: 0.0) + tx.amount
+            listContainer.removeAllViews()
+
+            // PERBAIKAN MUTLAK LAPORAN: Urutkan data terbaru di paling atas agar tidak terbalik
+            val sortedList = allTx.sortedByDescending { it.timestamp }
+
+            if (sortedList.isEmpty()) {
+                listContainer.addView(TextView(context).apply {
+                    text = "Belum ada transaksi."
+                    textSize = 14f
+                    gravity = Gravity.CENTER
+                    setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
+                })
+            } else {
+                sortedList.forEachIndexed { index, item ->
+                    val row = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+                    }
+
+                    val iconCircle = FrameLayout(context).apply {
+                        layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
+                        val txt = TextView(context).apply { text = if (item.type == "INCOME") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
+                        addView(txt)
+                    }
+                    row.addView(iconCircle)
+
+                    val center = LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    center.addView(TextView(context).apply { text = item.note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                    center.addView(TextView(context).apply { text = "${item.categoryName} • ${sdf.format(Date(item.timestamp))}"; setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
+                    row.addView(center)
+
+                    val isInc = item.type.trim().uppercase() == "INCOME"
+                    row.addView(TextView(context).apply {
+                        text = (if (isInc) "+" else "-") + formatRupiah.format(item.amount)
+                        setTextColor(Color.parseColor(if (isInc) "#2B6CB0" else "#E53E3E"))
+                        setTypeface(null, Typeface.BOLD)
+                        textSize = 14f
+                    })
+
+                    listContainer.addView(row)
+
+                    if (index < sortedList.size - 1) {
+                        listContainer.addView(View(context).apply {
+                            setBackgroundColor(Color.parseColor("#EDF2F7"))
+                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { leftMargin = (50 * density).toInt() }
+                        })
+                    }
                 }
-            }
-
-            if (categoryMap.isEmpty()) {
-                container.addView(createTextView("\nTidak ada pengeluaran tercatat pada periode ini.", 14f, "#A0AEC0"))
-                return@launch
-            }
-
-            val chartWrapper = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-            val values = ArrayList<Float>()
-            categoryMap.forEach { (_, amt) -> values.add(amt.toFloat()) }
-            chartWrapper.addView(CustomDonutChartView(context, values.toFloatArray(), chartColors))
-            
-            val chartCard = createCardContainer()
-            chartCard.addView(chartWrapper)
-            container.addView(chartCard)
-
-            container.addView(createTextView("\n💡 KLIK KATEGORI UNTUK DETAIL TRANSAKSI:", 12f, "#718096", true))
-
-            var colorIdx = 0
-            categoryMap.forEach { (catName, amount) ->
-                val color = chartColors[colorIdx % chartColors.size]
-                val percentage = (amount / totalExpense * 100).toInt()
-
-                val itemCard = createCardContainer()
-                val row = LinearLayout(context).apply { 
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(32, 32, 32, 32)
-                }
-                
-                val colorIndicator = View(context).apply { setBackgroundColor(color); layoutParams = LinearLayout.LayoutParams(28, 28).apply { rightMargin = 20 } }
-                row.addView(colorIndicator)
-
-                row.addView(createTextView(catName, 14f, "#2D3748", true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-                row.addView(createTextView("${formatRupiah.format(amount)} ($percentage%)", 13f, "#4A5568"))
-                itemCard.addView(row)
-
-                itemCard.setOnClickListener {
-                    showCategoryDetailsDialog(catName, filteredTransactions)
-                }
-
-                container.addView(itemCard)
-                colorIdx++
-            }
-        }
-    }
-
-    private fun showCategoryDetailsDialog(categoryName: String, txList: List<TransactionEntity>) {
-        val context = requireContext()
-        val dialogLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(44, 30, 44, 40)
-        }
-
-        val sdf = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale("id", "ID"))
-        val matches = txList.filter { it.categoryName == categoryName }
-
-        matches.forEach { tx ->
-            val rowCard = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(20, 20, 20, 20)
-                setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-                background.setTint(Color.parseColor("#F7FAFC"))
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 }
-                gravity = Gravity.CENTER_VERTICAL
-            }
-
-            val leftLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-            leftLayout.addView(createTextView(tx.note, 14f, "#2D3748", true))
-            leftLayout.addView(createTextView(sdf.format(Date(tx.timestamp)), 11f, "#718096"))
-            
-            val tvAmt = createTextView("- " + formatRupiah.format(tx.amount), 14f, "#C53030", true)
-
-            rowCard.addView(leftLayout)
-            rowCard.addView(tvAmt)
-            dialogLayout.addView(rowCard)
-        }
-
-        val scroll = ScrollView(context).apply { addView(dialogLayout) }
-
-        AlertDialog.Builder(context).apply {
-            setTitle("📝 Rincian: $categoryName")
-            setView(scroll)
-            setPositiveButton("Tutup", null)
-            show()
-        }
-    }
-
-    private fun loadDebtReport(container: LinearLayout) {
-        container.removeAllViews()
-        val context = requireContext()
-
-        lifecycleScope.launch {
-            val debts = db.debtDao().getAllDebts().first()
-            var totalHutang = 0.0
-            var totalPiutang = 0.0
-
-            val activeDebts = debts.filter { !it.isPaid && it.remainingAmount > 0.0 }
-            activeDebts.forEach {
-                if (it.type == "DEBT") totalHutang += it.remainingAmount else totalPiutang += it.remainingAmount
-            }
-
-            val summaryCard = createCardContainer()
-            val summaryLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 24, 24, 24) }
-            summaryLayout.addView(createTextView("RINGKASAN STRUKTUR PIUTANG AKTIF", 12f, "#718096", true))
-            summaryLayout.addView(createTextView("\n💰 Total Piutang Anda di Orang:", 14f, "#2B6CB0"))
-            summaryLayout.addView(createTextView(formatRupiah.format(totalPiutang), 18f, "#2B6CB0", true))
-            summaryLayout.addView(createTextView("\n⚠️ Total Hutang Kewajiban Anda:", 14f, "#D69E2E"))
-            summaryLayout.addView(createTextView(formatRupiah.format(totalHutang), 18f, "#D69E2E", true))
-            summaryCard.addView(summaryLayout)
-            container.addView(summaryCard)
-
-            container.addView(createTextView("\n⏰ DETAIL JATUH TEMPO PER KONTAK:", 13f, "#2D3748", true))
-
-            if (activeDebts.isEmpty()) {
-                container.addView(createTextView("\nSemua catatan bersih! Bebas tunggakan tempo.", 14f, "#38A169"))
-                return@launch
-            }
-
-            activeDebts.sortedBy { item -> item.timestamp }.forEach { item ->
-                val masehiDibuat = item.timestamp
-                val masehiSekarang = System.currentTimeMillis()
-                val selisihHari = ((masehiSekarang - masehiDibuat) / (1000 * 60 * 60 * 24)).toInt()
-                val sisaHariTempo = (30 - selisihHari).coerceAtLeast(0)
-
-                val itemCard = createCardContainer()
-                val cardInnerLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 32, 32, 32) }
-
-                val topRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-                val tvName = createTextView(item.contactName, 15f, "#2D3748", true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                val tvAmount = createTextView(formatRupiah.format(item.remainingAmount), 14f, "#2D3748", true).apply { gravity = Gravity.END }
-                topRow.addView(tvName)
-                topRow.addView(tvAmount)
-                cardInnerLayout.addView(topRow)
-
-                val bottomRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8 } }
-                val jenisLabel = if (item.type == "DEBT") "⚠️ Hutang" else "💰 Piutang"
-                val tvJenis = createTextView(jenisLabel, 12f, if (item.type == "DEBT") "#D69E2E" else "#2B6CB0").apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                val tempoText = if (sisaHariTempo == 0) "🔴 TEMPO HABIS" else "⏳ Sisa: $sisaHariTempo Hari"
-                val tvTempo = createTextView(tempoText, 11f, if (sisaHariTempo == 0) "#E53E3E" else "#718096").apply { gravity = Gravity.END }
-                
-                bottomRow.addView(tvJenis)
-                bottomRow.addView(tvTempo)
-                cardInnerLayout.addView(bottomRow)
-
-                itemCard.addView(cardInnerLayout)
-                container.addView(itemCard)
-            }
-        }
-    }
-
-    private fun createCardContainer(): MaterialCardView {
-        return MaterialCardView(requireContext()).apply {
-            radius = 24f
-            cardElevation = 2f
-            setCardBackgroundColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16 }
-        }
-    }
-
-    private fun createTextView(textStr: String, size: Float, colorHex: String, isBold: Boolean = false): TextView {
-        return TextView(requireContext()).apply {
-            text = textStr
-            textSize = size
-            setTextColor(Color.parseColor(colorHex))
-            if (isBold) setTypeface(null, Typeface.BOLD)
-        }
-    }
-
-    private class CustomDonutChartView(ctx: Context, private val dataValues: FloatArray, private val colors: IntArray) : View(ctx) {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 50f }
-        private val rectF = RectF()
-
-        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            setMeasuredDimension(400, 400)
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            val total = dataValues.sum()
-            if (total == 0f) return
-
-            rectF.set(50f, 50f, width.toFloat() - 50f, height.toFloat() - 50f)
-            var startAngle = 0f
-
-            for (i in dataValues.indices) {
-                val sweepAngle = (dataValues[i] / total) * 360f
-                paint.color = colors[i % colors.size]
-                canvas.drawArc(rectF, startAngle, sweepAngle, false, paint)
-                startAngle += sweepAngle
             }
         }
     }
