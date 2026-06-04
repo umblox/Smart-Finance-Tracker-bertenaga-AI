@@ -50,6 +50,13 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             DAFTAR PINJAMAN AKTIF DI SQLITE:
             CONTEXT_DEBTS
 
+            ⚠️ ATURAN KALENDER DAN BULAN (SANGAT PENTING):
+            - Hitung tanggal transaksi berdasarkan JANGKAR ACUAN WAKTU HARI INI.
+            - Jika user menyebutkan nama bulan MASA LALU/MASA DEPAN tetapi TANPA TANGGAL (contoh: "gajian bulan mei"), Anda WAJIB menetapkan hari ke tanggal 01 di bulan tersebut! Format wajib: 'YYYY-MM-01'.
+
+            ⚠️ ATURAN COCOK SUB-KATEGORI:
+            - Teliti daftar CONTEXT_CATEGORIES. Jika user mengonfirmasi suatu transaksi yang mengarah pada nama sub-kategori spesifik yang Anda lihat di daftar, pasangkan 'category_id' dan 'category_name' langsung ke ID sub-kategori tersebut, bukan ke kategori induk utamanya!
+
             ⚠️ LOGIKA RESPONS UTAMA (VIEW_REPORT):
             Jika user secara eksplisit meminta laporan keuangan, ringkasan saldo, atau menanyakan total kas, set field 'action_type' menjadi 'VIEW_REPORT'. Jika user hanya mengeluh, protes, atau mengobrol biasa, set 'action_type' menjadi 'CHAT_ONLY'.
 
