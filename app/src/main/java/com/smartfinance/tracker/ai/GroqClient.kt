@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,10 +85,9 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("'", "\"")
 
         try {
-            // REKAYASA STRING: Memecah URL menjadi potongan teks agar tidak memicu auto-formatting Markdown hancur
-            val part1 = "[https://api.groq.com](https://api.groq.com)"
-            val part2 = "/openai/v1/chat/completions"
-            val url = URL(part1 + part2)
+            // MEMBUAT URL MENGGUNAKAN SKEMA URI KAKU AGAR TERHINDAR DARI AUTO-FORMAT MARKDOWN HIGH-LEVEL
+            val uri = URI("https", "api.groq.com", "/openai/v1/chat/completions", null)
+            val url = uri.toURL()
 
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
