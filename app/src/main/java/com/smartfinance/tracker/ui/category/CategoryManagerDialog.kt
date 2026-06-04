@@ -1,42 +1,41 @@
 package com.smartfinance.tracker.ui.category
 
+import android.app.AlertDialog
+import android.app.Dialog
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.core.widget.NestedScrollView
-import androidx.fragment.app.Fragment
+import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class CategoryFragment : Fragment() {
+class CategoryManagerDialog : DialogFragment() {
 
     private lateinit var db: AppDatabase
     private lateinit var containerList: LinearLayout
     private var currentTypeFilter = "EXPENSE"
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
         db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
-        val root = LinearLayout(context).apply {
+        // Layout Utama Dialog (Dark Mode Premium)
+        val mainLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212")) // Dark mode sekelas Money Lover premium
+            setBackgroundColor(Color.parseColor("#121212"))
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // TABS ATAS: PENGELUARAN / PEMASUKAN
+        // TABS ATAS FILTER: PENGELUARAN / PEMASUKAN
         val tabLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (48 * density).toInt())
@@ -47,16 +46,29 @@ class CategoryFragment : Fragment() {
         val btnExpense = TextView(context).apply {
             text = "PENGELUARAN"; gravity = Gravity.CENTER; textSize = 12f; setTypeface(null, Typeface.BOLD)
             setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-            setOnClickListener { currentTypeFilter = "EXPENSE"; renderHierarchy() }
         }
         val btnIncome = TextView(context).apply {
             text = "PEMASUKAN"; gravity = Gravity.CENTER; textSize = 12f; setTypeface(null, Typeface.NORMAL)
             setTextColor(Color.parseColor("#A0AEC0")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-            setOnClickListener { currentTypeFilter = "INCOME"; renderHierarchy() }
         }
+
+        btnExpense.setOnClickListener {
+            currentTypeFilter = "EXPENSE"
+            btnExpense.setTypeface(null, Typeface.BOLD); btnExpense.setTextColor(Color.WHITE)
+            btnIncome.setTypeface(null, Typeface.NORMAL); btnIncome.setTextColor(Color.parseColor("#A0AEC0"))
+            renderHierarchy()
+        }
+
+        btnIncome.setOnClickListener {
+            currentTypeFilter = "INCOME"
+            btnIncome.setTypeface(null, Typeface.BOLD); btnIncome.setTextColor(Color.WHITE)
+            btnExpense.setTypeface(null, Typeface.NORMAL); btnExpense.setTextColor(Color.parseColor("#A0AEC0"))
+            renderHierarchy()
+        }
+
         tabLayout.addView(btnExpense)
         tabLayout.addView(btnIncome)
-        root.addView(tabLayout)
+        mainLayout.addView(tabLayout)
 
         // TOMBOL TAMBAH KATEGORI BARU
         val btnAdd = Button(context).apply {
@@ -68,18 +80,22 @@ class CategoryFragment : Fragment() {
             }
             setOnClickListener { showEditOrCreateDialog(null) }
         }
-        root.addView(btnAdd)
+        mainLayout.addView(btnAdd)
 
-        val nsv = NestedScrollView(context).apply { isFillViewport = true }
+        // CONTAINER LIST SCROLLABLE
+        val scrollView = ScrollView(context).apply { isFillViewport = true }
         containerList = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
         }
-        nsv.addView(containerList)
-        root.addView(nsv)
+        scrollView.addView(containerList)
+        mainLayout.addView(scrollView)
 
         renderHierarchy()
-        return root
+
+        return AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
+            .setView(mainLayout)
+            .create()
     }
 
     private fun renderHierarchy() {
@@ -90,12 +106,10 @@ class CategoryFragment : Fragment() {
             containerList.removeAllViews()
             val density = requireContext().resources.displayMetrics.density
 
-            // Pisahkan antara Induk (parent == null) dan Anak
             val parentCategories = filtered.filter { it.parentCategoryId == null }
             val subCategories = filtered.filter { it.parentCategoryId != null }
 
             parentCategories.forEach { parent ->
-                // Row untuk Kategori Induk
                 val parentRow = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
@@ -105,16 +119,15 @@ class CategoryFragment : Fragment() {
 
                 val iconView = TextView(context).apply { text = "📁"; textSize = 18f; setPadding(0, 0, (12 * density).toInt(), 0) }
                 val titleView = TextView(context).apply {
-                    text = parent.name; textColor = Color.WHITE; textSize = 15f; setTypeface(null, Typeface.BOLD)
+                    text = parent.name; setTextColor(Color.WHITE); textSize = 15f; setTypeface(null, Typeface.BOLD)
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 parentRow.addView(iconView)
                 parentRow.addView(titleView)
                 containerList.addView(parentRow)
 
-                // Ambil semua sub-kategori milik induk ini
                 val kids = subCategories.filter { it.parentCategoryId == parent.id }
-                kids.forEachIndexed { index, child ->
+                kids.forEach { child ->
                     val childRow = LinearLayout(context).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
@@ -122,7 +135,6 @@ class CategoryFragment : Fragment() {
                         setOnClickListener { showEditOrCreateDialog(child) }
                     }
 
-                    // Trik Garis Vertikal Pohon Sesuai Gambar `1000179819.png`
                     val treeLine = View(context).apply {
                         setBackgroundColor(Color.parseColor("#4A5568"))
                         layoutParams = LinearLayout.LayoutParams((2 * density).toInt(), (24 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
@@ -139,7 +151,6 @@ class CategoryFragment : Fragment() {
                     containerList.addView(childRow)
                 }
 
-                // Garis pembatas antar kelompok induk
                 containerList.addView(View(context).apply {
                     setBackgroundColor(Color.parseColor("#2D3748"))
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (4 * density).toInt() }
@@ -148,9 +159,6 @@ class CategoryFragment : Fragment() {
         }
     }
 
-    // ========================================================
-    // 🛠️ DIALOG EDITOR DINAMIS (SESUAI BOX 2: 1000179831.png)
-    // ========================================================
     private fun showEditOrCreateDialog(category: CategoryEntity?) {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -170,19 +178,19 @@ class CategoryFragment : Fragment() {
         }
         dialogLayout.addView(etName)
 
-        dialogLayout.addView(TextView(context).apply { text = "Kategori Induk (Pilih jika ini sub-kategori)"; setTextColor(Color.GRAY); textSize = 12f; setPadding(0, (12 * density).toInt(), 0, 0) })
+        dialogLayout.addView(TextView(context).apply { text = "Kategori Induk"; setTextColor(Color.GRAY); textSize = 12f; setPadding(0, (12 * density).toInt(), 0, 0) })
         
         val spinnerParent = Spinner(context)
         lifecycleScope.launch {
             val allCats = db.categoryDao().getAllCategories().first()
-            val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter }
+            val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter && it.id != category?.id }
             
             val listNames = mutableListOf("[Tanpa Induk / Kategori Utama]")
             parents.forEach { listNames.add(it.name) }
             
-            val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerParent.adapter = adapter
+            val spinnerAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
+            spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerParent.adapter = spinnerAdapter
             
             category?.parentCategoryId?.let { parentId ->
                 val matchIdx = parents.indexOfFirst { it.id == parentId }
@@ -193,12 +201,14 @@ class CategoryFragment : Fragment() {
 
         builder.setView(dialogLayout)
         builder.setTitle(if (category == null) "Tambah Kategori" else "Ubah Kategori")
-        builder.setPositiveButton("Simpan") { dialog, _ ->
+        
+        // Perbaikan kaku penentu tipe parameter lambda eksplisit agar compiler tidak bingung
+        builder.setPositiveButton("Simpan") { dialogInterface, _ ->
             val finalName = etName.text.toString().trim()
             if (finalName.isNotEmpty()) {
                 lifecycleScope.launch {
                     val allCats = db.categoryDao().getAllCategories().first()
-                    val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter }
+                    val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter && it.id != category?.id }
                     val selectedPos = spinnerParent.selectedItemPosition
                     val finalParentId = if (selectedPos == 0) null else parents[selectedPos - 1].id
 
@@ -213,13 +223,16 @@ class CategoryFragment : Fragment() {
                     renderHierarchy()
                 }
             }
+            dialogInterface.dismiss()
         }
+        
         if (category != null) {
-            builder.setNegativeButton("Hapus") { _, _ ->
+            builder.setNegativeButton("Hapus") { dialogInterface, _ ->
                 lifecycleScope.launch {
                     db.categoryDao().deleteCategory(category)
                     renderHierarchy()
                 }
+                dialogInterface.dismiss()
             }
         }
         builder.show()
