@@ -25,5 +25,8 @@ interface TransactionDao {
 
     @Query("SELECT SUM(amount) FROM transactions WHERE type = 'EXPENSE' AND timestamp BETWEEN :startTime AND :endTime")
     suspend fun getTotalExpense(startTime: Long, endTime: Long): Double?
-}
 
+    // PERBAIKAN MUTLAK: Sediakan fungsi hapus riwayat kas yang sah untuk Room SQLite
+    @Delete
+    suspend fun deleteTransaction(transaction: TransactionEntity)
+}
