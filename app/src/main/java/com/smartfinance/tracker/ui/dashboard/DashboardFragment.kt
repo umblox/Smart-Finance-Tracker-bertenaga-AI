@@ -70,7 +70,7 @@ class DashboardFragment : Fragment() {
         }
 
         // ==========================================
-        // FIXED HEADER SALDO UTAMA (TIDAK BERUBAH)
+        // FIXED HEADER SALDO UTAMA
         // ==========================================
         mainLayout.addView(TextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -99,9 +99,8 @@ class DashboardFragment : Fragment() {
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-
         // ==========================================
-        // SEKTOR 1: LAPORAN BULAN INI (SESUAI BOX 1 1000179800.png)
+        // SEKTOR 1: LAPORAN BULAN INI (BOX 1)
         // ==========================================
         val headerReportRow = createHeaderSectionRow("Laporan bulan ini", "Melihat laporan-laporan") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
@@ -120,7 +119,6 @@ class DashboardFragment : Fragment() {
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
 
-        // Teks Informasi Pengeluaran & Pendapatan Sejajar Horizontal Atas
         val numbersHorizontalRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -140,13 +138,11 @@ class DashboardFragment : Fragment() {
         numbersHorizontalRow.addView(tvIncomeSummary)
         chartInsideVerticalLayout.addView(numbersHorizontalRow)
 
-        // Dekorasi Garis Batas Tipis di bawah nominal angka laporan
         chartInsideVerticalLayout.addView(View(context).apply {
             setBackgroundColor(Color.parseColor("#EDF2F7"))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (12 * density).toInt() }
         })
 
-        // Slot Penampung Grafis Donut
         chartContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -156,9 +152,8 @@ class DashboardFragment : Fragment() {
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-
         // ==========================================
-        // SEKTOR 2: PENGELUARAN TERATAS (SESUAI BOX 2 1000179800.png)
+        // SEKTOR 2: PENGELUARAN TERATAS (BOX 2)
         // ==========================================
         val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran teratas", "Lihat detailnya") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
@@ -177,18 +172,15 @@ class DashboardFragment : Fragment() {
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
 
-        // Sakelar Filter Tab Kembar (Minggu / Bulan) Terintegrasi Dalam Box
         val filterTabsContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.parseColor("#EDF2F7"))
             setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (40 * density).toInt()).apply { bottomMargin = (16 * density).toInt() }
-            // Trik membuat sudut rounded sempurna layaknya container tab di gambar
-            val shape = android.graphics.drawable.GradientDrawable().apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = 8 * density
                 setColor(Color.parseColor("#EDF2F7"))
             }
-            background = shape
         }
 
         btnTabWeek = TextView(context).apply {
@@ -216,9 +208,8 @@ class DashboardFragment : Fragment() {
         cardTopExpense.addView(topExpenseInsideLayout)
         mainLayout.addView(cardTopExpense)
 
-
         // ==========================================
-        // SEKTOR 3: TRANSAKSI TERKINI (SESUAI BOX 3 1000179800.png)
+        // SEKTOR 3: TRANSAKSI TERKINI (BOX 3)
         // ==========================================
         val headerRecentRow = createHeaderSectionRow("Transaksi terkini", "Lihat semua") {
             (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
@@ -258,13 +249,13 @@ class DashboardFragment : Fragment() {
                 textSize = 14f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(Color.parseColor("#718096"))
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
             addView(TextView(context).apply {
                 text = actionText
                 textSize = 12f
                 setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#008080")) // Hijau tema utama aplikasi kita
+                setTextColor(Color.parseColor("#008080")) 
                 setPadding((8 * density).toInt(), (4 * density).toInt(), 0, (4 * density).toInt())
                 setOnClickListener(clickAction)
             })
@@ -331,7 +322,6 @@ class DashboardFragment : Fragment() {
                 chartContainer.addView(MiniDonutView(context, floatArrayOf(incomeSum.toFloat(), expenseSum.toFloat()), intArrayOf(Color.parseColor("#2B6CB0"), Color.parseColor("#E53E3E"))))
             }
 
-            // PENGELUARAN TERATAS (LIST BOX 2 DENGAN PERSENTASE KANAN AKURAT)
             topExpenseContainer.removeAllViews()
             val nowTime = System.currentTimeMillis()
             val filteredExpenses = allTx.filter { item -> item.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
@@ -345,7 +335,6 @@ class DashboardFragment : Fragment() {
 
             val totalFilteredExpenseAmount = filteredExpenses.sumOf { it.amount }
 
-            // Kelompokkan data per kategori agar mirip seperti tampilan agregasi di gambar acuan
             val aggregatedExpenses = filteredExpenses.groupBy { it.categoryName }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
                 .toList()
@@ -368,7 +357,6 @@ class DashboardFragment : Fragment() {
                         setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
                     }
 
-                    // Bulatan Ikon Kategori Kiri Berwarna Lembut
                     val iconCircle = FrameLayout(context).apply {
                         layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                         background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#E2E8F0")) }
@@ -377,10 +365,28 @@ class DashboardFragment : Fragment() {
                     }
                     rowLayout.addView(iconCircle)
 
-                    // Detail Tengah (Nama Kategori + Nominal)
                     val centerInfo = LinearLayout(context).apply { 
                         orientation = LinearLayout.VERTICAL
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     }
                     centerInfo.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                    centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor
+                    centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#718096")); textSize = 12f })
+                    rowLayout.addView(centerInfo)
+
+                    rowLayout.addView(TextView(context).apply { 
+                        text = "$percentage%"
+                        setTextColor(Color.parseColor("#E53E3E"))
+                        setTypeface(null, Typeface.BOLD)
+                        textSize = 14f
+                    })
+
+                    topExpenseContainer.addView(rowLayout)
+                }
+            }
+
+            recentTxContainer.removeAllViews()
+            val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
+            
+            if (recentTxList.isEmpty()) {
+                for (i in 1..3) {
+                    recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i
