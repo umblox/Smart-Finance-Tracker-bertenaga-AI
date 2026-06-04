@@ -1,6 +1,5 @@
 package com.smartfinance.tracker.ui.dashboard
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -69,9 +68,7 @@ class DashboardFragment : Fragment() {
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
         }
 
-        // ==========================================
-        // FIXED HEADER SALDO UTAMA
-        // ==========================================
+        // SALDO UTAMA
         mainLayout.addView(TextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             text = "Smart Finance AI"
@@ -99,9 +96,7 @@ class DashboardFragment : Fragment() {
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-        // ==========================================
-        // SEKTOR 1: LAPORAN BULAN INI (BOX 1)
-        // ==========================================
+        // SEKTOR 1: LAPORAN BULAN INI (DENGAN GRAFIK BATANG BARU)
         val headerReportRow = createHeaderSectionRow("Laporan bulan ini", "Melihat laporan-laporan") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -146,15 +141,13 @@ class DashboardFragment : Fragment() {
         chartContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (120 * density).toInt()).apply { topMargin = (12 * density).toInt() }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (90 * density).toInt()).apply { topMargin = (16 * density).toInt() }
         }
         chartInsideVerticalLayout.addView(chartContainer)
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // ==========================================
-        // SEKTOR 2: PENGELUARAN TERATAS (BOX 2)
-        // ==========================================
+        // SEKTOR 2: PENGELUARAN TERATAS
         val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran teratas", "Lihat detailnya") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -208,9 +201,7 @@ class DashboardFragment : Fragment() {
         cardTopExpense.addView(topExpenseInsideLayout)
         mainLayout.addView(cardTopExpense)
 
-        // ==========================================
-        // SEKTOR 3: TRANSAKSI TERKINI (BOX 3)
-        // ==========================================
+        // SEKTOR 3: TRANSAKSI TERKINI
         val headerRecentRow = createHeaderSectionRow("Transaksi terkini", "Lihat semua") {
             (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
         }
@@ -316,11 +307,7 @@ class DashboardFragment : Fragment() {
             tvIncomeSummary.text = "Total pendapatan\n${formatRupiah.format(incomeSum)}"
 
             chartContainer.removeAllViews()
-            if (expenseSum == 0.0 && incomeSum == 0.0) {
-                chartContainer.addView(MiniDonutView(context, floatArrayOf(1f), intArrayOf(Color.parseColor("#E2E8F0"))))
-            } else {
-                chartContainer.addView(MiniDonutView(context, floatArrayOf(incomeSum.toFloat(), expenseSum.toFloat()), intArrayOf(Color.parseColor("#2B6CB0"), Color.parseColor("#E53E3E"))))
-            }
+            chartContainer.addView(BiColorBarChartView(context, incomeSum.toFloat(), expenseSum.toFloat()))
 
             topExpenseContainer.removeAllViews()
             val nowTime = System.currentTimeMillis()
@@ -384,6 +371,7 @@ class DashboardFragment : Fragment() {
                 }
             }
 
+            // PERBAIKAN: Urutkan transaksi terbaru mutlak di paling atas (.sortedByDescending)
             recentTxContainer.removeAllViews()
             val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
             
@@ -457,26 +445,37 @@ class DashboardFragment : Fragment() {
         return layout
     }
 
-    private class MiniDonutView(ctx: Context, private val values: FloatArray, private val colors: IntArray) : View(ctx) {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 20f }
+    // GRAFIK BATANG HORIZONTAL BARU KEMBAR - DIJAMIN CENTER DAN FULL LEBAR BOX
+    private class BiColorBarChartView(ctx: Context, private val income: Float, private val expense: Float) : View(ctx) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         private val rectF = RectF()
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val total = values.sum()
-            if (total == 0f) return
-            
-            val size = Math.min(width, height).toFloat()
-            val pad = 24f
-            rectF.set(pad, pad, size - pad, size - pad)
-            var startAngle = -90f
-
-            for (i in values.indices) {
-                val sweep = (values[i] / total) * 360f
-                paint.color = colors[i % colors.size]
-                canvas.drawArc(rectF, startAngle, sweep, false, paint)
-                startAngle += sweep
+            val maxVal = Math.max(income, expense)
+            if (maxVal == 0f) {
+                // Gambar bar kosong default jika tidak ada transaksi
+                paint.color = Color.parseColor("#E2E8F0")
+                rectF.set(0f, 10f, width.toFloat(), 35f)
+                canvas.drawRoundRect(rectF, 12f, 12f, paint)
+                rectF.set(0f, 55f, width.toFloat(), 80f)
+                canvas.drawRoundRect(rectF, 12f, 12f, paint)
+                return
             }
+
+            val fullWidth = width.toFloat()
+            val scaleIncome = if (maxVal > 0) (income / maxVal) * fullWidth else 0f
+            val scaleExpense = if (maxVal > 0) (expense / maxVal) * fullWidth else 0f
+
+            // Batang Atas: Pendapatan (Biru)
+            paint.color = Color.parseColor("#2B6CB0")
+            rectF.set(0f, 5f, Math.max(scaleIncome, 20f), 35f)
+            canvas.drawRoundRect(rectF, 15f, 15f, paint)
+
+            // Batang Bawah: Pengeluaran (Merah)
+            paint.color = Color.parseColor("#E53E3E")
+            rectF.set(0f, 50f, Math.max(scaleExpense, 20f), 80f)
+            canvas.drawRoundRect(rectF, 15f, 15f, paint)
         }
     }
 }
