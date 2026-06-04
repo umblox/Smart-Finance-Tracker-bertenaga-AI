@@ -25,7 +25,7 @@ class FinancialAssistant(private val context: Context) {
         try {
             val json = JSONObject(cleanJsonStr)
             val actionType = json.optString("action_type", "TRANSACTION").trim().uppercase(Locale.ROOT)
-            var aiResponse = json.optString("ai_response", "").trim()
+            val aiResponse = json.optString("ai_response", "").trim()
 
             // 1. PARSING WAKTU KALENDER DINAMIS
             val dateStr = json.optString("transaction_date", "").trim()
@@ -42,7 +42,6 @@ class FinancialAssistant(private val context: Context) {
 
             when (actionType) {
                 "VIEW_REPORT" -> {
-                    // AMBIL DATA DARI DATABASE UNTUK MERESPONS LAPORAN SECARA NYATA
                     val allTx = db.transactionDao().getAllTransactions().first()
                     var incSum = 0.0
                     var expSum = 0.0
@@ -77,10 +76,8 @@ class FinancialAssistant(private val context: Context) {
                 
                 "DEBT_RECORD" -> {
                     val name = json.optString("contact_name", "TEMAN").trim().uppercase(Locale.ROOT)
-                    // NORMALISASI KAKU: Paksa string jenis utang menjadi uppercase agar lolos filter view
                     var debtType = json.optString("debt_type", "DEBT").trim().uppercase(Locale.ROOT)
                     
-                    // Proteksi logika arah utang jika Llama mendadak linglung
                     val cleanNote = json.optString("clean_note", "").uppercase(Locale.ROOT)
                     if (cleanNote.contains("SAYA PINJAM") || cleanNote.contains("SAYA NGUTANG") || cleanNote.contains("SAYA BERHUTANG")) {
                         debtType = "DEBT"
@@ -94,6 +91,7 @@ class FinancialAssistant(private val context: Context) {
                             type = debtType, note = "Otomatis via Chat AI", timestamp = targetTimestamp, isPaid = false
                         ))
 
+                        // PERBAIKAN DI SINI: Menyinkronkan jenis aliran kas dengan debt_type hasil koreksi note agar saldo dashboard akurat
                         val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
                         val catId = if (debtType == "DEBT") 12L else 13L
                         val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
@@ -133,7 +131,6 @@ class FinancialAssistant(private val context: Context) {
             return aiResponse.ifEmpty { "Catatan keuangan berhasil diproses ke sistem, Mam!" }
 
         } catch (e: Exception) {
-            // RECOVERY KAS KASAR (BENTENG PERTAHANAN AKHIR)
             val upperText = cleanJsonStr.uppercase(Locale.ROOT)
             var detectedAmount = 0.0
             val numbers = Regex("\\d+").findAll(upperText).map { it.value.toDoubleOrNull() ?: 0.0 }.toList()
