@@ -408,7 +408,7 @@ class DashboardFragment : Fragment() {
                 }
             }
 
-            // TRANSAKSI TERKINI
+            // TRANSAKSI TERKINI - TAUTKAN KLIK DIRECT KE EDITOR BARU
             recentTxContainer.removeAllViews()
             val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
             
@@ -422,7 +422,10 @@ class DashboardFragment : Fragment() {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
                         setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
-                        setOnClickListener { (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report) }
+                        // JALUR EDITAN: Begitu baris mutasi diklik, panggil halaman editor baru kita
+                        setOnClickListener { 
+                            TransactionEditorDialog(item) { loadDashboardDataCore() }.show(parentFragmentManager, "TransactionEditorDialog")
+                        }
                     }
 
                     val iconCircle = FrameLayout(context).apply {
