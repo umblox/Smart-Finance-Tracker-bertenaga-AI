@@ -16,6 +16,7 @@ import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
+import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog // IMPORT EDITOR BARU
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -135,7 +136,6 @@ class ReportFragment : Fragment() {
 
             listContainer.removeAllViews()
 
-            // PERBAIKAN MUTLAK LAPORAN: Urutkan data terbaru di paling atas agar tidak terbalik
             val sortedList = allTx.sortedByDescending { it.timestamp }
 
             if (sortedList.isEmpty()) {
@@ -151,6 +151,10 @@ class ReportFragment : Fragment() {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
                         setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+                        // JALUR EDITAN LAPORAN: Panggil editor dialog dan jalankan refresh data ketika sukses disimpan/dihapus
+                        setOnClickListener {
+                            TransactionEditorDialog(item) { loadReportData() }.show(parentFragmentManager, "TransactionEditorDialog")
+                        }
                     }
 
                     val iconCircle = FrameLayout(context).apply {
