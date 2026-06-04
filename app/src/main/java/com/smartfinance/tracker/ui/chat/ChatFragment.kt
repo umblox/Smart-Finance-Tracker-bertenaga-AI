@@ -11,7 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.smartfinance.tracker.ai.FinancialAssistant
-import com.smartfinance.tracker.ai.GroqClient // Menggunakan GroqClient yang baru
+import com.smartfinance.tracker.ai.GroqClient
 import com.smartfinance.tracker.data.model.ChatMessage
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ class ChatFragment : Fragment() {
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
     
-    private lateinit var groqClient: GroqClient // Menggunakan GroqClient
+    private lateinit var groqClient: GroqClient
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
 
@@ -36,7 +36,7 @@ class ChatFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val assistant = FinancialAssistant(requireContext())
-        groqClient = GroqClient(requireContext(), assistant) // Menggunakan GroqClient
+        groqClient = GroqClient(requireContext(), assistant)
 
         chatAdapter = ChatAdapter(messageList)
         binding.rvChatHistory.layoutManager = LinearLayoutManager(requireContext())
@@ -64,7 +64,7 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) {
             loadBackupToAdapter(savedChat)
         } else {
-            messageList.add(ChatMessage("Halo Umam! Saya asisten keuangan AI kamu. Silakan ketik transaksi seperti 'beli rokok 20000' atau 'gajian 2300000'.", false))
+            messageList.add(ChatMessage("Halo Umam! Saya asisten keuangan AI kamu. Silakan ketik transaksi seperti 'beli rokok 20000 dan bensin 15000'.", false))
             chatAdapter.notifyDataSetChanged()
         }
 
@@ -108,12 +108,13 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
         lifecycleScope.launch {
-            val cleanNarrationResponse = groqClient.sendMessageToAI(message) // Panggil sendMessageToAI dari GroqClient
+            val cleanNarrationResponse = groqClient.sendMessageToAI(message)
             
             if (messageList.isNotEmpty()) {
                 messageList.removeAt(messageList.size - 1)
             }
 
+            // AMANKAN TEXT: Yang dimasukkan ke chat list adl teks bersih manusia dari core engine
             messageList.add(ChatMessage(cleanNarrationResponse.trim(), false))
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
@@ -121,10 +122,13 @@ class ChatFragment : Fragment() {
             binding.btnSend.isEnabled = true
             binding.btnSend.alpha = 1.0f
             
+            // SINKRONISASI BACKUP YANG BERSIH TANPA AMBIVALENSI JSON RAW
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
-                backupBuilder.append("$prefix${it.text}\n")
+                // Bersihkan baris baru agar token split baris \n tidak merusak struktur string preferensi
+                val cleanLineText = it.text.replace("\n", " ")
+                backupBuilder.append("$prefix$cleanLineText\n")
             }
             prefs.edit().putString("chat_history_backup_v4", backupBuilder.toString()).apply()
         }
@@ -134,14 +138,19 @@ class ChatFragment : Fragment() {
         messageList.clear()
         val lines = backupStr.split("\n")
         lines.forEach { line ->
-            when {
-                line.startsWith("[USER]") -> {
-                    messageList.add(ChatMessage(line.replace("[USER]", ""), true))
-                }
-                line.startsWith("[AI]") -> {
-                    messageList.add(ChatMessage(line.replace("[AI]", ""), false))
+            if (line.trim().isNotEmpty()) {
+                when {
+                    line.startsWith("[USER]") -> {
+                        messageList.add(ChatMessage(line.substring(6), true))
+                    }
+                    line.startsWith("[AI]") -> {
+                        messageList.add(ChatMessage(line.substring(4), false))
+                    }
                 }
             }
+        }
+        if (messageList.isEmpty()) {
+            messageList.add(ChatMessage("Halo Umam! Ada yang bisa saya bantu hari ini?", false))
         }
         chatAdapter.notifyDataSetChanged()
         binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
