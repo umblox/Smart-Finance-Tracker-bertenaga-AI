@@ -28,7 +28,7 @@ class CategoryManagerDialog : DialogFragment() {
         db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
-        // Layout Utama Manajemen Kategori (Mengikuti Tema Utama Aplikasi: Terang & Kontras)
+        // Layout Utama Manajemen Kategori (Terang & Kontras Sesuai Tema Aplikasi)
         val mainLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#F7FAFC"))
@@ -158,9 +158,6 @@ class CategoryManagerDialog : DialogFragment() {
         }
     }
 
-    // ========================================================
-    // 🛠️ HALAMAN EDITOR FULL SCREEN SESUAI MODEL 1000179831.png
-    // ========================================================
     private fun showFullScreenEditor(category: CategoryEntity?) {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -178,14 +175,12 @@ class CategoryManagerDialog : DialogFragment() {
             layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT)
         }
 
-        // Tombol Silang (X) Kiri Atas
         val btnClose = TextView(context).apply {
             text = "✕"; textSize = 20f; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD)
             setPadding((4 * density).toInt(), (4 * density).toInt(), (16 * density).toInt(), (4 * density).toInt())
         }
         topBar.addView(btnClose)
 
-        // Judul Tengah Halaman
         val tvTitle = TextView(context).apply {
             text = if (category == null) "Tambah kategori" else "Ubah kategori"
             textSize = 16f; setTextColor(Color.parseColor("#1A202C")); setTypeface(null, Typeface.BOLD)
@@ -196,7 +191,6 @@ class CategoryManagerDialog : DialogFragment() {
         }
         topBar.addView(tvTitle)
 
-        // Tombol Tong Sampah / Teks HAPUS Kanan Atas
         val btnDelete = TextView(context).apply {
             text = "HAPUS"; textSize = 13f; setTextColor(Color.parseColor("#E53E3E")); setTypeface(null, Typeface.BOLD)
             setPadding((16 * density).toInt(), (6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt())
@@ -210,7 +204,7 @@ class CategoryManagerDialog : DialogFragment() {
         topBar.addView(btnDelete)
         editorContainer.addView(topBar)
 
-        // --- FORM CONTENT DATA KONTRAS ---
+        // --- FORM CONTENT ---
         val formLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt())
@@ -240,7 +234,6 @@ class CategoryManagerDialog : DialogFragment() {
         formLayout.addView(spinnerParent)
         editorContainer.addView(formLayout)
 
-        // Ambil list parent dari DB
         lifecycleScope.launch {
             val allCats = db.categoryDao().getAllCategories().first()
             val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter && it.id != category?.id }
@@ -258,14 +251,17 @@ class CategoryManagerDialog : DialogFragment() {
             }
         }
 
-        // --- TOMBOL SIMPAN DI UJUNG BAWAH TENGAH ---
+        // --- TOMBOL SIMPAN OVAL (FIXED CORNER RADIUS VIA DRAWABLE) ---
         val btnSave = Button(context).apply {
             text = "Simpan"
             textSize = 14f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080")) // Tema utama hijau teal aplikasi kita
-            cornerRadius = (22 * density).toInt() // Oval bentuk elips cantik
+            // Menggunakan GradientDrawable untuk mengatur oval melengkung anti-eror
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 22 * density
+                setColor(Color.parseColor("#008080")) // Tema Hijau Teal Utama Aplikasi Kita
+            }
             val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
                 setMargins((24 * density).toInt(), 0, (24 * density).toInt(), (24 * density).toInt())
@@ -274,7 +270,6 @@ class CategoryManagerDialog : DialogFragment() {
         }
         editorContainer.addView(btnSave)
 
-        // Eksekusi Tampilan Editor Dialog Full-Screen
         val editorDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
             .setView(editorContainer)
             .create()
