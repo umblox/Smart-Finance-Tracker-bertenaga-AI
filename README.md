@@ -39,5 +39,7 @@ Aplikasi ini dibangun menggunakan kombinasi teknologi modern Android:
 2. Pastikan Anda telah menyuntikkan GROQ_API_KEY ke dalam sistem build environment atau berkas local.properties agar kompilasi biner BuildConfig bisa mengenali token enkripsi API secara aman.
 3. Lakukan Sync Project with Gradle Files.
 4. Jalankan aplikasi di Emulator atau perangkat HP Android fisik Anda.
+   
 📄 Lisensi
+
 Proyek ini dilisensikan di bawah MIT License - Lihat file LICENSE untuk detail lebih lanjut. Siapa pun diperbolehkan menggunakan, mengubah, dan menyebarkan kode ini secara bebas dengan syarat wajib menyertakan atribusi/sumber utama ke repositori ini.
