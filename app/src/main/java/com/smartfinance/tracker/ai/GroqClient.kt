@@ -50,32 +50,34 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             DAFTAR PINJAMAN AKTIF DI SQLITE:
             CONTEXT_DEBTS
 
-            ⚠️ MATRIKS KAKU UTANG PIUTANG (JANGAN TERBALIK!):
-            1. 'action_type': 'DEBT_RECORD' (Pencatatan Utang/Piutang Baru)
-               - Jika SAYA MEMINJAM uang ke orang lain / SAYA UTANG ke orang lain -> 'debt_type' WAJIB 'DEBT' (Kategori ID: 12).
-               - Jika ORANG LAIN MEMINJAM uang ke saya / SAYA MEMINJAMKAN uang -> 'debt_type' WAJIB 'RECEIVABLE' (Kategori ID: 13).
-            
-            2. 'action_type': 'DEBT_PAYMENT' (Bayar/Cicil Utang Lama)
-               - Jika saya bayar utang saya ke orang lain -> Ambil ID kontak dari daftar bertipe 'DEBT'.
-               - Jika orang lain bayar utangnya ke saya -> Ambil ID kontak dari daftar bertipe 'RECEIVABLE'.
+            ⚠️ LOGIKA RESPONS UTAMA (VIEW_REPORT):
+            Jika user secara eksplisit meminta laporan keuangan, ringkasan saldo, atau menanyakan total kas, set field 'action_type' menjadi 'VIEW_REPORT'. Jika user hanya mengeluh, protes, atau mengobrol biasa, set 'action_type' menjadi 'CHAT_ONLY'.
 
-            3. 'action_type': 'VIEW_REPORT' (User ingin melihat grafik/laporan/analisis keuangan)
-               - Jika user meminta laporan, ringkasan, atau ingin tahu total pengeluaran/pendapatan, set 'action_type' menjadi 'VIEW_REPORT'.
+            ⚠️ LOGIKA MULTI-INPUT / SPLIT KATEGORI:
+            Jika user memasukkan beberapa transaksi sekaligus (contoh: "beli rokok 20000 dan bensin 15000"), pecah menjadi beberapa objek di dalam array 'transactions' dengan nominal, kategori, dan note masing-masing.
 
-            ⚠️ STRUKTUR KAKU OUTPUT JSON:
+            ⚠️ LOGIKA AKUNTANSI PINJAMAN (JANGAN PERNAH SALAH):
+            - Jika orang lain bayar cicilan/utang ke SAYA -> action_type: 'DEBT_PAYMENT', pembayar adalah kontak RECEIVABLE. Ini BUKAN pendapatan riil (Income), melainkan perubahan aset kas.
+            - Jika SAYA ngutang / meminjam -> action_type: 'DEBT_RECORD', debt_type: 'DEBT'.
+
+            STRUKTUR KAKU OUTPUT JSON:
             {
-              'action_type': 'TRANSACTION' / 'DEBT_RECORD' / 'DEBT_PAYMENT' / 'VIEW_REPORT',
-              'amount': 50000,
-              'type': 'EXPENSE' / 'INCOME',
-              'contact_name': 'NAMA_ORANG',
-              'debt_type': 'DEBT' / 'RECEIVABLE',
-              'debt_id': -1,
-              'pay_amount': 0,
-              'category_id': 2,
-              'category_name': 'Makanan & Minuman',
-              'clean_note': 'CATATAN BERSIH',
-              'transaction_date': 'YYYY-MM-DD',
-              'ai_response': 'Tulis kalimat respons manusiawi, detail, ramah, dan jelaskan aksi keuangan yang terjadi secara lengkap.'
+              'action_type': 'TRANSACTION' / 'DEBT_RECORD' / 'DEBT_PAYMENT' / 'VIEW_REPORT' / 'CHAT_ONLY',
+              'ai_response': 'Tulis kalimat balasan manusiawi yang rapi dan detail di sini.',
+              'transactions': [
+                {
+                  'amount': 20000,
+                  'type': 'EXPENSE' / 'INCOME',
+                  'contact_name': 'NAMA_ORANG_JIKA_ADA',
+                  'debt_type': 'DEBT' / 'RECEIVABLE' / 'NONE',
+                  'debt_id': -1,
+                  'pay_amount': 0,
+                  'category_id': 2,
+                  'category_name': 'Makanan & Minuman',
+                  'clean_note': 'BELI ROKOK',
+                  'transaction_date': 'YYYY-MM-DD'
+                }
+              ]
             }
         """.trimIndent()
 
@@ -85,7 +87,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("'", "\"")
 
         try {
-            // MEMBUAT URL MENGGUNAKAN SKEMA URI KAKU AGAR TERHINDAR DARI AUTO-FORMAT MARKDOWN HIGH-LEVEL
             val uri = URI("https", "api.groq.com", "/openai/v1/chat/completions", null)
             val url = uri.toURL()
 
@@ -104,7 +105,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.2)
+                put("temperature", 0.1)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
