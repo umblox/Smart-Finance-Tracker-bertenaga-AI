@@ -1,174 +1,227 @@
 package com.smartfinance.tracker.ui.category
 
-import android.app.AlertDialog
-import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
+import android.os.Bundle
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.widget.NestedScrollView
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-class CategoryManagerDialog(private val context: Context, private val scope: CoroutineScope) {
+class CategoryFragment : Fragment() {
 
-    private val db = AppDatabase.getDatabase(context)
+    private lateinit var db: AppDatabase
+    private lateinit var containerList: LinearLayout
+    private var currentTypeFilter = "EXPENSE"
 
-    fun show() {
-        val scrollContainer = ScrollView(context)
-        val rootLayout = LinearLayout(context).apply {
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View {
+        val context = requireContext()
+        db = AppDatabase.getDatabase(context)
+        val density = context.resources.displayMetrics.density
+
+        val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(44, 30, 44, 40)
+            setBackgroundColor(Color.parseColor("#121212")) // Dark mode sekelas Money Lover premium
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        val etName = EditText(context).apply { hint = "Nama Kategori Baru (ex: Tips Kurir)" }
-        rootLayout.addView(etName)
-
-        val spinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listOf("EXPENSE (Pengeluaran)", "INCOME (Pemasukan)"))
+        // TABS ATAS: PENGELUARAN / PEMASUKAN
+        val tabLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (48 * density).toInt())
+            weightSum = 2f
+            setBackgroundColor(Color.parseColor("#1A1A1A"))
         }
-        rootLayout.addView(spinner)
 
+        val btnExpense = TextView(context).apply {
+            text = "PENGELUARAN"; gravity = Gravity.CENTER; textSize = 12f; setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            setOnClickListener { currentTypeFilter = "EXPENSE"; renderHierarchy() }
+        }
+        val btnIncome = TextView(context).apply {
+            text = "PEMASUKAN"; gravity = Gravity.CENTER; textSize = 12f; setTypeface(null, Typeface.NORMAL)
+            setTextColor(Color.parseColor("#A0AEC0")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            setOnClickListener { currentTypeFilter = "INCOME"; renderHierarchy() }
+        }
+        tabLayout.addView(btnExpense)
+        tabLayout.addView(btnIncome)
+        root.addView(tabLayout)
+
+        // TOMBOL TAMBAH KATEGORI BARU
         val btnAdd = Button(context).apply {
-            text = "➕ SIMPAN KATEGORI"
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
+            text = "＋ KATEGORI BARU"
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#2F855A"))
             setTextColor(Color.WHITE)
-        }
-        rootLayout.addView(btnAdd)
-
-        val tvListTitle = TextView(context).apply {
-            text = "\n📋 DAFTAR KATEGORI AKTIF (KLIK UNTUK EDIT/HAPUS):"
-            textSize = 13f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(Color.parseColor("#2D3748"))
-        }
-        rootLayout.addView(tvListTitle)
-
-        val listLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        rootLayout.addView(listLayout)
-        scrollContainer.addView(rootLayout)
-
-        val dialog = AlertDialog.Builder(context).apply {
-            setTitle("🗂️ Kelola Kategori Sistem")
-            setView(scrollContainer)
-            setNeutralButton("Injeksi 15 Kategori Default") { _, _ ->
-                injectDefaultCategories(listLayout, etName, spinner, btnAdd)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
             }
-            setPositiveButton("Selesai", null)
-        }.create()
+            setOnClickListener { showEditOrCreateDialog(null) }
+        }
+        root.addView(btnAdd)
 
-        refreshCategoryItems(listLayout, etName, spinner, btnAdd)
-        dialog.show()
+        val nsv = NestedScrollView(context).apply { isFillViewport = true }
+        containerList = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
+        }
+        nsv.addView(containerList)
+        root.addView(nsv)
+
+        renderHierarchy()
+        return root
     }
 
-    private fun refreshCategoryItems(layout: LinearLayout, etName: EditText, spinner: Spinner, btnAdd: Button) {
-        scope.launch {
-            val categories = withContext(Dispatchers.IO) { db.categoryDao().getAllCategories().first() }
-            layout.removeAllViews()
+    private fun renderHierarchy() {
+        lifecycleScope.launch {
+            val allCategories = db.categoryDao().getAllCategories().first()
+            val filtered = allCategories.filter { it.type == currentTypeFilter }
+            
+            containerList.removeAllViews()
+            val density = requireContext().resources.displayMetrics.density
 
-            btnAdd.setOnClickListener {
-                val name = etName.text.toString().trim()
-                val type = if (spinner.selectedItemPosition == 0) "EXPENSE" else "INCOME"
-                if (name.isNotEmpty()) {
-                    scope.launch {
-                        withContext(Dispatchers.IO) {
-                            db.categoryDao().insertCategory(CategoryEntity(name = name, type = type, iconName = "ic_custom"))
-                        }
-                        etName.setText("")
-                        refreshCategoryItems(layout, etName, spinner, btnAdd)
-                        Toast.makeText(context, "Kategori '$name' Tersimpan!", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            // Pisahkan antara Induk (parent == null) dan Anak
+            val parentCategories = filtered.filter { it.parentCategoryId == null }
+            val subCategories = filtered.filter { it.parentCategoryId != null }
 
-            categories.forEach { cat ->
-                val itemCard = LinearLayout(context).apply {
+            parentCategories.forEach { parent ->
+                // Row untuk Kategori Induk
+                val parentRow = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
-                    setPadding(20, 24, 20, 24)
-                    setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-                    background.setTint(Color.WHITE)
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 }
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, (14 * density).toInt(), 0, (14 * density).toInt())
+                    setOnClickListener { showEditOrCreateDialog(parent) }
                 }
 
-                val tvInfo = TextView(context).apply {
-                    text = "${cat.name} (${if (cat.type == "INCOME") "🟢 Pemasukan" else "🔴 Pengeluaran"})"
-                    textSize = 14f
-                    setTextColor(Color.parseColor("#4A5568"))
+                val iconView = TextView(context).apply { text = "📁"; textSize = 18f; setPadding(0, 0, (12 * density).toInt(), 0) }
+                val titleView = TextView(context).apply {
+                    text = parent.name; textColor = Color.WHITE; textSize = 15f; setTypeface(null, Typeface.BOLD)
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
-                itemCard.addView(tvInfo)
+                parentRow.addView(iconView)
+                parentRow.addView(titleView)
+                containerList.addView(parentRow)
 
-                itemCard.setOnClickListener {
-                    showCrudActionDialog(cat, layout, etName, spinner, btnAdd)
+                // Ambil semua sub-kategori milik induk ini
+                val kids = subCategories.filter { it.parentCategoryId == parent.id }
+                kids.forEachIndexed { index, child ->
+                    val childRow = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding((16 * density).toInt(), (10 * density).toInt(), 0, (10 * density).toInt())
+                        setOnClickListener { showEditOrCreateDialog(child) }
+                    }
+
+                    // Trik Garis Vertikal Pohon Sesuai Gambar `1000179819.png`
+                    val treeLine = View(context).apply {
+                        setBackgroundColor(Color.parseColor("#4A5568"))
+                        layoutParams = LinearLayout.LayoutParams((2 * density).toInt(), (24 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
+                    }
+                    childRow.addView(treeLine)
+
+                    val childIcon = TextView(context).apply { text = "💰"; textSize = 14f; setPadding(0, 0, (10 * density).toInt(), 0) }
+                    val childTitle = TextView(context).apply {
+                        text = child.name; setTextColor(Color.parseColor("#CBD5E0")); textSize = 14f
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    childRow.addView(childIcon)
+                    childRow.addView(childTitle)
+                    containerList.addView(childRow)
                 }
-                layout.addView(itemCard)
+
+                // Garis pembatas antar kelompok induk
+                containerList.addView(View(context).apply {
+                    setBackgroundColor(Color.parseColor("#2D3748"))
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (4 * density).toInt() }
+                })
             }
         }
     }
 
-    private fun showCrudActionDialog(cat: CategoryEntity, layout: LinearLayout, etName: EditText, spinner: Spinner, btnAdd: Button) {
-        val options = arrayOf("✏️ Edit Nama Kategori", "🗑️ Hapus Kategori")
-        AlertDialog.Builder(context).apply {
-            setTitle("Aksi Kategori: ${cat.name}")
-            setItems(options) { _, which ->
-                if (which == 0) {
-                    val etEdit = EditText(context).apply { setText(cat.name) }
-                    AlertDialog.Builder(context).apply {
-                        setTitle("Ubah Nama Kategori")
-                        setView(etEdit)
-                        setPositiveButton("Simpan") { _, _ ->
-                            val newName = etEdit.text.toString().trim()
-                            if (newName.isNotEmpty()) {
-                                scope.launch {
-                                    withContext(Dispatchers.IO) { db.categoryDao().insertCategory(cat.copy(name = newName)) }
-                                    refreshCategoryItems(layout, etName, spinner, btnAdd)
-                                    Toast.makeText(context, "Kategori diperbarui!", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                        setNegativeButton("Batal", null)
-                        show()
-                    }
-                } else {
-                    scope.launch {
-                        withContext(Dispatchers.IO) { db.categoryDao().deleteCategory(cat) }
-                        refreshCategoryItems(layout, etName, spinner, btnAdd)
-                        Toast.makeText(context, "Kategori berhasil dihapus!", Toast.LENGTH_SHORT).show()
-                    }
+    // ========================================================
+    // 🛠️ DIALOG EDITOR DINAMIS (SESUAI BOX 2: 1000179831.png)
+    // ========================================================
+    private fun showEditOrCreateDialog(category: CategoryEntity?) {
+        val context = requireContext()
+        val density = context.resources.displayMetrics.density
+        
+        val builder = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog)
+        val dialogLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt())
+        }
+
+        dialogLayout.addView(TextView(context).apply { text = "Nama Kategori"; setTextColor(Color.GRAY); textSize = 12f })
+        val etName = EditText(context).apply { 
+            setText(category?.name ?: "")
+            setTextColor(Color.WHITE)
+            hint = "Masukkan nama kategori"
+            setHintTextColor(Color.DKGRAY)
+        }
+        dialogLayout.addView(etName)
+
+        dialogLayout.addView(TextView(context).apply { text = "Kategori Induk (Pilih jika ini sub-kategori)"; setTextColor(Color.GRAY); textSize = 12f; setPadding(0, (12 * density).toInt(), 0, 0) })
+        
+        val spinnerParent = Spinner(context)
+        lifecycleScope.launch {
+            val allCats = db.categoryDao().getAllCategories().first()
+            val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter }
+            
+            val listNames = mutableListOf("[Tanpa Induk / Kategori Utama]")
+            parents.forEach { listNames.add(it.name) }
+            
+            val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerParent.adapter = adapter
+            
+            category?.parentCategoryId?.let { parentId ->
+                val matchIdx = parents.indexOfFirst { it.id == parentId }
+                if (matchIdx != -1) spinnerParent.setSelection(matchIdx + 1)
+            }
+        }
+        dialogLayout.addView(spinnerParent)
+
+        builder.setView(dialogLayout)
+        builder.setTitle(if (category == null) "Tambah Kategori" else "Ubah Kategori")
+        builder.setPositiveButton("Simpan") { dialog, _ ->
+            val finalName = etName.text.toString().trim()
+            if (finalName.isNotEmpty()) {
+                lifecycleScope.launch {
+                    val allCats = db.categoryDao().getAllCategories().first()
+                    val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter }
+                    val selectedPos = spinnerParent.selectedItemPosition
+                    val finalParentId = if (selectedPos == 0) null else parents[selectedPos - 1].id
+
+                    val newCat = CategoryEntity(
+                        id = category?.id ?: 0,
+                        name = finalName,
+                        type = currentTypeFilter,
+                        iconName = category?.iconName ?: "ic_custom",
+                        parentCategoryId = finalParentId
+                    )
+                    db.categoryDao().insertCategory(newCat)
+                    renderHierarchy()
                 }
             }
-            show()
         }
-    }
-
-    private fun injectDefaultCategories(layout: LinearLayout, etName: EditText, spinner: Spinner, btnAdd: Button) {
-        scope.launch {
-            val defaultCats = listOf(
-                CategoryEntity(1, "Gaji & Pendapatan", "INCOME", "ic_income"),
-                CategoryEntity(2, "Makanan & Minuman", "EXPENSE", "ic_food"),
-                CategoryEntity(3, "Bahan Bakar & Transportasi", "EXPENSE", "ic_fuel"),
-                CategoryEntity(4, "Tagihan & Utilitas", "EXPENSE", "ic_bill"),
-                CategoryEntity(5, "Rokok & Hiburan Pribadi", "EXPENSE", "ic_smoke"),
-                CategoryEntity(6, "Belanja Kebutuhan Rumah", "EXPENSE", "ic_home"),
-                CategoryEntity(7, "Kesehatan & Medis", "EXPENSE", "ic_medical"),
-                CategoryEntity(8, "Pendidikan & Buku", "EXPENSE", "ic_education"),
-                CategoryEntity(9, "Pakaian & Gaya Lifestyle", "EXPENSE", "ic_fashion"),
-                CategoryEntity(10, "Investasi & Tabungan", "EXPENSE", "ic_invest"),
-                CategoryEntity(11, "Cicilan & Pinjaman", "EXPENSE", "ic_debt_pay"),
-                CategoryEntity(12, "Hutang (Saya Meminjam)", "INCOME", "ic_debt_get"),
-                CategoryEntity(13, "Piutang (Memberi Pinjaman)", "EXPENSE", "ic_receivable"),
-                CategoryEntity(14, "Bonus & Hadiah", "INCOME", "ic_gift"),
-                CategoryEntity(15, "Lain-lain / Umum", "EXPENSE", "ic_generic")
-            )
-            withContext(Dispatchers.IO) {
-                defaultCats.forEach { db.categoryDao().insertCategory(it) }
+        if (category != null) {
+            builder.setNegativeButton("Hapus") { _, _ ->
+                lifecycleScope.launch {
+                    db.categoryDao().deleteCategory(category)
+                    renderHierarchy()
+                }
             }
-            refreshCategoryItems(layout, etName, spinner, btnAdd)
-            Toast.makeText(context, "15 Kategori Master Berhasil Dimuat!", Toast.LENGTH_SHORT).show()
         }
+        builder.show()
     }
 }
-
