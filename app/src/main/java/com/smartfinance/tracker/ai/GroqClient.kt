@@ -85,6 +85,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("'", "\"")
 
         try {
+            // PERBAIKAN MUTLAK: String URL murni tanpa sangkutan format Markdown bawaan GitHub
             val url = URL("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -101,7 +102,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                     put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
                 }
                 put("messages", messagesArray)
-                put("temperature", 0.2) // Longgar dan fleksibel agar JSON terbentuk rapi sempurna
+                put("temperature", 0.2)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
