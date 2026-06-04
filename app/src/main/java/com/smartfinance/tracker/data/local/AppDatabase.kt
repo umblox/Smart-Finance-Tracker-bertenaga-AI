@@ -15,7 +15,7 @@ import java.util.concurrent.Executors
 
 @Database(
     entities = [CategoryEntity::class, TransactionEntity::class, DebtEntity::class],
-    version = 4,
+    version = 5, // Naikkan versi ke 5 karena ada perubahan struktur skema tabel
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,13 +35,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "smart_finance_db"
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration() // Otomatis reset tabel dengan aman jika skema berubah
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
                         Executors.newSingleThreadExecutor().execute {
                             val database = getDatabase(context)
-                            database.categoryDao().insertDefaultCategories(get15DefaultCategories())
+                            database.categoryDao().insertDefaultCategories(getHierarchicalDefaultCategories())
                         }
                     }
                 })
@@ -51,24 +51,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // KUMPULAN 15 KATEGORI DEFAULT LENGKAP DENGAN PARAMETER PARAM ICON_NAME
-        private fun get15DefaultCategories(): List<CategoryEntity> {
+        private fun getHierarchicalDefaultCategories(): List<CategoryEntity> {
             return listOf(
+                // Kategori Induk Pemasukan
                 CategoryEntity(id = 1, name = "Gaji & Pendapatan", type = "INCOME", iconName = "ic_salary"),
-                CategoryEntity(id = 2, name = "Makanan & Minuman", type = "EXPENSE", iconName = "ic_food"),
-                CategoryEntity(id = 3, name = "Belanja & Kebutuhan", type = "EXPENSE", iconName = "ic_shopping"),
-                CategoryEntity(id = 4, name = "Transportasi & Bensin", type = "EXPENSE", iconName = "ic_transport"),
-                CategoryEntity(id = 5, name = "Tagihan & Listrik", type = "EXPENSE", iconName = "ic_bill"),
-                CategoryEntity(id = 6, name = "Hiburan & Hiburan", type = "EXPENSE", iconName = "ic_entertainment"),
-                CategoryEntity(id = 7, name = "Kesehatan & Medis", type = "EXPENSE", iconName = "ic_health"),
-                CategoryEntity(id = 8, name = "Edukasi & Buku", type = "EXPENSE", iconName = "ic_education"),
-                CategoryEntity(id = 9, name = "Investasi & Saham", type = "INCOME", iconName = "ic_investment"),
-                CategoryEntity(id = 10, name = "Hadiah & Donasi", type = "EXPENSE", iconName = "ic_gift"),
-                CategoryEntity(id = 11, name = "Cicilan & Pinjaman", type = "EXPENSE", iconName = "ic_loan"),
-                CategoryEntity(id = 12, name = "Hutang (Saya Meminjam)", type = "INCOME", iconName = "ic_debt"),
-                CategoryEntity(id = 13, name = "Piutang (Memberi Pinjaman)", type = "EXPENSE", iconName = "ic_receivable"),
-                CategoryEntity(id = 14, name = "Bonus & Sampingan", type = "INCOME", iconName = "ic_bonus"),
-                CategoryEntity(id = 15, name = "Lain-lain / Umum", type = "EXPENSE", iconName = "ic_others")
+                CategoryEntity(id = 2, name = "Investasi", type = "INCOME", iconName = "ic_investment"),
+                
+                // Kategori Induk Pengeluaran (Sesuai Gambar Referensi)
+                CategoryEntity(id = 3, name = "Belanja", type = "EXPENSE", iconName = "ic_shopping"),
+                CategoryEntity(id = 4, name = "Makanan & Minuman", type = "EXPENSE", iconName = "ic_food"),
+                CategoryEntity(id = 5, name = "Transportasi", type = "EXPENSE", iconName = "ic_transport"),
+                CategoryEntity(id = 6, name = "Hadiah & Donasi", type = "EXPENSE", iconName = "ic_gift"),
+                CategoryEntity(id = 7, name = "Lain-lain / Umum", type = "EXPENSE", iconName = "ic_others"),
+                
+                // SUB-KATEGORI DARI BELANJA (parentCategoryId = 3)
+                CategoryEntity(id = 8, name = "Arneta.id", type = "EXPENSE", iconName = "ic_arneta", parentCategoryId = 3),
+                CategoryEntity(id = 9, name = "Berkebun", type = "EXPENSE", iconName = "ic_garden", parentCategoryId = 3),
+                CategoryEntity(id = 10, name = "Dandan", type = "EXPENSE", iconName = "ic_beauty", parentCategoryId = 3),
+                CategoryEntity(id = 11, name = "Keperluan Pribadi", type = "EXPENSE", iconName = "ic_personal", parentCategoryId = 3),
+                CategoryEntity(id = 12, name = "Peralatan Rumah Tangga", type = "EXPENSE", iconName = "ic_home", parentCategoryId = 3),
+                CategoryEntity(id = 13, name = "Sandangan", type = "EXPENSE", iconName = "ic_clothes", parentCategoryId = 3),
+
+                // SUB-KATEGORI DARI MAKANAN & MINUMAN (parentCategoryId = 4)
+                CategoryEntity(id = 14, name = "Jajan & Rokok", type = "EXPENSE", iconName = "ic_cigarette", parentCategoryId = 4)
             )
         }
     }
