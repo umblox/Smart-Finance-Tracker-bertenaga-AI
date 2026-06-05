@@ -6,7 +6,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
-import com.smartfinance.tracker.ui.debt.AddDebtFragment // MEMULIHKAN IMPORT HUTANG
+import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 
@@ -16,13 +16,15 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+        // SINKRONISASI ID: Menggunakan ID bawaan XML proyek asli Anda
+        val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
         
-        // Mengubah label menu laporan menjadi Transaksi di runtime
         bottomNavigation.menu.findItem(R.id.menu_report)?.title = "Transaksi"
 
         if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction().replace(R.id.fragment_container, DashboardFragment()).commit()
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, DashboardFragment())
+                .commit()
         }
 
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -30,17 +32,24 @@ class MainActivity : AppCompatActivity() {
                 R.id.menu_dashboard -> DashboardFragment()
                 R.id.menu_chat -> ChatFragment()
                 R.id.menu_report -> HistoryTransactionFragment()
-                R.id.menu_debt -> AddDebtFragment() // MEMULIHKAN MENU HUTANG
+                R.id.menu_debt -> AddDebtFragment()
                 R.id.menu_settings -> SettingsFragment()
                 else -> DashboardFragment()
             }
-            supportFragmentManager.beginTransaction().replace(R.id.fragment_container, selectedFragment).commit()
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, selectedFragment)
+                .commit()
             true
         }
     }
 
     fun navigateToSpecificFragment(fragment: Fragment, activeMenuId: Int? = null) {
-        supportFragmentManager.beginTransaction().replace(R.id.fragment_container, fragment).addToBackStack(null).commit()
-        activeMenuId?.let { findViewById<BottomNavigationView>(R.id.bottom_navigation).selectedItemId = it }
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, fragment)
+            .addToBackStack(null)
+            .commit()
+        activeMenuId?.let { 
+            findViewById<BottomNavigationView>(R.id.bottomNavigation).selectedItemId = it 
+        }
     }
 }
