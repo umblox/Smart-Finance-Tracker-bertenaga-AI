@@ -36,7 +36,6 @@ class TransactionEditorDialog(
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // --- TOP BAR NAVIGASI ---
         val topBar = RelativeLayout(context).apply {
             id = View.generateViewId()
             setBackgroundColor(Color.WHITE)
@@ -69,7 +68,6 @@ class TransactionEditorDialog(
         topBar.addView(btnDelete)
         editorContainer.addView(topBar)
 
-        // --- LAYOUT FORM ENTRI DATA KONTRAS ---
         val formLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt())
@@ -116,6 +114,7 @@ class TransactionEditorDialog(
             spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinnerCategory.adapter = spinnerAdapter
 
+            // FIX: Operasi komparasi aman antara sesama tipe data Long
             val selectedIdx = categoryList.indexOfFirst { it.id == transaction.categoryId }
             if (selectedIdx != -1) spinnerCategory.setSelection(selectedIdx)
         }
@@ -139,7 +138,6 @@ class TransactionEditorDialog(
 
         btnDelete.setOnClickListener {
             lifecycleScope.launch {
-                // SEKARANG BERHASIL: deleteTransaction terdaftar legal di DAO Room
                 db.transactionDao().deleteTransaction(transaction)
                 onUpdateAction()
                 editorDialog.dismiss()
@@ -156,6 +154,7 @@ class TransactionEditorDialog(
                     val parsedDate = try { sdf.parse(dateVal)?.time ?: transaction.timestamp } catch (e: Exception) { transaction.timestamp }
                     val selectedCategory = categoryList[spinnerCategory.selectedItemPosition]
 
+                    // FIX: Mengeliminasi type mismatch saat mapping data ke entitas transaksi
                     val updatedTx = transaction.copy(
                         amount = amountVal,
                         note = noteVal,
