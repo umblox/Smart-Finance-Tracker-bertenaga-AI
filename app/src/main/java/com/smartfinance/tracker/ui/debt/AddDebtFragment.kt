@@ -35,10 +35,8 @@ class AddDebtFragment : Fragment() {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
     private var currentTab = "DEBT"
     
-    // Penampung EditText nama kontak agar bisa diisi otomatis dari Contact Picker
     private var activeContactEditText: EditText? = null
 
-    // REGISTER CONTACT PICKER CONTRACT (ANTI-CRASH 2026)
     private val contactPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -51,7 +49,6 @@ class AddDebtFragment : Fragment() {
                     val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
                     if (nameIndex != -1) {
                         val contactName = cursor.getString(nameIndex)
-                        // Suntikkan nama kontak riil dari HP langsung ke kolom dialog input
                         activeContactEditText?.setText(contactName)
                     }
                 }
@@ -59,7 +56,6 @@ class AddDebtFragment : Fragment() {
         }
     }
 
-    // REGISTER RUNTIME PERMISSION LAUNCHER
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -182,9 +178,6 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    // ==========================================
-    // SEKSI TAMBAH PINJAMAN DENGAN INPUT "BERSAMA" (CREATE)
-    // ==========================================
     private fun showAddDebtManualDialog(listContainer: LinearLayout, cardDebt: LinearLayout, cardReceivable: LinearLayout) {
         val context = requireContext()
         val formLayout = LinearLayout(context).apply {
@@ -192,7 +185,6 @@ class AddDebtFragment : Fragment() {
             setPadding(44, 20, 44, 20)
         }
 
-        // DESIGN BARIS "BERSAMA": Gabungkan EditText dan Tombol Cantik Horizontal
         val rowBersama = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -203,7 +195,7 @@ class AddDebtFragment : Fragment() {
             hint = "Nama Kontak Orang"
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        activeContactEditText = etName // Daftarkan referensi penampung teks aktif
+        activeContactEditText = etName
 
         val btnPickContact = Button(context).apply {
             text = "👥 BERSAMA"
@@ -219,7 +211,7 @@ class AddDebtFragment : Fragment() {
         rowBersama.addView(btnPickContact)
         formLayout.addView(rowBersama)
 
-        val etAmount = EditText(context).apply { hint = "Nominal Nominal (ex: 250000)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+        val etAmount = EditText(context).apply { hint = "Nominal (ex: 250000)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
         formLayout.addView(etAmount)
         
         formLayout.addView(TextView(context).apply { text = "\nJenis Pinjaman:"; textSize = 12f })
@@ -232,7 +224,7 @@ class AddDebtFragment : Fragment() {
             setTitle("📝 Tambah Catatan Pinjaman")
             setView(formLayout)
             setPositiveButton("Simpan") { _, _ ->
-                val name = etName.text.toString().trim().uppercase()
+                val name = etName.text.toString().trim().uppercase(Locale.ROOT)
                 val amountValue = etAmount.text.toString().toDoubleOrNull() ?: 0.0
                 val selectedType = if (spinnerType.selectedItemPosition == 0) "DEBT" else "RECEIVABLE"
 
@@ -246,14 +238,15 @@ class AddDebtFragment : Fragment() {
                             ))
                         }
 
+                        // SINKRONISASI KAKU SIFAT ALIRAN KAS KATEGORI SISTEM YANG DIKUNCI
                         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
-                        val catId = if (selectedType == "RECEIVABLE") 13L else 12L
-                        val catName = if (selectedType == "RECEIVABLE") "Piutang (Memberi Pinjaman)" else "Hutang (Saya Meminjam)"
+                        val catId = if (selectedType == "RECEIVABLE") 104L else 101L
+                        val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
                         
                         withContext(Dispatchers.IO) {
                             db.transactionDao().insertTransaction(TransactionEntity(
                                 amount = amountValue, type = flowType, categoryId = catId, categoryName = catName,
-                                note = "INPUT MANUAL PINJAMAN OLEH $name", timestamp = System.currentTimeMillis()
+                                note = "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN", timestamp = System.currentTimeMillis()
                             ))
                         }
 
@@ -363,11 +356,15 @@ class AddDebtFragment : Fragment() {
                                         db.debtDao().insertDebt(debt.copy(remainingAmount = newRemaining, isPaid = newRemaining <= 0.0))
                                     }
 
+                                    // SINKRONISASI KAKU OPSI AKUNTANSI CICILAN UTANG KE ID KATEGORI TERKUNCI (102L / 103L)
                                     val flowType = if (debt.type == "DEBT") "EXPENSE" else "INCOME"
+                                    val targetCatId = if (debt.type == "DEBT") 102L else 103L
+                                    val targetCatName = if (debt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+
                                     withContext(Dispatchers.IO) {
                                         db.transactionDao().insertTransaction(TransactionEntity(
-                                            amount = payValue, type = flowType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
-                                            note = "CICILAN MANUAL OLEH ${debt.contactName.uppercase()}", timestamp = System.currentTimeMillis()
+                                            amount = payValue, type = flowType, categoryId = targetCatId, categoryName = targetCatName,
+                                            note = "[$targetCatName] ${debt.contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL", timestamp = System.currentTimeMillis()
                                         ))
                                     }
 
