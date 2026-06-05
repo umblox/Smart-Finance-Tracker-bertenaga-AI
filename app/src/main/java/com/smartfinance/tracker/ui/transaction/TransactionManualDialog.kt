@@ -3,6 +3,7 @@ package com.smartfinance.tracker.ui.transaction
 import android.Manifest
 import android.app.AlertDialog
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -11,6 +12,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
+import android.view.Gravity // IMPORT FIX
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -42,7 +44,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     private lateinit var rbIncome: RadioButton
     private lateinit var rbDebt: RadioButton
 
-    // Handler Ambil Data Kontak Bawaan HP
     private val contactPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val contactUri: Uri? = result.data?.data
@@ -58,7 +59,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         }
     }
 
-    // Handler Request Permission Kontak Android
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) openContactPicker()
         else Toast.makeText(context, "Akses kontak ditolak. Nama harus diisi manual.", Toast.LENGTH_SHORT).show()
@@ -74,7 +74,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // --- TOP NAV BAR ---
         val topBar = RelativeLayout(context).apply {
             id = View.generateViewId()
             setBackgroundColor(Color.WHITE)
@@ -87,19 +86,16 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         topBar.addView(tvTitle)
         root.addView(topBar)
 
-        // --- SCROLL CONTAINER FORM ---
         val scrollView = ScrollView(context).apply {
             val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT).apply { addRule(RelativeLayout.BELOW, topBar.id); bottomMargin = (80 * density).toInt() }
             layoutParams = lp
         }
         val form = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding((20 * density).toInt(), (16 * density).toInt(), (20 * density).toInt(), (16 * density).toInt()) }
 
-        // 1. Nominal Uang
         form.addView(TextView(context).apply { text = "Nominal Transaksi (Rp)"; setTextColor(Color.parseColor("#718096")); textSize = 11f })
         etAmount = EditText(context).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setTextColor(Color.parseColor("#2D3748")) }
         form.addView(etAmount)
 
-        // 2. Radio Group Tipe Kas (Pengeluaran, Pemasukan, Utang)
         form.addView(TextView(context).apply { text = "Jenis Aliran Kas"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (12 * density).toInt(), 0, 0) })
         val rgType = RadioGroup(context).apply { orientation = RadioGroup.HORIZONTAL; setPadding(0, (4 * density).toInt(), 0, (8 * density).toInt()) }
         rbExpense = RadioButton(context).apply { text = "Pengeluaran"; id = View.generateViewId(); isChecked = true }
@@ -110,23 +106,19 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         rgType.addView(rbDebt)
         form.addView(rgType)
 
-        // 3. Spinner Kategori & Sub-Kategori Dinamis
         form.addView(TextView(context).apply { text = "Kategori & Sub-Kategori"; setTextColor(Color.parseColor("#718096")); textSize = 11f })
         spinnerCategory = Spinner(context).apply { setBackgroundColor(Color.WHITE); setPadding((8 * density).toInt(), (10 * density).toInt(), (8 * density).toInt(), (10 * density).toInt()) }
         form.addView(spinnerCategory)
 
-        // 4. Catatan / Nama Transaksi
         form.addView(TextView(context).apply { text = "Nama Transaksi / Catatan"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
         etNote = EditText(context).apply { setTextColor(Color.parseColor("#2D3748")); hint = "Contoh: Beli Token / Gajian Ke-2" }
         form.addView(etNote)
 
-        // 5. Tanggal Kalender
         form.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         etDate = EditText(context).apply { setText(sdf.format(Date())); setTextColor(Color.parseColor("#2D3748")) }
         form.addView(etDate)
 
-        // 6. Kolom Kontak Bersama dengan Picker Button
         form.addView(TextView(context).apply { text = "Kontak Terkait (Opsional / Utang-Piutang)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val contactRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         etContact = EditText(context).apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f); setTextColor(Color.parseColor("#2D3748")) }
@@ -138,7 +130,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         scrollView.addView(form)
         root.addView(scrollView)
 
-        // --- TOMBOL SIMPAN DI BAWAH TENGAH ---
         val btnSave = Button(context).apply {
             text = "Simpan Transaksi Manual"
             setTextColor(Color.WHITE)
@@ -150,7 +141,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
         val dialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen).setView(root).create()
 
-        // --- LOGIKA AKSI DAN EVENT ---
         btnClose.setOnClickListener { dialog.dismiss() }
         btnPickContact.setOnClickListener { checkContactPermissionAndOpen() }
 
@@ -158,7 +148,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             currentType = when (checkedId) {
                 rbExpense.id -> "EXPENSE"
                 rbIncome.id -> "INCOME"
-                else -> "EXPENSE" // Utang-piutang meminjam dicatat sebagai pengeluaran default kas keluar
+                else -> "EXPENSE"
             }
             mapSpinnerHierarchy()
         }
@@ -199,7 +189,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    // Pemetaan Pohon Hierarki Kategori & Sub-Kategori ke Spinner
     private fun mapSpinnerHierarchy() {
         val typedList = allCategories.filter { it.type == currentType }
         val parents = typedList.filter { it.parentCategoryId == null }
@@ -215,7 +204,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val children = subs.filter { it.parentCategoryId == parent.id }
             children.forEach { child ->
                 filteredCategories.add(child)
-                displayNames.add("    └── 💰 ${child.name}") // Indentasi visual sub-kategori
+                displayNames.add("    └── 💰 ${child.name}")
             }
         }
 
