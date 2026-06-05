@@ -158,33 +158,57 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             mapSpinnerHierarchy()
         }
 
-        btnSave.setOnClickListener {
-            val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-            val noteVal = etNote.text.toString().trim()
-            val dateVal = etDate.text.toString().trim()
+btnSave.setOnClickListener {
+    val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
+    val noteVal = etNote.text.toString().trim()
+    val dateVal = etDate.text.toString().trim()
 
-            if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategories.isNotEmpty()) {
-                lifecycleScope.launch {
-                    val targetTime = try { sdf.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
-                    val selectedCat = filteredCategories[spinnerCategory.selectedItemPosition]
-                    
-                    val finalNote = if (rbDebt.isChecked) "[UTANG] " + etContact.text.toString().trim() + " - " + noteVal else noteVal
+    if (amountVal > 0.0 && noteVal.isNotEmpty()) {
+        lifecycleScope.launch {
+            val targetTime = try { sdf.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+            
+            var finalCategoryId = 0
+            var finalCategoryName = ""
+            var finalType = ""
 
-                    db.transactionDao().insertTransaction(TransactionEntity(
-                        amount = amountVal,
-                        type = if (rbIncome.isChecked) "INCOME" else "EXPENSE",
-                        categoryId = selectedCat.id,
-                        categoryName = selectedCat.name,
-                        note = finalNote.uppercase(Locale.ROOT),
-                        timestamp = targetTime
-                    ))
-                    onSaved()
-                    dialog.dismiss()
+            if (rbDebt.isChecked) {
+                // LOGIKA CERDAS: Ambil ID Kategori Sistem Berdasarkan Kebutuhan Utang-Piutang Anda
+                finalType = "EXPENSE" // Mutasi dasbor dibebankan sebagai kas keluar/masuk biasa
+                
+                // Asumsi dasar pencatatan manual:
+                // Jika mencatat utang baru (Saya pinjam uang orang lain) -> Masuk Kategori 'Hutang' (ID: 101)
+                // Jika meminjamkan uang ke orang lain -> Masuk Kategori 'Piutang' (ID: 104)
+                if (noteVal.contains("PINJAM", ignoreCase = true) || noteVal.contains("UTANG", ignoreCase = true)) {
+                    finalCategoryId = 101
+                    finalCategoryName = "Hutang"
+                } else {
+                    finalCategoryId = 104
+                    finalCategoryName = "Piutang"
                 }
             } else {
-                Toast.makeText(context, "Mohon lengkapi nominal dan nama transaksi!", Toast.LENGTH_SHORT).show()
+                val selectedCat = filteredCategories[spinnerCategory.selectedItemPosition]
+                finalCategoryId = selectedCat.id
+                finalCategoryName = selectedCat.name
+                finalType = if (rbIncome.isChecked) "INCOME" else "EXPENSE"
             }
+
+            val finalNote = if (rbDebt.isChecked) "[UTANG] " + etContact.text.toString().trim() + " - " + noteVal else noteVal
+
+            db.transactionDao().insertTransaction(TransactionEntity(
+                amount = amountVal,
+                type = finalType,
+                categoryId = finalCategoryId,
+                categoryName = finalCategoryName,
+                note = finalNote.uppercase(Locale.ROOT),
+                timestamp = targetTime
+            ))
+            onSaved()
+            dialog.dismiss()
         }
+    } else {
+        Toast.makeText(context, "Mohon lengkapi nominal dan nama transaksi!", Toast.LENGTH_SHORT).show()
+    }
+}
 
         return dialog
     }
