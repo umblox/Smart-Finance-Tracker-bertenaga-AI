@@ -5,9 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "categories")
 data class CategoryEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val type: String, // INCOME atau EXPENSE
-    val iconName: String,
-    val parentCategoryId: Long? = null // NULL jika Kategori Induk, terisi ID jika Sub-Kategori
+    val type: String, // "EXPENSE", "INCOME", atau "DEBT"
+    val iconName: String = "ic_custom",
+    val parentCategoryId: Int? = null,
+    val isLocked: Boolean = false // FLAG UNTUK MENGUNCI KATEGORI BAWAAN SISTEM
 )
