@@ -61,7 +61,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) openContactPicker()
-        else Toast.makeText(context, "Akses kontak ditolak. Nama harus diisi manual.", Toast.LENGTH_SHORT).show()
+        else Toast.makeText(context, "Akses kontak ditolak.", Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -106,12 +106,12 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         rgType.addView(rbDebt)
         form.addView(rgType)
 
-        form.addView(TextView(context).apply { text = "Kategori & Sub-Kategori"; setTextColor(Color.parseColor("#718096")); textSize = 11f })
+        form.addView(TextView(context).apply { text = "Kategori Transaksi"; setTextColor(Color.parseColor("#718096")); textSize = 11f })
         spinnerCategory = Spinner(context).apply { setBackgroundColor(Color.WHITE); setPadding((8 * density).toInt(), (10 * density).toInt(), (8 * density).toInt(), (10 * density).toInt()) }
         form.addView(spinnerCategory)
 
         form.addView(TextView(context).apply { text = "Nama Transaksi / Catatan"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
-        etNote = EditText(context).apply { setTextColor(Color.parseColor("#2D3748")); hint = "Contoh: Beli Token / Gajian Ke-2" }
+        etNote = EditText(context).apply { setTextColor(Color.parseColor("#2D3748")); hint = "Contoh: Sisa bayar sembako / pinjam modal" }
         form.addView(etNote)
 
         form.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
@@ -119,7 +119,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         etDate = EditText(context).apply { setText(sdf.format(Date())); setTextColor(Color.parseColor("#2D3748")) }
         form.addView(etDate)
 
-        form.addView(TextView(context).apply { text = "Kontak Terkait (Opsional / Utang-Piutang)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
+        form.addView(TextView(context).apply { text = "Kontak Terkait (Wajib untuk Utang-Piutang)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val contactRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         etContact = EditText(context).apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f); setTextColor(Color.parseColor("#2D3748")) }
         val btnPickContact = Button(context).apply { text = "Cari"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#4A5568")) }
@@ -148,7 +148,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             currentType = when (checkedId) {
                 rbExpense.id -> "EXPENSE"
                 rbIncome.id -> "INCOME"
-                else -> "EXPENSE"
+                else -> "DEBT"
             }
             mapSpinnerHierarchy()
         }
@@ -162,38 +162,37 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
             val noteVal = etNote.text.toString().trim()
             val dateVal = etDate.text.toString().trim()
+            val contactVal = etContact.text.toString().trim()
+
+            if (rbDebt.isChecked && contactVal.isEmpty()) {
+                Toast.makeText(context, "Nama kontak wajib diisi untuk transaksi Utang-Piutang!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
             if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategories.isNotEmpty()) {
                 lifecycleScope.launch {
                     val targetTime = try { sdf.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
                     
-                    var finalCategoryId: Long = 0L
-                    var finalCategoryName = ""
-                    var finalType = ""
-
-                    if (rbDebt.isChecked) {
-                        finalType = "EXPENSE"
-                        if (noteVal.contains("PINJAM", ignoreCase = true) || noteVal.contains("UTANG", ignoreCase = true)) {
-                            finalCategoryId = 101L
-                            finalCategoryName = "Hutang"
-                        } else {
-                            finalCategoryId = 104L
-                            finalCategoryName = "Piutang"
-                        }
-                    } else {
-                        val selectedCat = filteredCategories[spinnerCategory.selectedItemPosition]
-                        finalCategoryId = selectedCat.id // FIX: Menerima Long secara langsung tanpa error kompilasi
-                        finalCategoryName = selectedCat.name
-                        finalType = if (rbIncome.isChecked) "INCOME" else "EXPENSE"
+                    val selectedCat = filteredCategories[spinnerCategory.selectedItemPosition]
+                    
+                    // Pemetaan tipe transaksi akuntansi riil untuk mutasi kas di dashboard
+                    val finalType = when (selectedCat.id) {
+                        101L, 103L -> "INCOME"  // Hutang baru & Penagihan utang menambah kas masuk
+                        102L, 104L -> "EXPENSE" // Pembayaran kembali & Piutang baru mengurangi kas keluar
+                        else -> if (rbIncome.isChecked) "INCOME" else "EXPENSE"
                     }
 
-                    val finalNote = if (rbDebt.isChecked) "[UTANG] " + etContact.text.toString().trim() + " - " + noteVal else noteVal
+                    val finalNote = if (rbDebt.isChecked) {
+                        "[${selectedCat.name.uppercase(Locale.ROOT)}] $contactVal - $noteVal"
+                    } else {
+                        noteVal
+                    }
 
                     db.transactionDao().insertTransaction(TransactionEntity(
                         amount = amountVal,
                         type = finalType,
-                        categoryId = finalCategoryId,
-                        categoryName = finalCategoryName,
+                        categoryId = selectedCat.id,
+                        categoryName = selectedCat.name,
                         note = finalNote.uppercase(Locale.ROOT),
                         timestamp = targetTime
                     ))
@@ -209,21 +208,30 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     }
 
     private fun mapSpinnerHierarchy() {
-        val typedList = allCategories.filter { it.type == currentType }
-        val parents = typedList.filter { it.parentCategoryId == null }
-        val subs = typedList.filter { it.parentCategoryId != null }
-
         filteredCategories.clear()
         val displayNames = mutableListOf<String>()
 
-        parents.forEach { parent ->
-            filteredCategories.add(parent)
-            displayNames.add("📁 ${parent.name}")
+        if (currentType == "DEBT") {
+            // Filter khusus mengambil 4 kategori utang bawaan aplikasi yang terkunci
+            val debtSystemCategories = allCategories.filter { it.type == "DEBT" }
+            debtSystemCategories.forEach { cat ->
+                filteredCategories.add(cat)
+                displayNames.add("🔒 ${cat.name}")
+            }
+        } else {
+            val typedList = allCategories.filter { it.type == currentType }
+            val parents = typedList.filter { it.parentCategoryId == null }
+            val subs = typedList.filter { it.parentCategoryId != null }
 
-            val children = subs.filter { it.parentCategoryId == parent.id }
-            children.forEach { child ->
-                filteredCategories.add(child)
-                displayNames.add("    └── 💰 ${child.name}")
+            parents.forEach { parent ->
+                filteredCategories.add(parent)
+                displayNames.add("📁 ${parent.name}")
+
+                val children = subs.filter { it.parentCategoryId == parent.id }
+                children.forEach { child ->
+                    filteredCategories.add(child)
+                    displayNames.add("    └── 💰 ${child.name}")
+                }
             }
         }
 
