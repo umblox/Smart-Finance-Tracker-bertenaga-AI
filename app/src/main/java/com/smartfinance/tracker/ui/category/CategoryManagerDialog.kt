@@ -28,27 +28,30 @@ class CategoryManagerDialog : DialogFragment() {
         db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
-        // Layout Utama Manajemen Kategori (Terang & Kontras Sesuai Tema Aplikasi)
         val mainLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#F7FAFC"))
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // TABS ATAS FILTER: PENGELUARAN / PEMASUKAN
+        // TABS ATAS FILTER: PENGELUARAN / PEMASUKAN / HUTANG/PINJAMAN
         val tabLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (48 * density).toInt())
-            weightSum = 2f
+            weightSum = 3f
             setBackgroundColor(Color.WHITE)
         }
 
         val btnExpense = TextView(context).apply {
-            text = "PENGELUARAN"; gravity = Gravity.CENTER; textSize = 13f; setTypeface(null, Typeface.BOLD)
+            text = "PENGELUARAN"; gravity = Gravity.CENTER; textSize = 11f; setTypeface(null, Typeface.BOLD)
             setTextColor(Color.parseColor("#008080")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         }
         val btnIncome = TextView(context).apply {
-            text = "PEMASUKAN"; gravity = Gravity.CENTER; textSize = 13f; setTypeface(null, Typeface.NORMAL)
+            text = "PEMASUKAN"; gravity = Gravity.CENTER; textSize = 11f; setTypeface(null, Typeface.NORMAL)
+            setTextColor(Color.parseColor("#718096")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        }
+        val btnDebt = TextView(context).apply {
+            text = "HUTANG/PINJAMAN"; gravity = Gravity.CENTER; textSize = 11f; setTypeface(null, Typeface.NORMAL)
             setTextColor(Color.parseColor("#718096")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         }
 
@@ -56,6 +59,7 @@ class CategoryManagerDialog : DialogFragment() {
             currentTypeFilter = "EXPENSE"
             btnExpense.setTypeface(null, Typeface.BOLD); btnExpense.setTextColor(Color.parseColor("#008080"))
             btnIncome.setTypeface(null, Typeface.NORMAL); btnIncome.setTextColor(Color.parseColor("#718096"))
+            btnDebt.setTypeface(null, Typeface.NORMAL); btnDebt.setTextColor(Color.parseColor("#718096"))
             renderHierarchy()
         }
 
@@ -63,14 +67,23 @@ class CategoryManagerDialog : DialogFragment() {
             currentTypeFilter = "INCOME"
             btnIncome.setTypeface(null, Typeface.BOLD); btnIncome.setTextColor(Color.parseColor("#008080"))
             btnExpense.setTypeface(null, Typeface.NORMAL); btnExpense.setTextColor(Color.parseColor("#718096"))
+            btnDebt.setTypeface(null, Typeface.NORMAL); btnDebt.setTextColor(Color.parseColor("#718096"))
+            renderHierarchy()
+        }
+
+        btnDebt.setOnClickListener {
+            currentTypeFilter = "DEBT"
+            btnDebt.setTypeface(null, Typeface.BOLD); btnDebt.setTextColor(Color.parseColor("#008080"))
+            btnExpense.setTypeface(null, Typeface.NORMAL); btnExpense.setTextColor(Color.parseColor("#718096"))
+            btnIncome.setTypeface(null, Typeface.NORMAL); btnIncome.setTextColor(Color.parseColor("#718096"))
             renderHierarchy()
         }
 
         tabLayout.addView(btnExpense)
         tabLayout.addView(btnIncome)
+        tabLayout.addView(btnDebt)
         mainLayout.addView(tabLayout)
 
-        // TOMBOL TAMBAH KATEGORI BARU
         val btnAdd = Button(context).apply {
             text = "＋ KATEGORI BARU"
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#008080"))
@@ -123,6 +136,12 @@ class CategoryManagerDialog : DialogFragment() {
                 }
                 parentRow.addView(iconView)
                 parentRow.addView(titleView)
+
+                // Jika kategori terkunci (bawaan sistem), tampilkan indikator gembok di sebelah kanan row
+                if (parent.isLocked) {
+                    val lockView = TextView(context).apply { text = "🔒"; textSize = 14f; setPadding((8 * density).toInt(), 0, (4 * density).toInt(), 0) }
+                    parentRow.addView(lockView)
+                }
                 containerList.addView(parentRow)
 
                 val kids = subCategories.filter { it.parentCategoryId == parent.id }
@@ -147,6 +166,11 @@ class CategoryManagerDialog : DialogFragment() {
                     }
                     childRow.addView(childIcon)
                     childRow.addView(childTitle)
+
+                    if (child.isLocked) {
+                        val childLock = TextView(context).apply { text = "🔒"; textSize = 12f; setPadding((8 * density).toInt(), 0, (4 * density).toInt(), 0) }
+                        childRow.addView(childLock)
+                    }
                     containerList.addView(childRow)
                 }
 
@@ -167,7 +191,6 @@ class CategoryManagerDialog : DialogFragment() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // --- TOP BAR HIERARKI ---
         val topBar = RelativeLayout(context).apply {
             id = View.generateViewId()
             setBackgroundColor(Color.WHITE)
@@ -184,34 +207,33 @@ class CategoryManagerDialog : DialogFragment() {
         val tvTitle = TextView(context).apply {
             text = if (category == null) "Tambah kategori" else "Ubah kategori"
             textSize = 16f; setTextColor(Color.parseColor("#1A202C")); setTypeface(null, Typeface.BOLD)
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
                 addRule(RelativeLayout.CENTER_IN_PARENT)
             }
-            layoutParams = lp
         }
         topBar.addView(tvTitle)
 
         val btnDelete = TextView(context).apply {
             text = "HAPUS"; textSize = 13f; setTextColor(Color.parseColor("#E53E3E")); setTypeface(null, Typeface.BOLD)
             setPadding((16 * density).toInt(), (6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt())
-            visibility = if (category != null) View.VISIBLE else View.GONE
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+            
+            // PROTEKSI LOGIKA: Sembunyikan tombol hapus jika kategori bernilai isLocked == true
+            visibility = if (category != null && !category.isLocked) View.VISIBLE else View.GONE
+            
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
                 addRule(RelativeLayout.CENTER_VERTICAL)
             }
-            layoutParams = lp
         }
         topBar.addView(btnDelete)
         editorContainer.addView(topBar)
 
-        // --- FORM CONTENT ---
         val formLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt())
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT).apply {
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT).apply {
                 addRule(RelativeLayout.BELOW, topBar.id)
             }
-            layoutParams = lp
         }
 
         formLayout.addView(TextView(context).apply { text = "Nama Kategori"; setTextColor(Color.parseColor("#718096")); textSize = 12f })
@@ -222,6 +244,12 @@ class CategoryManagerDialog : DialogFragment() {
             hint = "Masukkan nama kategori"
             setHintTextColor(Color.parseColor("#A0AEC0"))
             background.mutate().setColorFilter(Color.parseColor("#CBD5E0"), android.graphics.PorterDuff.Mode.SRC_ATOP)
+            
+            // Kunci kolom input nama jika kategori bawaan sistem agar tidak bisa diubah ilegal
+            if (category != null && category.isLocked) {
+                isEnabled = false
+                setTextColor(Color.GRAY)
+            }
         }
         formLayout.addView(etName)
 
@@ -230,6 +258,7 @@ class CategoryManagerDialog : DialogFragment() {
         val spinnerParent = Spinner(context).apply {
             setBackgroundColor(Color.WHITE)
             setPadding((10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt())
+            if (category != null && category.isLocked) isEnabled = false
         }
         formLayout.addView(spinnerParent)
         editorContainer.addView(formLayout)
@@ -251,22 +280,23 @@ class CategoryManagerDialog : DialogFragment() {
             }
         }
 
-        // --- TOMBOL SIMPAN OVAL (FIXED CORNER RADIUS VIA DRAWABLE) ---
         val btnSave = Button(context).apply {
             text = "Simpan"
             textSize = 14f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.WHITE)
-            // Menggunakan GradientDrawable untuk mengatur oval melengkung anti-eror
             background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = 22 * density
-                setColor(Color.parseColor("#008080")) // Tema Hijau Teal Utama Aplikasi Kita
+                setColor(Color.parseColor("#008080"))
             }
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
+            
+            // Sembunyikan tombol simpan jika kategori sistem terkunci karena tidak perlu ada perubahan mutasi data
+            visibility = if (category != null && category.isLocked) View.GONE else View.VISIBLE
+            
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
                 setMargins((24 * density).toInt(), 0, (24 * density).toInt(), (24 * density).toInt())
             }
-            layoutParams = lp
         }
         editorContainer.addView(btnSave)
 
@@ -277,7 +307,7 @@ class CategoryManagerDialog : DialogFragment() {
         btnClose.setOnClickListener { editorDialog.dismiss() }
 
         btnDelete.setOnClickListener {
-            if (category != null) {
+            if (category != null && !category.isLocked) {
                 lifecycleScope.launch {
                     db.categoryDao().deleteCategory(category)
                     renderHierarchy()
@@ -300,7 +330,8 @@ class CategoryManagerDialog : DialogFragment() {
                         name = finalName,
                         type = currentTypeFilter,
                         iconName = category?.iconName ?: "ic_custom",
-                        parentCategoryId = finalParentId
+                        parentCategoryId = finalParentId,
+                        isLocked = false
                     )
                     db.categoryDao().insertCategory(newCat)
                     renderHierarchy()
