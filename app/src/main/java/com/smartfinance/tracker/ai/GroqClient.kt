@@ -62,7 +62,12 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
 
             ⚠️ LOGIKA MULTI-INPUT / SPLIT KATEGORI:
             Jika user memasukkan beberapa transaksi sekaligus (contoh: "beli rokok 20000 dan bensin 15000"), pecah menjadi beberapa objek di dalam array 'transactions' dengan nominal, kategori, dan note masing-masing.
-
+            ⚠️ ATURAN MUTLAK KATEGORI UTANG/PINJAMAN STANDAR:
+            Anda WAJIB menggunakan ID Kategori spesifik di bawah ini jika mendeteksi transaksi bertipe utang-piutang:
+            - ID: 101, Nama: "Hutang" -> Gunakan saat SAYA meminjam uang/kas dari orang lain (Menambah utang saya).
+            - ID: 102, Nama: "Pembayaran kembali" -> Gunakan saat SAYA mencicil/melunasi utang saya ke orang lain.
+            - ID: 103, Nama: "Penagihan Utang" -> Gunakan saat orang lain mencicil/melunasi piutang mereka ke SAYA.
+            - ID: 104, Nama: "Piutang" -> Gunakan saat SAYA meminjamkan uang/kas saya kepada orang lain.
             ⚠️ LOGIKA AKUNTANSI PINJAMAN (JANGAN PERNAH SALAH):
             - Jika orang lain bayar cicilan/utang ke SAYA -> action_type: 'DEBT_PAYMENT', pembayar adalah kontak RECEIVABLE. Ini BUKAN pendapatan riil (Income), melainkan perubahan aset kas.
             - Jika SAYA ngutang / meminjam -> action_type: 'DEBT_RECORD', debt_type: 'DEBT'.
