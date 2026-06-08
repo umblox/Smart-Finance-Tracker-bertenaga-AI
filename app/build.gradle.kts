@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services") // AKTIFKAN PLUGIN GOOGLE SERVICES
 }
 
 android {
@@ -40,7 +41,6 @@ android {
     }
     buildFeatures {
         viewBinding = true
-        // Aktifkan generator kelas BuildConfig otomatis
         buildConfig = true
     }
 }
@@ -68,4 +68,10 @@ dependencies {
 
     // Chart Library untuk Laporan Visual
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    // ========================================================
+    // CLOUD BACKEND: SINKRONISASI AWAN FIRESTORE (ALWAYS FREE)
+    // ========================================================
+    implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
+    implementation("com.google.firebase:firebase-firestore-ktx")
 }
