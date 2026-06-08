@@ -1,22 +1,25 @@
 package com.smartfinance.tracker.data.remote
 
 import android.content.Context
+import android.widget.Toast
 import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
+import com.smartfinance.tracker.data.local.entity.CategoryEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-class FirebaseSyncManager(context: Context) {
+class FirebaseSyncManager(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
     private val firestore = FirebaseFirestore.getInstance()
     private val scope = CoroutineScope(Dispatchers.IO)
 
     /**
-     * Replikasi Transaksi Tunggal ke Awan
+     * 1. UPLOAD INSTAN: Kirim transaksi baru ke Cloud
      */
     fun syncSingleTransactionToCloud(transaction: TransactionEntity) {
         scope.launch {
@@ -29,7 +32,6 @@ class FirebaseSyncManager(context: Context) {
                 "note" to transaction.note,
                 "timestamp" to transaction.timestamp
             )
-            // Menggunakan ID Room sebagai nama dokumen agar tidak terjadi duplikasi data di cloud
             firestore.collection("transactions")
                 .document("tx_${transaction.id}")
                 .set(txMap)
@@ -37,7 +39,7 @@ class FirebaseSyncManager(context: Context) {
     }
 
     /**
-     * Hapus Transaksi di Cloud jika user menghapusnya dari aplikasi
+     * 2. HAPUS INSTAN: Hapus data di Cloud
      */
     fun deleteTransactionFromCloud(transactionId: Long) {
         scope.launch {
@@ -48,43 +50,112 @@ class FirebaseSyncManager(context: Context) {
     }
 
     /**
-     * Migrasi & Backup Masal Otomatis
+     * 3. SINKRONISASI UTAMA (Dua Arah): Backup data lokal ke Cloud, atau Restore jika lokal kosong
      */
     fun runFullMigrationBackup() {
         scope.launch {
             try {
-                // 1. Sinkronisasi Kategori
-                val localCategories = db.categoryDao().getAllCategories().first()
-                localCategories.forEach { cat ->
-                    val catMap = hashMapOf(
-                        "id" to cat.id,
-                        "name" to cat.name,
-                        "type" to cat.type,
-                        "iconName" to cat.iconName,
-                        "parentCategoryId" to cat.parentCategoryId,
-                        "isLocked" to cat.isLocked
-                    )
-                    firestore.collection("categories").document("cat_${cat.id}").set(catMap)
-                }
-
-                // 2. Sinkronisasi Transaksi
+                // Cek apakah database lokal kosong
                 val localTransactions = db.transactionDao().getAllTransactions().first()
-                localTransactions.forEach { tx ->
-                    val txMap = hashMapOf(
-                        "id" to tx.id,
-                        "amount" to tx.amount,
-                        "type" to tx.type,
-                        "categoryId" to tx.categoryId,
-                        "categoryName" to tx.categoryName,
-                        "note" to tx.note,
-                        "timestamp" to tx.timestamp
-                    )
-                    firestore.collection("transactions").document("tx_${tx.id}").set(txMap)
+                
+                if (localTransactions.isEmpty()) {
+                    // JIKA LOKAL KOSONG (Kelelahan akibat Hapus Data), TARIK DATA DARI FIREBASE
+                    downloadDataFromCloud()
+                } else {
+                    // JIKA LOKAL ADA ISI, JALANKAN BACKUP SEPERTI BIASA KE CLOUD
+                    uploadLocalDataToCloud(localTransactions)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
-}
 
+    /**
+     * 4. FUNGSI UPLOAD (Lokal -> Cloud)
+     */
+    private suspend fun uploadLocalDataToCloud(localTransactions: List<TransactionEntity>) {
+        // Backup Kategori
+        val localCategories = db.categoryDao().getAllCategories().first()
+        localCategories.forEach { cat ->
+            val catMap = hashMapOf(
+                "id" to cat.id,
+                "name" to cat.name,
+                "type" to cat.type,
+                "iconName" to cat.iconName,
+                "parentCategoryId" to cat.parentCategoryId,
+                "isLocked" to cat.isLocked
+            )
+            firestore.collection("categories").document("cat_${cat.id}").set(catMap)
+        }
+
+        // Backup Transaksi
+        localTransactions.forEach { tx ->
+            val txMap = hashMapOf(
+                "id" to tx.id,
+                "amount" to tx.amount,
+                "type" to tx.type,
+                "categoryId" to tx.categoryId,
+                "categoryName" to tx.categoryName,
+                "note" to tx.note,
+                "timestamp" to tx.timestamp
+            )
+            firestore.collection("transactions").document("tx_${tx.id}").set(txMap)
+        }
+    }
+
+    /**
+     * 5. FUNGSI RESTORE (Cloud -> Lokal Room HP)
+     */
+    private fun downloadDataFromCloud() {
+        // Ambil Transaksi dari Cloud Firestore
+        firestore.collection("transactions").get()
+            .addOnSuccessListener { querySnapshot ->
+                if (!querySnapshot.isEmpty) {
+                    scope.launch {
+                        querySnapshot.documents.forEach { doc ->
+                            val tx = TransactionEntity(
+                                id = doc.getLong("id") ?: 0L,
+                                amount = doc.getDouble("amount") ?: 0.0,
+                                type = doc.getString("type") ?: "EXPENSE",
+                                categoryId = doc.getLong("categoryId") ?: 0L,
+                                categoryName = doc.getString("categoryName") ?: "Umum",
+                                note = doc.getString("note") ?: "",
+                                timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
+                            )
+                            db.transactionDao().insertTransaction(tx)
+                        }
+                        
+                        // Beri notifikasi ke user via UI Thread jika data berhasil dipulihkan
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "🔄 Data transaksi berhasil dipulihkan dari Cloud!", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+
+        // Ambil Kategori Kustom dari Cloud Firestore (jika ada)
+        firestore.collection("categories").get()
+            .addOnSuccessListener { querySnapshot ->
+                if (!querySnapshot.isEmpty) {
+                    scope.launch {
+                        querySnapshot.documents.forEach { doc ->
+                            val isLocked = doc.getBoolean("isLocked") ?: false
+                            // Kita hanya masukkan kembali kategori kustom buatan user yang tidak locked
+                            if (!isLocked) {
+                                val cat = CategoryEntity(
+                                    id = doc.getLong("id") ?: 0L,
+                                    name = doc.getString("name") ?: "",
+                                    type = doc.getString("type") ?: "EXPENSE",
+                                    iconName = doc.getString("iconName") ?: "ic_custom",
+                                    parentCategoryId = doc.getRawSource() as? Long,
+                                    isLocked = false
+                                )
+                                db.categoryDao().insertCategory(cat)
+                            }
+                        }
+                    }
+                }
+            }
+    }
+}
