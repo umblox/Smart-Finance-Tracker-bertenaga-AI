@@ -222,7 +222,6 @@ class DashboardFragment : Fragment() {
         nsv.addView(mainLayout)
         root.addView(nsv)
         
-        // 🔥 FIX UTAMA ARSITEKTUR: Jalankan pengamat database terpusat (Reaktif)
         observeDatabaseTransactions()
         return root
     }
@@ -279,7 +278,6 @@ class DashboardFragment : Fragment() {
         observeDatabaseTransactions()
     }
 
-    // 🔥 FIX UTAMA ARSITEKTUR REAKTIF: Menjadikan Dashboard pengamat pasif dari mutasi menu data master
     private fun observeDatabaseTransactions() {
         if (!isAdded) return
         val context = requireContext()
@@ -301,12 +299,16 @@ class DashboardFragment : Fragment() {
                     val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
                     val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                     val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
+                    
+                    val currentTypeRaw = tx.type.trim().uppercase()
 
-                    if (tx.type.trim().uppercase() == "INCOME") {
+                    // 🔥 FIX SINKRONISASI AKUNTANSI: Mendeteksi "DEBT" sebagai INCOME (Uang masuk dompet) 
+                    // dan "RECEIVABLE" sebagai EXPENSE (Uang keluar dompet dipinjamkan) agar Dashboard klop 100% dengan AI
+                    if (currentTypeRaw == "INCOME" || currentTypeRaw == "DEBT") {
                         balanceTotal += tx.amount
                         if (isThisMonth) incomeThisMonth += tx.amount
                         if (isLastMonth) incomeLastMonth += tx.amount
-                    } else if (tx.type.trim().uppercase() == "EXPENSE") {
+                    } else if (currentTypeRaw == "EXPENSE" || currentTypeRaw == "RECEIVABLE") {
                         balanceTotal -= tx.amount
                         if (isThisMonth) expenseThisMonth += tx.amount
                         if (isLastMonth) expenseLastMonth += tx.amount
@@ -345,7 +347,10 @@ class DashboardFragment : Fragment() {
                 // PENGELUARAN TERATAS
                 topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
-                val filteredExpenses = allTx.filter { item -> item.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
+                val filteredExpenses = allTx.filter { item -> 
+                    val typeUpper = item.type.trim().uppercase()
+                    typeUpper == "EXPENSE" || typeUpper == "RECEIVABLE" 
+                }.filter { tx ->
                     if (selectedTopFilter == "PERMINGGU") {
                         (nowTime - tx.timestamp) <= (7L * 24 * 60 * 60 * 1000)
                     } else {
@@ -427,7 +432,12 @@ class DashboardFragment : Fragment() {
                         val iconCircle = FrameLayout(context).apply {
                             layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                             background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
-                            val txt = TextView(context).apply { text = if (item.type == "INCOME") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
+                            val currentTypeUpper = item.type.trim().uppercase()
+                            val txt = TextView(context).apply { 
+                                text = if (currentTypeUpper == "INCOME" || currentTypeUpper == "DEBT") "📥" else "💸"
+                                textSize = 16f
+                                gravity = Gravity.CENTER 
+                            }
                             addView(txt)
                         }
                         rowLayout.addView(iconCircle)
@@ -440,7 +450,8 @@ class DashboardFragment : Fragment() {
                         centerInfo.addView(TextView(context).apply { text = sdf.format(Date(item.timestamp)); setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
                         rowLayout.addView(centerInfo)
 
-                        val isInc = item.type.trim().uppercase() == "INCOME"
+                        val currentTxTypeUpper = item.type.trim().uppercase()
+                        val isInc = currentTxTypeUpper == "INCOME" || currentTxTypeUpper == "DEBT"
                         val colorHex = if (isInc) "#2B6CB0" else "#E53E3E"
                         rowLayout.addView(TextView(context).apply { 
                             text = formatRupiah.format(item.amount)
