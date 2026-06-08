@@ -37,6 +37,27 @@ class FirebaseSyncManager(private val context: Context) {
                 .set(txMap)
         }
     }
+fun syncSingleDebtToCloud(debt: DebtEntity) {
+    val debtMap = hashMapOf(
+        "id" to debt.id,
+        "contactName" to debt.contactName,
+        "contactPhoneNumber" to debt.contactPhoneNumber,
+        "amount" to debt.amount,
+        "remainingAmount" to debt.remainingAmount,
+        "type" to debt.type, // "DEBT" atau "RECEIVABLE"
+        "note" to debt.note,
+        "timestamp" to debt.timestamp,
+        "isPaid" to debt.isPaid
+    )
+    
+    // Simpan ke dalam koleksi khusus bernama "debts" di Firestore
+    firestore.collection("debts")
+        .document("debt_${debt.id}")
+        .set(debtMap)
+        .addOnFailureListener {
+            // Log ggl jika diperlukan
+        }
+}
 
     /**
      * 2. HAPUS INSTAN: Hapus data di Cloud
