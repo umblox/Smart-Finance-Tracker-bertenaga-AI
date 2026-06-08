@@ -55,11 +55,10 @@ class FirebaseSyncManager(private val context: Context) {
     fun runFullMigrationBackup() {
         scope.launch {
             try {
-                // Cek apakah database lokal kosong
                 val localTransactions = db.transactionDao().getAllTransactions().first()
                 
                 if (localTransactions.isEmpty()) {
-                    // JIKA LOKAL KOSONG (Kelelahan akibat Hapus Data), TARIK DATA DARI FIREBASE
+                    // JIKA LOKAL KOSONG, TARIK DATA DARI FIREBASE
                     downloadDataFromCloud()
                 } else {
                     // JIKA LOKAL ADA ISI, JALANKAN BACKUP SEPERTI BIASA KE CLOUD
@@ -126,7 +125,6 @@ class FirebaseSyncManager(private val context: Context) {
                             db.transactionDao().insertTransaction(tx)
                         }
                         
-                        // Beri notifikasi ke user via UI Thread jika data berhasil dipulihkan
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "🔄 Data transaksi berhasil dipulihkan dari Cloud!", Toast.LENGTH_LONG).show()
                         }
@@ -134,21 +132,22 @@ class FirebaseSyncManager(private val context: Context) {
                 }
             }
 
-        // Ambil Kategori Kustom dari Cloud Firestore (jika ada)
+        // Ambil Kategori Kustom dari Cloud Firestore
         firestore.collection("categories").get()
             .addOnSuccessListener { querySnapshot ->
                 if (!querySnapshot.isEmpty) {
                     scope.launch {
                         querySnapshot.documents.forEach { doc ->
                             val isLocked = doc.getBoolean("isLocked") ?: false
-                            // Kita hanya masukkan kembali kategori kustom buatan user yang tidak locked
                             if (!isLocked) {
+                                // FIX: Menggunakan pengambilan objek berjenis Long yang aman dari null pointer eksekusi
+                                val parentId = doc.get("parentCategoryId") as? Long
                                 val cat = CategoryEntity(
                                     id = doc.getLong("id") ?: 0L,
                                     name = doc.getString("name") ?: "",
                                     type = doc.getString("type") ?: "EXPENSE",
                                     iconName = doc.getString("iconName") ?: "ic_custom",
-                                    parentCategoryId = doc.getRawSource() as? Long,
+                                    parentCategoryId = parentId,
                                     isLocked = false
                                 )
                                 db.categoryDao().insertCategory(cat)
