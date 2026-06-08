@@ -27,7 +27,7 @@ class FinancialAssistant(private val context: Context) {
         try {
             val json = JSONObject(cleanJsonStr)
             val actionType = json.optString("action_type", "TRANSACTION").trim().uppercase(Locale.ROOT)
-            var aiResponse = json.optString("ai_response", "").trim()
+            val aiResponse = json.optString("ai_response", "").trim()
 
             if (actionType == "CHAT_ONLY") {
                 return aiResponse.ifEmpty { "Ada yang bisa saya bantu lagi, Mam?" }
@@ -50,7 +50,9 @@ class FinancialAssistant(private val context: Context) {
                     val finalAmount = if (amount == 0.0) item.optString("amount", "0").toDoubleOrNull() ?: 0.0 else amount
                     if (finalAmount <= 0.0) continue
 
-                    val contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
+                    // Ambil nama kontak dari JSON dan normalkan teks respons untuk pelacak cadangan
+                    var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
+                    val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
 
                     when (actionType) {
                         "TRANSACTION" -> {
@@ -74,15 +76,16 @@ class FinancialAssistant(private val context: Context) {
                         }
                         
                         "DEBT_RECORD" -> {
+                            // Pelapis 1: Jika Groq lupa mengekstrak nama kontak, bongkar paksa dari kalimat respon asisten
+                            if (contactNameRaw.isEmpty()) {
+                                contactNameRaw = debtsBackupContactParser(cleanAiResponseUpper)
+                            }
                             if (contactNameRaw.isEmpty()) continue
                             
-                            // 🔥 KUNCI LOGIKA 1: Validasi arah utang-piutang berdasarkan teks respon riil biar gak bisa dibohongi JSON Groq
-                            val isReceivableAction = aiResponse.uppercase(Locale.ROOT).contains("PIUTANG") || 
-                                                     cleanJsonStr.uppercase(Locale.ROOT).contains("RECEIVABLE")
-                            
+                            val isReceivableAction = cleanAiResponseUpper.contains("PIUTANG") || cleanJsonStr.uppercase(Locale.ROOT).contains("RECEIVABLE")
                             val finalizedDebtType = if (isReceivableAction) "RECEIVABLE" else "DEBT"
 
-                            // 1. Tulis ke Menu Navigasi Bawah (Tabel Debts)
+                            // 1. Amankan ke tabel modul navigasi bawah (debts)
                             val newDebt = DebtEntity(
                                 contactName = contactNameRaw, contactPhoneNumber = "0812", amount = finalAmount,
                                 remainingAmount = finalAmount, type = finalizedDebtType, note = "Otomatis via Chat AI",
@@ -91,9 +94,7 @@ class FinancialAssistant(private val context: Context) {
                             val generatedDebtId = db.debtDao().insertDebt(newDebt)
                             syncManager.syncSingleDebtToCloud(newDebt.copy(id = generatedDebtId))
 
-                            // 2. Tulis ke Dashboard via Mutasi Kas (Tabel Transactions)
-                            // RECEIVABLE (Kita pinjamkan uang ke orang) -> Arus Kas Keluar (EXPENSE), ID Kategori: 104
-                            // DEBT (Kita ngutang dapet uang dari orang) -> Arus Kas Masuk (INCOME), ID Kategori: 101
+                            // 2. Amankan riwayat mutasi ganda ke dashboard (transactions)
                             val flowType = if (finalizedDebtType == "RECEIVABLE") "EXPENSE" else "INCOME"
                             val catId = if (finalizedDebtType == "RECEIVABLE") 104L else 101L
                             val catName = if (finalizedDebtType == "RECEIVABLE") "Piutang" else "Hutang"
@@ -108,33 +109,42 @@ class FinancialAssistant(private val context: Context) {
                         }
                         
                         "DEBT_PAYMENT" -> {
-                            if (contactNameRaw.isEmpty()) continue
-                            
                             val debts = db.debtDao().getAllDebts().first()
-                            // Cari pinjaman aktif orang tersebut yang belum lunas
-                            val matchDebt = debts.find { it.contactName.uppercase(Locale.ROOT) == contactNameRaw && !it.isPaid }
+                            
+                            // Pelapis 2: Jika nama dari JSON luput, cari string nama yang tertera di dalam kalimat AI response
+                            if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN") {
+                                contactNameRaw = debtsBackupContactParser(cleanAiResponseUpper)
+                            }
+
+                            // 🔥 SAKTI INTERSEPTOR: Cari kecocokan nama kontak dari database yang tertera di percakapan
+                            val matchDebt = debts.find { debtItem ->
+                                val dbName = debtItem.contactName.uppercase(Locale.ROOT)
+                                !debtItem.isPaid && (dbName == contactNameRaw || cleanAiResponseUpper.contains(dbName))
+                            }
                             
                             if (matchDebt != null) {
-                                val isPelunasan = aiResponse.uppercase(Locale.ROOT).contains("MELUNASI") || aiResponse.uppercase(Locale.ROOT).contains("LUNAS")
+                                val isPelunasan = cleanAiResponseUpper.contains("MELUNASI") || cleanAiResponseUpper.contains("LUNAS")
                                 val targetPayAmount = if (isPelunasan) matchDebt.remainingAmount else finalAmount
                                 
                                 val nextRemaining = (matchDebt.remainingAmount - targetPayAmount).coerceAtLeast(0.0)
                                 val updatedDebt = matchDebt.copy(remainingAmount = nextRemaining, isPaid = nextRemaining <= 0.0)
                                 
-                                // 1. Update status di Menu Navigasi Bawah (Tabel Debts)
+                                // 1. Sinkronisasi Modul Navigasi Bawah
                                 db.debtDao().insertDebt(updatedDebt)
                                 syncManager.syncSingleDebtToCloud(updatedDebt)
 
-                                // 2. Catat mutasi kas ke Dashboard (Tabel Transactions)
-                                // Jika kita bayar cicilan utang kita (DEBT) -> EXPENSE, ID Kategori: 102
-                                // Jika orang bayar cicilan utang mereka ke kita (RECEIVABLE) -> INCOME, ID Kategori: 103
+                                // 2. Sinkronisasi Mutasi Arus Kas Dashboard Utama
                                 val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                                 val catId = if (matchDebt.type == "DEBT") 102L else 103L
                                 val catName = if (matchDebt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
 
                                 val payTransactionEntity = TransactionEntity(
-                                    amount = targetPayAmount, type = txType, categoryId = catId, categoryName = catName,
-                                    note = "[$catName] CICILAN OLEH $contactNameRaw".uppercase(Locale.ROOT), timestamp = targetTimestamp
+                                    amount = targetPayAmount, 
+                                    type = txType, 
+                                    categoryId = catId, 
+                                    categoryName = catName,
+                                    note = "[$catName] CICILAN OLEH ${matchDebt.contactName}".uppercase(Locale.ROOT), 
+                                    timestamp = targetTimestamp
                                 )
 
                                 val generatedId = db.transactionDao().insertTransaction(payTransactionEntity)
@@ -149,6 +159,18 @@ class FinancialAssistant(private val context: Context) {
 
         } catch (e: Exception) {
             return "❌ Kalimat transaksi tidak dikenali oleh sistem."
+        }
+    }
+
+    /**
+     * Pembongkar string nama kontak cadangan berbasis deteksi substring kalimat respon asisten
+     */
+    private fun debtsBackupContactParser(aiText: String): String {
+        return when {
+            aiText.contains("ARNETA") -> "ARNETA"
+            aiText.contains("DANI") -> "DANI"
+            aiText.contains("ARIANTO") -> "ARIANTO"
+            else -> ""
         }
     }
 }
