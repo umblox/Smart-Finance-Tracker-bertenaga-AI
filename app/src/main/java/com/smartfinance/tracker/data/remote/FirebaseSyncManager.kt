@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
+import com.smartfinance.tracker.data.local.entity.DebtEntity // 🔥 PERBAIKAN 1: Import Ditambahkan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -37,27 +38,6 @@ class FirebaseSyncManager(private val context: Context) {
                 .set(txMap)
         }
     }
-fun syncSingleDebtToCloud(debt: DebtEntity) {
-    val debtMap = hashMapOf(
-        "id" to debt.id,
-        "contactName" to debt.contactName,
-        "contactPhoneNumber" to debt.contactPhoneNumber,
-        "amount" to debt.amount,
-        "remainingAmount" to debt.remainingAmount,
-        "type" to debt.type, // "DEBT" atau "RECEIVABLE"
-        "note" to debt.note,
-        "timestamp" to debt.timestamp,
-        "isPaid" to debt.isPaid
-    )
-    
-    // Simpan ke dalam koleksi khusus bernama "debts" di Firestore
-    firestore.collection("debts")
-        .document("debt_${debt.id}")
-        .set(debtMap)
-        .addOnFailureListener {
-            // Log ggl jika diperlukan
-        }
-}
 
     /**
      * 2. HAPUS INSTAN: Hapus data di Cloud
@@ -123,7 +103,7 @@ fun syncSingleDebtToCloud(debt: DebtEntity) {
             firestore.collection("transactions").document("tx_${tx.id}").set(txMap)
         }
 
-        // 🔥 SEED BARU: Jalankan Backup Data Pinjaman Personal Aktif ke Kamar 'debts' Firestore
+        // Backup Data Pinjaman Personal Aktif ke Kamar 'debts' Firestore
         val localDebts = db.debtDao().getAllDebts().first()
         localDebts.forEach { debt ->
             val debtMap = hashMapOf(
@@ -162,6 +142,7 @@ fun syncSingleDebtToCloud(debt: DebtEntity) {
                             )
                             db.transactionDao().insertTransaction(tx)
                         }
+                        
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "🔄 Data transaksi berhasil dipulihkan dari Cloud!", Toast.LENGTH_LONG).show()
                         }
@@ -169,13 +150,13 @@ fun syncSingleDebtToCloud(debt: DebtEntity) {
                 }
             }
 
-        // 🔥 SEED BARU: Tarik Data Pinjaman Aktif dari Firestore dan Tanam ke SQLite Lokal HP
+        // Tarik Data Pinjaman Aktif dari Firestore dan Tanam ke SQLite Lokal HP
         firestore.collection("debts").get()
             .addOnSuccessListener { querySnapshot ->
                 if (!querySnapshot.isEmpty) {
                     scope.launch {
                         querySnapshot.documents.forEach { doc ->
-                            val debt = com.smartfinance.tracker.data.local.entity.DebtEntity(
+                            val debt = DebtEntity(
                                 id = doc.getLong("id") ?: 0L,
                                 contactName = doc.getString("contactName") ?: "TEMAN",
                                 contactPhoneNumber = doc.getString("contactPhoneNumber") ?: "0812",
@@ -237,7 +218,6 @@ fun syncSingleDebtToCloud(debt: DebtEntity) {
                 "history" to chatList
             )
 
-            // Disimpan dalam satu dokumen statis 'main_chat_history' agar hemat kuota database
             firestore.collection("user_chat")
                 .document("main_chat_history")
                 .set(cloudBody)
@@ -255,6 +235,29 @@ fun syncSingleDebtToCloud(debt: DebtEntity) {
                 .addOnSuccessListener {
                     onComplete()
                 }
+        }
+    }
+
+    /**
+     * 8. DEBT SINGLE CLOUD SYNC: Mengirim data tunggal tabel utang navigasi bawah ke Cloud
+     */
+    fun syncSingleDebtToCloud(debt: DebtEntity) {
+        scope.launch {
+            // 🔥 PERBAIKAN 2: Tipe data inferensi HashMap dideklarasikan eksplisit agar ramah kompilasi Kotlin
+            val debtMap = hashMapOf<String, Any?>(
+                "id" to debt.id,
+                "contactName" to debt.contactName,
+                "contactPhoneNumber" to debt.contactPhoneNumber,
+                "amount" to debt.amount,
+                "remainingAmount" to debt.remainingAmount,
+                "type" to debt.type,
+                "note" to debt.note,
+                "timestamp" to debt.timestamp,
+                "isPaid" to debt.isPaid
+            )
+            firestore.collection("debts")
+                .document("debt_${debt.id}")
+                .set(debtMap)
         }
     }
 }
