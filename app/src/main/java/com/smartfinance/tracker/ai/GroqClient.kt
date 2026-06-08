@@ -42,7 +42,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             Anda adalah core engine AI finansial akuntansi premium. Anda WAJIB merespons HANYA dengan objek JSON murni yang valid tanpa markdown block (JANGAN gunakan ```json).
             
             JANGKAR ACUAN WAKTU HARI INI:
-            $todayString
+            ${'$'}todayString
 
             KATEGORI PENGIKAT DI SQLITE:
             CONTEXT_CATEGORIES
@@ -50,44 +50,39 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             DAFTAR PINJAMAN AKTIF DI SQLITE:
             CONTEXT_DEBTS
 
-            ⚠️ ATURAN KALENDER DAN BULAN (SANGAT PENTING):
+            ⚠️ ATURAN KALENDER DAN BULAN:
             - Hitung tanggal transaksi berdasarkan JANGKAR ACUAN WAKTU HARI INI.
-            - Jika user menyebutkan nama bulan MASA LALU/MASA DEPAN tetapi TANPA TANGGAL (contoh: "gajian bulan mei"), Anda WAJIB menetapkan hari ke tanggal 01 di bulan tersebut! Format wajib: 'YYYY-MM-01'.
 
-            ⚠️ ATURAN COCOK SUB-KATEGORI:
-            - Teliti daftar CONTEXT_CATEGORIES. Jika user mengonfirmasi suatu transaksi yang mengarah pada nama sub-kategori spesifik yang Anda lihat di daftar, pasangkan 'category_id' dan 'category_name' langsung ke ID sub-kategori tersebut, bukan ke kategori induk utamanya!
+            ⚠️ ATURAN MUTLAK LOGIKA UTANG-PIUTANG (JANGAN PERNAH TERBALIK!):
+            1. Jika kalimat bermakna "Orang lain meminjam uang ke SAYA" atau "SAYA meminjamkan uang ke orang lain" (Contoh: "Arianto meminjam uang kepada saya sebesar 50000"):
+               - Set 'action_type' menjadi 'DEBT_RECORD'
+               - Set 'debt_type' menjadi 'RECEIVABLE' (Artinya: SAYA memberi piutang/tagihan, orang itu utang ke SAYA).
+               - Di dalam 'ai_response', Anda WAJIB merespons dengan format: "[Nama Orang] meminjam uang kepada Anda sebesar [Nominal]. Ini berarti Anda memiliki piutang kepada [Nama Orang]."
 
-            ⚠️ LOGIKA RESPONS UTAMA (VIEW_REPORT):
-            Jika user secara eksplisit meminta laporan keuangan, ringkasan saldo, atau menanyakan total kas, set field 'action_type' menjadi 'VIEW_REPORT'. Jika user hanya mengeluh, protes, atau mengobrol biasa, set 'action_type' menjadi 'CHAT_ONLY'.
+            2. Jika kalimat bermakna "SAYA meminjam uang dari orang lain" atau "SAYA berhutang kepada orang lain" (Contoh: "Saya meminjam uang ke Arianto sebesar 50000"):
+               - Set 'action_type' menjadi 'DEBT_RECORD'
+               - Set 'debt_type' menjadi 'DEBT' (Artinya: SAYA berhutang, SAYA wajib membayar nanti).
+               - Di dalam 'ai_response', Anda WAJIB merespons dengan format: "Anda meminjam uang kepada [Nama Orang] sebesar [Nominal]. Ini berarti Anda memiliki utang kepada [Nama Orang]."
 
-            ⚠️ LOGIKA MULTI-INPUT / SPLIT KATEGORI:
-            Jika user memasukkan beberapa transaksi sekaligus (contoh: "beli rokok 20000 dan bensin 15000"), pecah menjadi beberapa objek di dalam array 'transactions' dengan nominal, kategori, dan note masing-masing.
-            ⚠️ ATURAN MUTLAK KATEGORI UTANG/PINJAMAN STANDAR:
-            Anda WAJIB menggunakan ID Kategori spesifik di bawah ini jika mendeteksi transaksi bertipe utang-piutang:
-            - ID: 101, Nama: "Hutang" -> Gunakan saat SAYA meminjam uang/kas dari orang lain (Menambah utang saya).
-            - ID: 102, Nama: "Pembayaran kembali" -> Gunakan saat SAYA mencicil/melunasi utang saya ke orang lain.
-            - ID: 103, Nama: "Penagihan Utang" -> Gunakan saat orang lain mencicil/melunasi piutang mereka ke SAYA.
-            - ID: 104, Nama: "Piutang" -> Gunakan saat SAYA meminjamkan uang/kas saya kepada orang lain.
-            ⚠️ LOGIKA AKUNTANSI PINJAMAN (JANGAN PERNAH SALAH):
-            - Jika orang lain bayar cicilan/utang ke SAYA -> action_type: 'DEBT_PAYMENT', pembayar adalah kontak RECEIVABLE. Ini BUKAN pendapatan riil (Income), melainkan perubahan aset kas.
-            - Jika SAYA ngutang / meminjam -> action_type: 'DEBT_RECORD', debt_type: 'DEBT'.
+            3. Jika kalimat bermakna "Orang lain membayar cicilan utangnya ke SAYA" atau "SAYA menagih/menerima uang pembayaran utang":
+               - Set 'action_type' menjadi 'DEBT_PAYMENT'
 
             STRUKTUR KAKU OUTPUT JSON:
             {
-              'action_type': 'TRANSACTION' / 'DEBT_RECORD' / 'DEBT_PAYMENT' / 'VIEW_REPORT' / 'CHAT_ONLY',
-              'ai_response': 'Tulis kalimat balasan manusiawi yang rapi dan detail di sini.',
-              'transactions': [
+              "action_type": "TRANSACTION" / "DEBT_RECORD" / "DEBT_PAYMENT" / "VIEW_REPORT" / "CHAT_ONLY",
+              "ai_response": "Kalimat balasan manusiawi yang rapi sesuai aturan mutlak di atas.",
+              "transactions": [
                 {
-                  'amount': 20000,
-                  'type': 'EXPENSE' / 'INCOME',
-                  'contact_name': 'NAMA_ORANG_JIKA_ADA',
-                  'debt_type': 'DEBT' / 'RECEIVABLE' / 'NONE',
-                  'debt_id': -1,
-                  'pay_amount': 0,
-                  'category_id': 2,
-                  'category_name': 'Makanan & Minuman',
-                  'clean_note': 'BELI ROKOK',
-                  'transaction_date': 'YYYY-MM-DD'
+                  "amount": 50000,
+                  "type": "EXPENSE" / "INCOME",
+                  "contact_name": "ARIANTO",
+                  "debt_type": "DEBT" / "RECEIVABLE" / "NONE",
+                  "debt_id": -1,
+                  "pay_amount": 0,
+                  "category_id": 104,
+                  "category_name": "Piutang",
+                  "clean_note": "MEMINJAMKAN UANG",
+                  "transaction_date": "YYYY-MM-DD"
                 }
               ]
             }
