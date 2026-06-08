@@ -274,68 +274,70 @@ class AddDebtFragment : Fragment() {
     }
 
     private fun refreshDebtList(container: LinearLayout, cardDebt: LinearLayout, cardReceivable: LinearLayout) {
-        container.removeAllViews()
-
+        // Ganti coroutine launch biasa menjadi pengamat database reaktif aliran data penuh
         lifecycleScope.launch {
-            val allDebts = withContext(Dispatchers.IO) { db.debtDao().getAllDebts().first() }
-            
-            var totalDebtSum = 0.0
-            var totalReceivableSum = 0.0
-
-            allDebts.filter { !it.isPaid }.forEach { 
-                if (it.type == "DEBT") totalDebtSum += it.remainingAmount else totalReceivableSum += it.remainingAmount
-            }
-
-            (cardDebt.getChildAt(1) as TextView).text = formatRupiah.format(totalDebtSum)
-            (cardReceivable.getChildAt(1) as TextView).text = formatRupiah.format(totalReceivableSum)
-
-            val filteredList = allDebts.filter { it.type == currentTab }
-
-            if (filteredList.isEmpty()) {
-                val tvEmpty = TextView(requireContext()).apply {
-                    text = "\nTidak ada data catatan aktif pada kategori ini."
-                    textSize = 14f
-                    setTextColor(Color.parseColor("#A0AEC0"))
-                    gravity = Gravity.CENTER
-                }
-                container.addView(tvEmpty)
-                return@launch
-            }
-
-            filteredList.forEach { debtItem ->
-                val itemCard = LinearLayout(requireContext()).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    setPadding(24, 28, 24, 28)
-                    setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-                    background.setTint(Color.WHITE)
-                    gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 }
-                }
-
-                val leftInfo = LinearLayout(requireContext()).apply {
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                leftInfo.addView(TextView(requireContext()).apply { text = debtItem.contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")) })
+            db.debtDao().getAllDebts().collect { allDebts ->
+                container.removeAllViews()
                 
-                val statusLabel = if (debtItem.isPaid) "LUNAS ✅" else "Sisa: ${formatRupiah.format(debtItem.remainingAmount)}"
-                leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 12f; setTextColor(if (debtItem.isPaid) Color.parseColor("#2F855A") else Color.parseColor("#718096")) })
-                itemCard.addView(leftInfo)
+                var totalDebtSum = 0.0
+                var totalReceivableSum = 0.0
 
-                val tvOriginalAmount = TextView(requireContext()).apply {
-                    text = formatRupiah.format(debtItem.amount)
-                    textSize = 14f
-                    setTypeface(null, Typeface.BOLD)
-                    setTextColor(if (currentTab == "DEBT") Color.parseColor("#D69E2E") else Color.parseColor("#2B6CB0"))
-                    gravity = Gravity.END
-                }
-                itemCard.addView(tvOriginalAmount)
-
-                itemCard.setOnClickListener {
-                    showDebtActionOptions(debtItem, container, cardDebt, cardReceivable)
+                allDebts.filter { !it.isPaid }.forEach { 
+                    if (it.type == "DEBT") totalDebtSum += it.remainingAmount else totalReceivableSum += it.remainingAmount
                 }
 
-                container.addView(itemCard)
+                if (container.childCount == 0) {
+                    (cardDebt.getChildAt(1) as TextView).text = formatRupiah.format(totalDebtSum)
+                    (cardReceivable.getChildAt(1) as TextView).text = formatRupiah.format(totalReceivableSum)
+                }
+
+                val filteredList = allDebts.filter { it.type == currentTab }
+
+                if (filteredList.isEmpty()) {
+                    val tvEmpty = TextView(requireContext()).apply {
+                        text = "\nTidak ada data catatan aktif pada kategori ini."
+                        textSize = 14f
+                        setTextColor(Color.parseColor("#A0AEC0"))
+                        gravity = Gravity.CENTER
+                    }
+                    container.addView(tvEmpty)
+                } else {
+                    filteredList.forEach { debtItem ->
+                        val itemCard = LinearLayout(requireContext()).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            setPadding(24, 28, 24, 28)
+                            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
+                            background.setTint(Color.WHITE)
+                            gravity = Gravity.CENTER_VERTICAL
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 }
+                        }
+
+                        val leftInfo = LinearLayout(requireContext()).apply {
+                            orientation = LinearLayout.VERTICAL
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        }
+                        leftInfo.addView(TextView(requireContext()).apply { text = debtItem.contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")) })
+                        
+                        val statusLabel = if (debtItem.isPaid) "LUNAS ✅" else "Sisa: ${formatRupiah.format(debtItem.remainingAmount)}"
+                        leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 12f; setTextColor(if (debtItem.isPaid) Color.parseColor("#2F855A") else Color.parseColor("#718096")) })
+                        itemCard.addView(leftInfo)
+
+                        val tvOriginalAmount = TextView(requireContext()).apply {
+                            text = formatRupiah.format(debtItem.amount)
+                            textSize = 14f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (currentTab == "DEBT") Color.parseColor("#D69E2E") else Color.parseColor("#2B6CB0"))
+                            gravity = Gravity.END
+                        }
+                        itemCard.addView(tvOriginalAmount)
+
+                        itemCard.setOnClickListener {
+                            showDebtActionOptions(debtItem, container, cardDebt, cardReceivable)
+                        }
+
+                        container.addView(itemCard)
+                    }
+                }
             }
         }
     }
