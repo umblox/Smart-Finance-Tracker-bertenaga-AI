@@ -252,12 +252,16 @@ class AddDebtFragment : Fragment() {
                             timestamp = System.currentTimeMillis()
                         )
 
-                        withContext(Dispatchers.IO) {
+                        // 1. Simpan ke database lokal Room dan tangkap ID unik hasil generate database lokal
+                        val generatedId = withContext(Dispatchers.IO) {
                             db.transactionDao().insertTransaction(newTransaction)
                         }
 
-                        // REPLIKASI AWAN: Kirim salinan transaksi pinjaman baru ke Firebase Cloud
-                        FirebaseSyncManager(context).syncSingleTransactionToCloud(newTransaction)
+                        // 2. Duplikasi data transaksi dengan menyisipkan ID asli hasil generate database lokal
+                        val finalizedTransaction = newTransaction.copy(id = generatedId)
+
+                        // 3. REPLIKASI AWAN: Kirim salinan transaksi pinjaman baru yang valid ke Firebase Cloud
+                        FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedTransaction)
 
                         refreshDebtList(listContainer, cardDebt, cardReceivable)
                         Toast.makeText(context, "Pinjaman Berhasil Tersimpan!", Toast.LENGTH_SHORT).show()
@@ -378,12 +382,16 @@ class AddDebtFragment : Fragment() {
                                         timestamp = System.currentTimeMillis()
                                     )
 
-                                    withContext(Dispatchers.IO) {
+                                    // 1. Simpan ke Room lokal dan tangkap ID unik hasil generate database lokal
+                                    val generatedId = withContext(Dispatchers.IO) {
                                         db.transactionDao().insertTransaction(payTransaction)
                                     }
 
-                                    // REPLIKASI AWAN: Kirim salinan transaksi cicilan utang baru ke Firebase Cloud
-                                    FirebaseSyncManager(context).syncSingleTransactionToCloud(payTransaction)
+                                    // 2. Duplikasi data cicilan dengan menyisipkan ID asli hasil generate database lokal
+                                    val finalizedPayTransaction = payTransaction.copy(id = generatedId)
+
+                                    // 3. REPLIKASI AWAN: Kirim salinan transaksi cicilan utang baru yang valid ke Firebase Cloud
+                                    FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedPayTransaction)
 
                                     refreshDebtList(listContainer, cardDebt, cardReceivable)
                                     Toast.makeText(context, "Cicilan Berhasil Diperbarui!", Toast.LENGTH_SHORT).show()
