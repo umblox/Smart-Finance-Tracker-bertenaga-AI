@@ -73,5 +73,6 @@ dependencies {
     // CLOUD BACKEND: SINKRONISASI AWAN FIRESTORE (ALWAYS FREE)
     // ========================================================
     implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    // FIX: Menggunakan penamaan dependensi mutakhir tanpa ktx agar selaras dengan BoM 34.14.0
+    implementation("com.google.firebase:firebase-firestore")
 }
