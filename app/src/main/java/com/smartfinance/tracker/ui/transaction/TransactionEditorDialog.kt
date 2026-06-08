@@ -80,7 +80,10 @@ class TransactionEditorDialog(
             setText(transaction.amount.toLong().toString())
             setTextColor(Color.parseColor("#2D3748")); textSize = 15f
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            background.mutate().setColorFilter(Color.parseColor("#CBD5E0"), android.graphics.PorterDuff.Mode.SRC_ATOP)
+            // FIX MODERN 1
+            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
+                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
+            )
         }
         formLayout.addView(etAmount)
 
@@ -88,7 +91,10 @@ class TransactionEditorDialog(
         val etNote = EditText(context).apply {
             setText(transaction.note)
             setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            background.mutate().setColorFilter(Color.parseColor("#CBD5E0"), android.graphics.PorterDuff.Mode.SRC_ATOP)
+            // FIX MODERN 2
+            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
+                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
+            )
         }
         formLayout.addView(etNote)
 
@@ -97,7 +103,10 @@ class TransactionEditorDialog(
         val etDate = EditText(context).apply {
             setText(sdf.format(Date(transaction.timestamp)))
             setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            background.mutate().setColorFilter(Color.parseColor("#CBD5E0"), android.graphics.PorterDuff.Mode.SRC_ATOP)
+            // FIX MODERN 3
+            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
+                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
+            )
         }
         formLayout.addView(etDate)
 
