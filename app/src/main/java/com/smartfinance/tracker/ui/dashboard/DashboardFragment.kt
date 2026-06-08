@@ -22,8 +22,8 @@ import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.ui.report.ReportFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
-import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog // PERBAIKAN MUTLAK: Import Ditambahkan
-import kotlinx.coroutines.flow.first
+import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -69,7 +69,6 @@ class DashboardFragment : Fragment() {
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
         }
 
-        // FIXED HEADER SALDO UTAMA
         mainLayout.addView(TextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             text = "Smart Finance AI"
@@ -97,7 +96,6 @@ class DashboardFragment : Fragment() {
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-        // SEKTOR 1: LAPORAN BULAN INI
         val headerReportRow = createHeaderSectionRow("Laporan bulan ini", "Melihat laporan-laporan") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -150,7 +148,6 @@ class DashboardFragment : Fragment() {
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // SEKTOR 2: PENGELUARAN TERATAS
         val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran teratas", "Lihat detailnya") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -204,7 +201,6 @@ class DashboardFragment : Fragment() {
         cardTopExpense.addView(topExpenseInsideLayout)
         mainLayout.addView(cardTopExpense)
 
-        // SEKTOR 3: TRANSAKSI TERKINI
         val headerRecentRow = createHeaderSectionRow("Transaksi terkini", "Lihat semua") {
             (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
         }
@@ -226,7 +222,8 @@ class DashboardFragment : Fragment() {
         nsv.addView(mainLayout)
         root.addView(nsv)
         
-        loadDashboardDataCore()
+        // 🔥 FIX UTAMA ARSITEKTUR: Jalankan pengamat database terpusat (Reaktif)
+        observeDatabaseTransactions()
         return root
     }
 
@@ -279,189 +276,189 @@ class DashboardFragment : Fragment() {
                 background = null
             }
         }
-        loadDashboardDataCore()
+        observeDatabaseTransactions()
     }
 
-    private fun loadDashboardDataCore() {
+    // 🔥 FIX UTAMA ARSITEKTUR REAKTIF: Menjadikan Dashboard pengamat pasif dari mutasi menu data master
+    private fun observeDatabaseTransactions() {
         if (!isAdded) return
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
         lifecycleScope.launch {
-            val allTx = db.transactionDao().getAllTransactions().first()
-            val sdf = SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
+            db.transactionDao().getAllTransactions().collectLatest { allTx ->
+                val sdf = SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
+                val calToday = Calendar.getInstance()
+                val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
 
-            val calToday = Calendar.getInstance()
-            val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+                var balanceTotal = 0.0
+                var incomeThisMonth = 0.0
+                var expenseThisMonth = 0.0
+                var incomeLastMonth = 0.0
+                var expenseLastMonth = 0.0
 
-            var balanceTotal = 0.0
-            var incomeThisMonth = 0.0
-            var expenseThisMonth = 0.0
-            var incomeLastMonth = 0.0
-            var expenseLastMonth = 0.0
+                allTx.forEach { tx ->
+                    val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                    val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
 
-            allTx.forEach { tx ->
-                val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
-
-                if (tx.type.trim().uppercase() == "INCOME") {
-                    balanceTotal += tx.amount
-                    if (isThisMonth) incomeThisMonth += tx.amount
-                    if (isLastMonth) incomeLastMonth += tx.amount
-                } else if (tx.type.trim().uppercase() == "EXPENSE") {
-                    balanceTotal -= tx.amount
-                    if (isThisMonth) expenseThisMonth += tx.amount
-                    if (isLastMonth) expenseLastMonth += tx.amount
+                    if (tx.type.trim().uppercase() == "INCOME") {
+                        balanceTotal += tx.amount
+                        if (isThisMonth) incomeThisMonth += tx.amount
+                        if (isLastMonth) incomeLastMonth += tx.amount
+                    } else if (tx.type.trim().uppercase() == "EXPENSE") {
+                        balanceTotal -= tx.amount
+                        if (isThisMonth) expenseThisMonth += tx.amount
+                        if (isLastMonth) expenseLastMonth += tx.amount
+                    }
                 }
-            }
-            
-            tvBalance.text = formatRupiah.format(balanceTotal)
-            tvExpenseSummary.text = "Pengeluaran\n${formatRupiah.format(expenseThisMonth)}"
-            tvIncomeSummary.text = "Pemasukan\n${formatRupiah.format(incomeThisMonth)}"
+                
+                tvBalance.text = formatRupiah.format(balanceTotal)
+                tvExpenseSummary.text = "Pengeluaran\n${formatRupiah.format(expenseThisMonth)}"
+                tvIncomeSummary.text = "Pemasukan\n${formatRupiah.format(incomeThisMonth)}"
 
-            chartContainer.removeAllViews()
-            
-            val barView = QuadVerticalBarChartView(context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat())
-            chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
+                chartContainer.removeAllViews()
+                val barView = QuadVerticalBarChartView(context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat())
+                chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-            val summaryLayout = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, (12 * density).toInt(), 0, 0)
-            }
+                val summaryLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, (12 * density).toInt(), 0, 0)
+                }
 
-            val incDiffPercent = if (incomeLastMonth > 0) ((incomeThisMonth - incomeLastMonth) / incomeLastMonth * 100).toInt() else 0
-            val expDiffPercent = if (expenseLastMonth > 0) ((expenseThisMonth - expenseLastMonth) / expenseLastMonth * 100).toInt() else 0
+                val incDiffPercent = if (incomeLastMonth > 0) ((incomeThisMonth - incomeLastMonth) / incomeLastMonth * 100).toInt() else 0
+                val expDiffPercent = if (expenseLastMonth > 0) ((expenseThisMonth - expenseLastMonth) / expenseLastMonth * 100).toInt() else 0
 
-            summaryLayout.addView(TextView(context).apply {
-                text = "🔹 Bulan Lalu: Pemasukan ${formatRupiah.format(incomeLastMonth)} • Pengeluaran ${formatRupiah.format(expenseLastMonth)}"
-                textSize = 11f; setTextColor(Color.parseColor("#4A5568"))
-            })
+                summaryLayout.addView(TextView(context).apply {
+                    text = "🔹 Bulan Lalu: Pemasukan ${formatRupiah.format(incomeLastMonth)} • Pengeluaran ${formatRupiah.format(expenseLastMonth)}"
+                    textSize = 11f; setTextColor(Color.parseColor("#4A5568"))
+                })
 
-            summaryLayout.addView(TextView(context).apply {
-                val incText = if (incDiffPercent >= 0) " naik $incDiffPercent%" else " turun ${Math.abs(incDiffPercent)}%"
-                val expText = if (expDiffPercent >= 0) " naik $expDiffPercent%" else " turun ${Math.abs(expDiffPercent)}%"
-                text = "📈 Performa: Pemasukan$incText • Pengeluaran$expText (vs Bulan Lalu)"
-                textSize = 11f; setTextColor(Color.parseColor("#008080")); setTypeface(null, Typeface.BOLD)
-            })
-            chartContainer.addView(summaryLayout)
+                summaryLayout.addView(TextView(context).apply {
+                    val incText = if (incDiffPercent >= 0) " naik $incDiffPercent%" else " turun ${Math.abs(incDiffPercent)}%"
+                    val expText = if (expDiffPercent >= 0) " naik $expDiffPercent%" else " turun ${Math.abs(expDiffPercent)}%"
+                    text = "📈 Performa: Pemasukan$incText • Pengeluaran$expText (vs Bulan Lalu)"
+                    textSize = 11f; setTextColor(Color.parseColor("#008080")); setTypeface(null, Typeface.BOLD)
+                })
+                chartContainer.addView(summaryLayout)
 
-            // PENGELUARAN TERATAS
-            topExpenseContainer.removeAllViews()
-            val nowTime = System.currentTimeMillis()
-            val filteredExpenses = allTx.filter { item -> item.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
-                if (selectedTopFilter == "PERMINGGU") {
-                    (nowTime - tx.timestamp) <= (7L * 24 * 60 * 60 * 1000)
+                // PENGELUARAN TERATAS
+                topExpenseContainer.removeAllViews()
+                val nowTime = System.currentTimeMillis()
+                val filteredExpenses = allTx.filter { item -> item.type.trim().uppercase() == "EXPENSE" }.filter { tx ->
+                    if (selectedTopFilter == "PERMINGGU") {
+                        (nowTime - tx.timestamp) <= (7L * 24 * 60 * 60 * 1000)
+                    } else {
+                        val t = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                        t.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && t.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    }
+                }
+
+                val totalFilteredExpenseAmount = filteredExpenses.sumOf { it.amount }
+
+                val aggregatedExpenses = filteredExpenses.groupBy { it.categoryName }
+                    .mapValues { entry -> entry.value.sumOf { it.amount } }
+                    .toList()
+                    .sortedByDescending { it.second }
+                    .take(3)
+
+                if (aggregatedExpenses.isEmpty()) {
+                    for (i in 1..3) {
+                        topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong ${i}", "Belum ada alokasi dana."))
+                    }
                 } else {
-                    val t = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                    t.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && t.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                }
-            }
+                    aggregatedExpenses.forEach { (categoryName, totalAmount) ->
+                        val percentage = if (totalFilteredExpenseAmount > 0) {
+                            ((totalAmount / totalFilteredExpenseAmount) * 100).toInt()
+                        } else 0
 
-            val totalFilteredExpenseAmount = filteredExpenses.sumOf { it.amount }
-
-            val aggregatedExpenses = filteredExpenses.groupBy { it.categoryName }
-                .mapValues { entry -> entry.value.sumOf { it.amount } }
-                .toList()
-                .sortedByDescending { it.second }
-                .take(3)
-
-            if (aggregatedExpenses.isEmpty()) {
-                for (i in 1..3) {
-                    topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong ${i}", "Belum ada alokasi dana."))
-                }
-            } else {
-                aggregatedExpenses.forEach { (categoryName, totalAmount) ->
-                    val percentage = if (totalFilteredExpenseAmount > 0) {
-                        ((totalAmount / totalFilteredExpenseAmount) * 100).toInt()
-                    } else 0
-
-                    val rowLayout = LinearLayout(context).apply { 
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
-                    }
-
-                    val iconCircle = FrameLayout(context).apply {
-                        layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#E2E8F0")) }
-                        val txt = TextView(context).apply { text = "💰"; textSize = 16f; gravity = Gravity.CENTER }
-                        addView(txt)
-                    }
-                    rowLayout.addView(iconCircle)
-
-                    val centerInfo = LinearLayout(context).apply { 
-                        orientation = LinearLayout.VERTICAL
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-                    centerInfo.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                    centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#718096")); textSize = 12f })
-                    rowLayout.addView(centerInfo)
-
-                    rowLayout.addView(TextView(context).apply { 
-                        text = "$percentage%"
-                        setTextColor(Color.parseColor("#E53E3E"))
-                        setTypeface(null, Typeface.BOLD)
-                        textSize = 14f
-                    })
-
-                    topExpenseContainer.addView(rowLayout)
-                }
-            }
-
-            // TRANSAKSI TERKINI
-            recentTxContainer.removeAllViews()
-            val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
-            
-            if (recentTxList.isEmpty()) {
-                for (i in 1..3) {
-                    recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
-                }
-            } else {
-                recentTxList.forEachIndexed { index, item ->
-                    val rowLayout = LinearLayout(context).apply { 
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
-                        setOnClickListener { 
-                            TransactionEditorDialog(item) { loadDashboardDataCore() }.show(parentFragmentManager, "TransactionEditorDialog")
+                        val rowLayout = LinearLayout(context).apply { 
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
                         }
-                    }
 
-                    val iconCircle = FrameLayout(context).apply {
-                        layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
-                        val txt = TextView(context).apply { text = if (item.type == "INCOME") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
-                        addView(txt)
-                    }
-                    rowLayout.addView(iconCircle)
+                        val iconCircle = FrameLayout(context).apply {
+                            layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#E2E8F0")) }
+                            val txt = TextView(context).apply { text = "💰"; textSize = 16f; gravity = Gravity.CENTER }
+                            addView(txt)
+                        }
+                        rowLayout.addView(iconCircle)
 
-                    val centerInfo = LinearLayout(context).apply { 
-                        orientation = LinearLayout.VERTICAL
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-                    centerInfo.addView(TextView(context).apply { text = item.note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                    centerInfo.addView(TextView(context).apply { text = sdf.format(Date(item.timestamp)); setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
-                    rowLayout.addView(centerInfo)
+                        val centerInfo = LinearLayout(context).apply { 
+                            orientation = LinearLayout.VERTICAL
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        }
+                        centerInfo.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                        centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#718096")); textSize = 12f })
+                        rowLayout.addView(centerInfo)
 
-                    val isInc = item.type.trim().uppercase() == "INCOME"
-                    val colorHex = if (isInc) "#2B6CB0" else "#E53E3E"
-                    rowLayout.addView(TextView(context).apply { 
-                        text = formatRupiah.format(item.amount)
-                        setTextColor(Color.parseColor(colorHex))
-                        setTypeface(null, Typeface.BOLD)
-                        textSize = 14f
-                    })
-
-                    recentTxContainer.addView(rowLayout)
-                    
-                    if (index < recentTxList.size - 1) {
-                        recentTxContainer.addView(View(context).apply {
-                            setBackgroundColor(Color.parseColor("#F7FAFC"))
-                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { 
-                                leftMargin = (50 * density).toInt() 
-                            }
+                        rowLayout.addView(TextView(context).apply { 
+                            text = "$percentage%"
+                            setTextColor(Color.parseColor("#E53E3E"))
+                            setTypeface(null, Typeface.BOLD)
+                            textSize = 14f
                         })
+
+                        topExpenseContainer.addView(rowLayout)
+                    }
+                }
+
+                // TRANSAKSI TERKINI
+                recentTxContainer.removeAllViews()
+                val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
+                
+                if (recentTxList.isEmpty()) {
+                    for (i in 1..3) {
+                        recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
+                    }
+                } else {
+                    recentTxList.forEachIndexed { index, item ->
+                        val rowLayout = LinearLayout(context).apply { 
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+                            setOnClickListener { 
+                                TransactionEditorDialog(item) { observeDatabaseTransactions() }.show(parentFragmentManager, "TransactionEditorDialog")
+                            }
+                        }
+
+                        val iconCircle = FrameLayout(context).apply {
+                            layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
+                            val txt = TextView(context).apply { text = if (item.type == "INCOME") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
+                            addView(txt)
+                        }
+                        rowLayout.addView(iconCircle)
+
+                        val centerInfo = LinearLayout(context).apply { 
+                            orientation = LinearLayout.VERTICAL
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        }
+                        centerInfo.addView(TextView(context).apply { text = item.note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                        centerInfo.addView(TextView(context).apply { text = sdf.format(Date(item.timestamp)); setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
+                        rowLayout.addView(centerInfo)
+
+                        val isInc = item.type.trim().uppercase() == "INCOME"
+                        val colorHex = if (isInc) "#2B6CB0" else "#E53E3E"
+                        rowLayout.addView(TextView(context).apply { 
+                            text = formatRupiah.format(item.amount)
+                            setTextColor(Color.parseColor(colorHex))
+                            setTypeface(null, Typeface.BOLD)
+                            textSize = 14f
+                        })
+
+                        recentTxContainer.addView(rowLayout)
+                        
+                        if (index < recentTxList.size - 1) {
+                            recentTxContainer.addView(View(context).apply {
+                                setBackgroundColor(Color.parseColor("#F7FAFC"))
+                                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { 
+                                    leftMargin = (50 * density).toInt() 
+                                }
+                            })
+                        }
                     }
                 }
             }
@@ -519,7 +516,6 @@ class DashboardFragment : Fragment() {
                 return
             }
 
-                        // --- GRUP 1: PEMASUKAN ---
             val xIncLast = spacing
             val hIncLast = (incLast / maxVal) * usableHeight
             paint.color = Color.parseColor("#63B3ED")
@@ -534,7 +530,6 @@ class DashboardFragment : Fragment() {
             
             canvas.drawText("Pemasukan", (xIncLast + xIncThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
 
-            // --- GRUP 2: PENGELUARAN ---
             val xExpLast = xIncThis + barWidth + (spacing * 2)
             val hExpLast = (expLast / maxVal) * usableHeight
             paint.color = Color.parseColor("#FEB2B2")
