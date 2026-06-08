@@ -19,6 +19,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // SUNTIKKAN SEED DATA DARI REPOSITORY SECRET GITHUB SECARA AMAN
+        multiDexEnabled = true
         val groqKey = System.getenv("GROQ_API_KEY") ?: ""
         buildConfigField("String", "GROQ_API_KEY", "\"$groqKey\"")
     }
