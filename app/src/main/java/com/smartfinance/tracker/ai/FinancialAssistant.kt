@@ -54,6 +54,7 @@ class FinancialAssistant(private val context: Context) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     
+                    // PARSING WAKTU KALENDER
                     val dateStr = item.optString("transaction_date", "").trim()
                     val sdfParser = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
                     val targetTimestamp = if (dateStr.isNotEmpty()) {
@@ -95,34 +96,38 @@ class FinancialAssistant(private val context: Context) {
                             if (contactNameRaw.isEmpty()) continue
                             val debtType = item.optString("debt_type", "DEBT").trim().uppercase(Locale.ROOT)
 
-                            db.debtDao().insertDebt(DebtEntity(
-                                contactName = contactNameRaw, contactPhoneNumber = "0812", amount = finalAmount, remainingAmount = finalAmount, 
-                                type = debtType, note = "Otomatis via Chat AI", timestamp = targetTimestamp, isPaid = false
-                            ))
-
-                            val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
-                            val catId = if (debtType == "DEBT") 101L else 104L
-                            val catName = if (debtType == "DEBT") "Hutang" else "Piutang"
-                            val prefixNote = if (debtType == "DEBT") "HUTANG MASUK DARI" else "PIUTANG KELUAR KE"
-
-                            val debtTransactionEntity = TransactionEntity(
-                                amount = finalAmount, 
-                                type = flowType, 
-                                categoryId = catId, 
-                                categoryName = catName, 
-                                note = "[$catName] $prefixNote $contactNameRaw".uppercase(Locale.ROOT), 
-                                timestamp = targetTimestamp
+                            // AKSI 1: Tulis ke Tabel Hutang (Navigasi Bawah)
+                            val newDebt = DebtEntity(
+                                contactName = contactNameRaw, contactPhoneNumber = "0812", amount = finalAmount,
+                                remainingAmount = finalAmount, type = debtType, note = "Otomatis via Chat AI",
+                                timestamp = targetTimestamp, isPaid = false
                             )
+                            val generatedDebtId = db.debtDao().insertDebt(newDebt)
+                            
+                            // SINKRONISASI 1: Lempar data Navigasi Bawah ke Cloud via FirebaseSyncManager
+                            syncManager.syncSingleDebtToCloud(newDebt.copy(id = generatedDebtId))
 
-                            val generatedId = db.transactionDao().insertTransaction(debtTransactionEntity)
-                            val finalizedDebtTransaction = debtTransactionEntity.copy(id = generatedId)
-                            syncManager.syncSingleTransactionToCloud(finalizedDebtTransaction)
+                            // -------------------------------------------------------------
+
+                            // AKSI 2: Tulis ke Tabel Transaksi (Agar Muncul di Dashboard)
+                            val flowType = if (debtType == "RECEIVABLE") "EXPENSE" else "INCOME"
+                            val catId = if (debtType == "RECEIVABLE") 104L else 101L
+                            val catName = if (debtType == "RECEIVABLE") "Piutang" else "Hutang"
+                            val prefixNote = if (debtType == "DEBT") "HUTANG MASUK DARI" else "PIUTANG KELUAR KE"
+                            
+                            val newTransaction = TransactionEntity(
+                                amount = finalAmount, type = flowType, categoryId = catId, categoryName = catName,
+                                note = "[$catName] $prefixNote $contactNameRaw".uppercase(Locale.ROOT), timestamp = targetTimestamp
+                            )
+                            val generatedTxId = db.transactionDao().insertTransaction(newTransaction)
+
+                            // SINKRONISASI 2: Lempar data mutasi kas dashboard ke Cloud
+                            syncManager.syncSingleTransactionToCloud(newTransaction.copy(id = generatedTxId))
                         }
                         
                         "DEBT_PAYMENT" -> {
                             if (contactNameRaw.isEmpty()) continue
                             
-                            // 🔥 FIX LOGIKA UTAMA: Cari pinjaman aktif berdasarkan pencocokan nama teks secara fleksibel!
                             val debts = db.debtDao().getAllDebts().first()
                             val matchDebt = debts.find { it.contactName.uppercase(Locale.ROOT) == contactNameRaw && !it.isPaid }
                             
