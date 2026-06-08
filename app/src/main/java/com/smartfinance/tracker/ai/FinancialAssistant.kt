@@ -4,6 +4,7 @@ import android.content.Context
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.data.local.entity.DebtEntity
+import com.smartfinance.tracker.data.remote.FirebaseSyncManager
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.text.NumberFormat
@@ -14,6 +15,8 @@ class FinancialAssistant(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    // 🔥 INISIALISASI JALUR UTAMA: Hubungkan manajer sinkronisasi awan satu pintu
+    private val syncManager = FirebaseSyncManager(context)
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         val cleanJsonStr = rawText.trim()
@@ -36,7 +39,6 @@ class FinancialAssistant(private val context: Context) {
                 var incSum = 0.0
                 var expSum = 0.0
                 allTx.forEach { 
-                    // PROTEKSI EVALUASI: Pisahkan total agar cicilan piutang/hutang tidak mengotori pemasukan pendapatan asli
                     if (!it.note.contains("CICILAN") && !it.note.contains("HUTANG MASUK")) {
                         if (it.type == "INCOME") incSum += it.amount else expSum += it.amount
                     }
@@ -81,9 +83,16 @@ class FinancialAssistant(private val context: Context) {
 
                             if (type == "INCOME") { catId = 1L; catName = "Gaji & Pendapatan" }
 
-                            db.transactionDao().insertTransaction(TransactionEntity(
+                            val transactionEntity = TransactionEntity(
                                 amount = finalAmount, type = type, categoryId = catId, categoryName = catName, note = cleanNote, timestamp = targetTimestamp
-                            ))
+                            )
+
+                            // 🔥 FIX ARSITEKTUR 1: Tangkap ID unik hasil generate Room lokal SQLite
+                            val generatedId = db.transactionDao().insertTransaction(transactionEntity)
+                            val finalizedTransaction = transactionEntity.copy(id = generatedId)
+
+                            // 🔥 REPLIKASI 1: Alirkan data final ke Firebase Firestore Cloud lewat jalur resmi
+                            syncManager.syncSingleTransactionToCloud(finalizedTransaction)
                         }
                         
                         "DEBT_RECORD" -> {
@@ -106,10 +115,17 @@ class FinancialAssistant(private val context: Context) {
                             val catId = if (debtType == "DEBT") 12L else 13L
                             val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
 
-                            db.transactionDao().insertTransaction(TransactionEntity(
+                            val debtTransactionEntity = TransactionEntity(
                                 amount = finalAmount, type = flowType, categoryId = catId, categoryName = catName, 
                                 note = if (debtType == "DEBT") "HUTANG MASUK DARI $name" else "PIUTANG KELUAR KE $name", timestamp = targetTimestamp
-                            ))
+                            )
+
+                            // 🔥 FIX ARSITEKTUR 2: Ambil ID unik untuk pencatatan riwayat mutasi keuangan utang baru
+                            val generatedId = db.transactionDao().insertTransaction(debtTransactionEntity)
+                            val finalizedDebtTransaction = debtTransactionEntity.copy(id = generatedId)
+
+                            // 🔥 REPLIKASI 2: Amankan salinan transaksi utang baru ke Firestore
+                            syncManager.syncSingleTransactionToCloud(finalizedDebtTransaction)
                         }
                         
                         "DEBT_PAYMENT" -> {
@@ -127,12 +143,18 @@ class FinancialAssistant(private val context: Context) {
                                         remainingAmount = nextRemaining, isPaid = nextRemaining <= 0.0
                                     ))
 
-                                    // KORIDOR NETRAL: Cicilan piutang/utang dicatat ke mutasi sebagai log kas, tapi nominalnya diproteksi di VIEW_REPORT
                                     val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
-                                    db.transactionDao().insertTransaction(TransactionEntity(
+                                    val payTransactionEntity = TransactionEntity(
                                         amount = finalPayAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
                                         note = "CICILAN OLEH ${matchDebt.contactName}", timestamp = targetTimestamp
-                                    ))
+                                    )
+
+                                    // 🔥 FIX ARSITEKTUR 3: Tangkap ID unik pendaftaran log cicilan/pelunasan pinjaman aktif
+                                    val generatedId = db.transactionDao().insertTransaction(payTransactionEntity)
+                                    val finalizedPayTransaction = payTransactionEntity.copy(id = generatedId)
+
+                                    // 🔥 REPLIKASI 3: Amankan aliran data cicilan masuk/keluar ke server Cloud
+                                    syncManager.syncSingleTransactionToCloud(finalizedPayTransaction)
                                 }
                             }
                         }
