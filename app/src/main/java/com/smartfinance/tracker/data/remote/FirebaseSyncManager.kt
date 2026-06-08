@@ -157,4 +157,45 @@ class FirebaseSyncManager(private val context: Context) {
                 }
             }
     }
+
+    /**
+     * 6. CHAT CLOUD BACKUP: Mengunggah riwayat chat yang bersih ke Firebase Cloud
+     */
+    fun syncChatHistoryToCloud(messages: List<com.smartfinance.tracker.data.model.ChatMessage>) {
+        scope.launch {
+            val chatList = ArrayList<HashMap<String, Any>>()
+            messages.forEach { msg ->
+                val msgMap = hashMapOf<String, Any>(
+                    "text" to msg.text,
+                    "isUser" to msg.isUser,
+                    "timestamp" to System.currentTimeMillis()
+                )
+                chatList.add(msgMap)
+            }
+
+            val cloudBody = hashMapOf<String, Any>(
+                "updatedAt" to System.currentTimeMillis(),
+                "history" to chatList
+            )
+
+            // Disimpan dalam satu dokumen statis 'main_chat_history' agar hemat kuota database
+            firestore.collection("user_chat")
+                .document("main_chat_history")
+                .set(cloudBody)
+        }
+    }
+
+    /**
+     * 7. CHAT CLOUD DELETE: Menghapus permanen riwayat chat di server awan
+     */
+    fun clearChatHistoryFromCloud(onComplete: () -> Unit = {}) {
+        scope.launch {
+            firestore.collection("user_chat")
+                .document("main_chat_history")
+                .delete()
+                .addOnSuccessListener {
+                    onComplete()
+                }
+        }
+    }
 }
