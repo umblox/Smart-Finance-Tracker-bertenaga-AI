@@ -23,6 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.data.local.entity.CategoryEntity
+import com.smartfinance.tracker.data.remote.FirebaseSyncManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -175,10 +176,9 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     
                     val selectedCat = filteredCategories[spinnerCategory.selectedItemPosition]
                     
-                    // Pemetaan tipe transaksi akuntansi riil untuk mutasi kas di dashboard
                     val finalType = when (selectedCat.id) {
-                        101L, 103L -> "INCOME"  // Hutang baru & Penagihan utang menambah kas masuk
-                        102L, 104L -> "EXPENSE" // Pembayaran kembali & Piutang baru mengurangi kas keluar
+                        101L, 103L -> "INCOME"
+                        102L, 104L -> "EXPENSE"
                         else -> if (rbIncome.isChecked) "INCOME" else "EXPENSE"
                     }
 
@@ -188,14 +188,22 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         noteVal
                     }
 
-                    db.transactionDao().insertTransaction(TransactionEntity(
+                    // Gabungkan instansiasi entitas ke variabel lokal agar bisa disinkronkan ke Cloud
+                    val newTransaction = TransactionEntity(
                         amount = amountVal,
                         type = finalType,
                         categoryId = selectedCat.id,
                         categoryName = selectedCat.name,
                         note = finalNote.uppercase(Locale.ROOT),
                         timestamp = targetTime
-                    ))
+                    )
+
+                    // 1. Simpan ke database lokal Room
+                    db.transactionDao().insertTransaction(newTransaction)
+
+                    // 2. Alirkan replikasi data tunggal secara instan ke Cloud Firebase Firestore
+                    FirebaseSyncManager(context).syncSingleTransactionToCloud(newTransaction)
+
                     onSaved()
                     dialog.dismiss()
                 }
@@ -212,7 +220,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val displayNames = mutableListOf<String>()
 
         if (currentType == "DEBT") {
-            // Filter khusus mengambil 4 kategori utang bawaan aplikasi yang terkunci
             val debtSystemCategories = allCategories.filter { it.type == "DEBT" }
             debtSystemCategories.forEach { cat ->
                 filteredCategories.add(cat)
