@@ -243,9 +243,13 @@ class CategoryManagerDialog : DialogFragment() {
             textSize = 15f
             hint = "Masukkan nama kategori"
             setHintTextColor(Color.parseColor("#A0AEC0"))
-            background.mutate().setColorFilter(Color.parseColor("#CBD5E0"), android.graphics.PorterDuff.Mode.SRC_ATOP)
             
-            // Kunci kolom input nama jika kategori bawaan sistem agar tidak bisa diubah ilegal
+            // FIX MODERN: Menggantikan setColorFilter usang agar kompatibel penuh dengan Android API terbaru
+            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
+                Color.parseColor("#CBD5E0"), 
+                androidx.core.graphics.BlendModeCompat.SRC_ATOP
+            )
+            
             if (category != null && category.isLocked) {
                 isEnabled = false
                 setTextColor(Color.GRAY)
