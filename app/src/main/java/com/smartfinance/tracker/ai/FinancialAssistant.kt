@@ -15,7 +15,6 @@ class FinancialAssistant(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    // 🔥 INISIALISASI JALUR UTAMA: Hubungkan manajer sinkronisasi awan satu pintu
     private val syncManager = FirebaseSyncManager(context)
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
@@ -87,44 +86,45 @@ class FinancialAssistant(private val context: Context) {
                                 amount = finalAmount, type = type, categoryId = catId, categoryName = catName, note = cleanNote, timestamp = targetTimestamp
                             )
 
-                            // 🔥 FIX ARSITEKTUR 1: Tangkap ID unik hasil generate Room lokal SQLite
                             val generatedId = db.transactionDao().insertTransaction(transactionEntity)
                             val finalizedTransaction = transactionEntity.copy(id = generatedId)
-
-                            // 🔥 REPLIKASI 1: Alirkan data final ke Firebase Firestore Cloud lewat jalur resmi
                             syncManager.syncSingleTransactionToCloud(finalizedTransaction)
                         }
                         
                         "DEBT_RECORD" -> {
                             val name = item.optString("contact_name", "TEMAN").trim().uppercase(Locale.ROOT)
-                            var debtType = item.optString("debt_type", "DEBT").trim().uppercase(Locale.ROOT)
                             
-                            val cleanNote = item.optString("clean_note", "").uppercase(Locale.ROOT)
-                            if (cleanNote.contains("SAYA PINJAM") || cleanNote.contains("SAYA NGUTANG") || cleanNote.contains("SAYA BERHUTANG")) {
-                                debtType = "DEBT"
-                            } else if (cleanNote.contains("MEMINJAMKAN") || cleanNote.contains("DIPINJAM")) {
-                                debtType = "RECEIVABLE"
-                            }
+                            // 🔥 PERBAIKAN LOGIKA 1: Percayakan penentuan tipe langsung dari keputusan JSON Groq AI tanpa ditimpa manual
+                            val debtType = item.optString("debt_type", "DEBT").trim().uppercase(Locale.ROOT)
 
+                            // Simpan ke tabel utang personal
                             db.debtDao().insertDebt(DebtEntity(
                                 contactName = name, contactPhoneNumber = "0812", amount = finalAmount, remainingAmount = finalAmount, 
                                 type = debtType, note = "Otomatis via Chat AI", timestamp = targetTimestamp, isPaid = false
                             ))
 
+                            // 🔥 PERBAIKAN LOGIKA 2: Sinkronisasi Akuntansi Dompet Kas (Tabel Mutasi Transaksi)
+                            // DEBT (Uang masuk karena ngutang ke orang) -> INCOME
+                            // RECEIVABLE (Uang keluar karena dipinjamkan ke orang) -> EXPENSE
                             val flowType = if (debtType == "DEBT") "INCOME" else "EXPENSE"
-                            val catId = if (debtType == "DEBT") 12L else 13L
-                            val catName = if (debtType == "DEBT") "Hutang (Saya Meminjam)" else "Piutang (Memberi Pinjaman)"
+                            
+                            // 🔥 PERBAIKAN LOGIKA 3: Samakan ID kategori sistemik (101 untuk Hutang Masuk, 104 untuk Piutang Keluar)
+                            val catId = if (debtType == "DEBT") 101L else 104L
+                            val catName = if (debtType == "DEBT") "Hutang" else "Piutang"
+                            
+                            val prefixNote = if (debtType == "DEBT") "HUTANG MASUK DARI" else "PIUTANG KELUAR KE"
 
                             val debtTransactionEntity = TransactionEntity(
-                                amount = finalAmount, type = flowType, categoryId = catId, categoryName = catName, 
-                                note = if (debtType == "DEBT") "HUTANG MASUK DARI $name" else "PIUTANG KELUAR KE $name", timestamp = targetTimestamp
+                                amount = finalAmount, 
+                                type = flowType, 
+                                categoryId = catId, 
+                                categoryName = catName, 
+                                note = "[$catName] $prefixNote $name".uppercase(Locale.ROOT), 
+                                timestamp = targetTimestamp
                             )
 
-                            // 🔥 FIX ARSITEKTUR 2: Ambil ID unik untuk pencatatan riwayat mutasi keuangan utang baru
                             val generatedId = db.transactionDao().insertTransaction(debtTransactionEntity)
                             val finalizedDebtTransaction = debtTransactionEntity.copy(id = generatedId)
-
-                            // 🔥 REPLIKASI 2: Amankan salinan transaksi utang baru ke Firestore
                             syncManager.syncSingleTransactionToCloud(finalizedDebtTransaction)
                         }
                         
@@ -143,17 +143,24 @@ class FinancialAssistant(private val context: Context) {
                                         remainingAmount = nextRemaining, isPaid = nextRemaining <= 0.0
                                     ))
 
+                                    // 🔥 PERBAIKAN LOGIKA 4: Pelunasan/Cicilan Utang
+                                    // Jika kita mencicil UTANG kita (DEBT) -> Kas Keluar (EXPENSE), Kategori ID: 102
+                                    // Jika orang mencicil PIUTANG kita (RECEIVABLE) -> Kas Masuk (INCOME), Kategori ID: 103
                                     val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
+                                    val catId = if (matchDebt.type == "DEBT") 102L else 103L
+                                    val catName = if (matchDebt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+
                                     val payTransactionEntity = TransactionEntity(
-                                        amount = finalPayAmount, type = txType, categoryId = 11L, categoryName = "Cicilan & Pinjaman",
-                                        note = "CICILAN OLEH ${matchDebt.contactName}", timestamp = targetTimestamp
+                                        amount = finalPayAmount, 
+                                        type = txType, 
+                                        categoryId = catId, 
+                                        categoryName = catName,
+                                        note = "CICILAN OLEH ${matchDebt.contactName}".uppercase(Locale.ROOT), 
+                                        timestamp = targetTimestamp
                                     )
 
-                                    // 🔥 FIX ARSITEKTUR 3: Tangkap ID unik pendaftaran log cicilan/pelunasan pinjaman aktif
                                     val generatedId = db.transactionDao().insertTransaction(payTransactionEntity)
                                     val finalizedPayTransaction = payTransactionEntity.copy(id = generatedId)
-
-                                    // 🔥 REPLIKASI 3: Amankan aliran data cicilan masuk/keluar ke server Cloud
                                     syncManager.syncSingleTransactionToCloud(finalizedPayTransaction)
                                 }
                             }
