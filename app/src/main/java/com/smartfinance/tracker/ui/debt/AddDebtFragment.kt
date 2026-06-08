@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.data.local.AppDatabase
 import com.smartfinance.tracker.data.local.entity.DebtEntity
 import com.smartfinance.tracker.data.local.entity.TransactionEntity
+import com.smartfinance.tracker.data.remote.FirebaseSyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -238,17 +239,25 @@ class AddDebtFragment : Fragment() {
                             ))
                         }
 
-                        // SINKRONISASI KAKU SIFAT ALIRAN KAS KATEGORI SISTEM YANG DIKUNCI
                         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
                         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
                         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
                         
+                        val newTransaction = TransactionEntity(
+                            amount = amountValue, 
+                            type = flowType, 
+                            categoryId = catId, 
+                            categoryName = catName,
+                            note = "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN", 
+                            timestamp = System.currentTimeMillis()
+                        )
+
                         withContext(Dispatchers.IO) {
-                            db.transactionDao().insertTransaction(TransactionEntity(
-                                amount = amountValue, type = flowType, categoryId = catId, categoryName = catName,
-                                note = "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN", timestamp = System.currentTimeMillis()
-                            ))
+                            db.transactionDao().insertTransaction(newTransaction)
                         }
+
+                        // REPLIKASI AWAN: Kirim salinan transaksi pinjaman baru ke Firebase Cloud
+                        FirebaseSyncManager(context).syncSingleTransactionToCloud(newTransaction)
 
                         refreshDebtList(listContainer, cardDebt, cardReceivable)
                         Toast.makeText(context, "Pinjaman Berhasil Tersimpan!", Toast.LENGTH_SHORT).show()
@@ -356,17 +365,25 @@ class AddDebtFragment : Fragment() {
                                         db.debtDao().insertDebt(debt.copy(remainingAmount = newRemaining, isPaid = newRemaining <= 0.0))
                                     }
 
-                                    // SINKRONISASI KAKU OPSI AKUNTANSI CICILAN UTANG KE ID KATEGORI TERKUNCI (102L / 103L)
                                     val flowType = if (debt.type == "DEBT") "EXPENSE" else "INCOME"
                                     val targetCatId = if (debt.type == "DEBT") 102L else 103L
                                     val targetCatName = if (debt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
 
+                                    val payTransaction = TransactionEntity(
+                                        amount = payValue, 
+                                        type = flowType, 
+                                        categoryId = targetCatId, 
+                                        categoryName = targetCatName,
+                                        note = "[$targetCatName] ${debt.contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL", 
+                                        timestamp = System.currentTimeMillis()
+                                    )
+
                                     withContext(Dispatchers.IO) {
-                                        db.transactionDao().insertTransaction(TransactionEntity(
-                                            amount = payValue, type = flowType, categoryId = targetCatId, categoryName = targetCatName,
-                                            note = "[$targetCatName] ${debt.contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL", timestamp = System.currentTimeMillis()
-                                        ))
+                                        db.transactionDao().insertTransaction(payTransaction)
                                     }
+
+                                    // REPLIKASI AWAN: Kirim salinan transaksi cicilan utang baru ke Firebase Cloud
+                                    FirebaseSyncManager(context).syncSingleTransactionToCloud(payTransaction)
 
                                     refreshDebtList(listContainer, cardDebt, cardReceivable)
                                     Toast.makeText(context, "Cicilan Berhasil Diperbarui!", Toast.LENGTH_SHORT).show()
