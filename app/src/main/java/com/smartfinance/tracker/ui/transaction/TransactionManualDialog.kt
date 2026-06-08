@@ -212,14 +212,24 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         timestamp = targetTime
                     )
 
-                    // 1. Simpan ke Room lokal dan tangkap ID unik yang otomatis digenerate oleh SQLite
+                    // 1. Simpan ke Room lokal dan tangkap ID unik hasil generate database lokal
                     val generatedId = db.transactionDao().insertTransaction(newTransaction)
 
                     // 2. Duplikasi data transaksi dengan menyisipkan ID asli hasil generate database lokal
                     val finalizedTransaction = newTransaction.copy(id = generatedId)
 
-                    // 3. Alirkan objek transaksi final yang valid (bukan id 0) ke Firebase Firestore Cloud
-                    FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedTransaction)
+                    // 3. 🛡️ ALIRKAN KE FIREBASE SECARA LIVE DENGAN LISTENERS MONITORING LOG
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("transactions")
+                        .document("tx_${finalizedTransaction.id}")
+                        .set(finalizedTransaction)
+                        .addOnSuccessListener {
+                            Toast.makeText(context, "Berhasil Masuk Firestore Server!", Toast.LENGTH_SHORT).show()
+                        }
+                        .addOnFailureListener { exception ->
+                            // Jika pengiriman tersumbat/ditolak, baris ini memuntahkan pesan eror aslinya langsung ke layar HP
+                            Toast.makeText(context, "Firestore Gagal: ${exception.message}", Toast.LENGTH_LONG).show()
+                        }
 
                     onSaved()
                     dialog.dismiss()
