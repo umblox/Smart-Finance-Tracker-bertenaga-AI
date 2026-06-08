@@ -101,6 +101,23 @@ class FirebaseSyncManager(private val context: Context) {
             )
             firestore.collection("transactions").document("tx_${tx.id}").set(txMap)
         }
+
+        // 🔥 SEED BARU: Jalankan Backup Data Pinjaman Personal Aktif ke Kamar 'debts' Firestore
+        val localDebts = db.debtDao().getAllDebts().first()
+        localDebts.forEach { debt ->
+            val debtMap = hashMapOf(
+                "id" to debt.id,
+                "contactName" to debt.contactName,
+                "contactPhoneNumber" to debt.contactPhoneNumber,
+                "amount" to debt.amount,
+                "remainingAmount" to debt.remainingAmount,
+                "type" to debt.type,
+                "note" to debt.note,
+                "timestamp" to debt.timestamp,
+                "isPaid" to debt.isPaid
+            )
+            firestore.collection("debts").document("debt_${debt.id}").set(debtMap)
+        }
     }
 
     /**
@@ -124,9 +141,31 @@ class FirebaseSyncManager(private val context: Context) {
                             )
                             db.transactionDao().insertTransaction(tx)
                         }
-                        
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "🔄 Data transaksi berhasil dipulihkan dari Cloud!", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+
+        // 🔥 SEED BARU: Tarik Data Pinjaman Aktif dari Firestore dan Tanam ke SQLite Lokal HP
+        firestore.collection("debts").get()
+            .addOnSuccessListener { querySnapshot ->
+                if (!querySnapshot.isEmpty) {
+                    scope.launch {
+                        querySnapshot.documents.forEach { doc ->
+                            val debt = com.smartfinance.tracker.data.local.entity.DebtEntity(
+                                id = doc.getLong("id") ?: 0L,
+                                contactName = doc.getString("contactName") ?: "TEMAN",
+                                contactPhoneNumber = doc.getString("contactPhoneNumber") ?: "0812",
+                                amount = doc.getDouble("amount") ?: 0.0,
+                                remainingAmount = doc.getDouble("remainingAmount") ?: 0.0,
+                                type = doc.getString("type") ?: "DEBT",
+                                note = doc.getString("note") ?: "",
+                                timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis(),
+                                isPaid = doc.getBoolean("isPaid") ?: false
+                            )
+                            db.debtDao().insertDebt(debt)
                         }
                     }
                 }
@@ -140,7 +179,6 @@ class FirebaseSyncManager(private val context: Context) {
                         querySnapshot.documents.forEach { doc ->
                             val isLocked = doc.getBoolean("isLocked") ?: false
                             if (!isLocked) {
-                                // FIX: Menggunakan pengambilan objek berjenis Long yang aman dari null pointer eksekusi
                                 val parentId = doc.get("parentCategoryId") as? Long
                                 val cat = CategoryEntity(
                                     id = doc.getLong("id") ?: 0L,
