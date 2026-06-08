@@ -24,13 +24,20 @@ jobs:
       with:
         gradle-version: 8.5
 
-    # 🔐 PENJAGA PRIVASI: Ambil Base64 dari Secret, Dekode ke folder app/ secara senyap sebelum build
+    # 🔐 PENJAGA PRIVASI: Dekode rahasia Firebase secara aman sebelum proses kompilasi
     - name: Rekonstruksi Google Services JSON Secara Aman
       run: |
         echo "${{ secrets.FIREBASE_SECRET_JSON }}" | base64 --decode > app/google-services.json
 
-    # PROSES AMAN: Alirkan Token Vault dari GitHub Secret ke dalam Environment Kompiler
+    # PROSES UTAMA: Jalankan pembuatan biner aplikasi debug
     - name: Build with Gradle 8.5
       run: gradle assembleDebug
       env:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+    # 📥 KODE YANG DIKEMBALIKAN: Simpan hasil build APK ke server agar bisa di-download via HP
+    - name: Upload APK Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
