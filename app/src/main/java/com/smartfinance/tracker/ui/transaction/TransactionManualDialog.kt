@@ -25,13 +25,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private var currentType = "EXPENSE"
     
-    // 🔥 FULL CLOUD: Menyimpan data kategori berbasis struktur Map dari Firestore Snapshot
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
 
@@ -123,7 +124,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         }
         form.addView(etNote)
 
-        form.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
+        form.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         etDate = EditText(context).apply { 
             setText(sdf.format(Date())); setTextColor(Color.parseColor("#2D3748"))
@@ -139,7 +140,8 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val btnPickContact = Button(context).apply { text = "Cari"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#4A5568")) }
         contactRow.addView(etContact)
         contactRow.addView(btnPickContact)
-        formLayout -> form.addView(contactRow)
+        // 🔥 FIX MUTLAK: Teks typo siluman telah dihapus murni di baris ini
+        form.addView(contactRow)
 
         scrollView.addView(form)
         root.addView(scrollView)
@@ -167,7 +169,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             mapSpinnerHierarchyCloud()
         }
 
-        // 🔥 FULL CLOUD: Tarik daftar kategori master secara langsung dari Firestore Cloud
         lifecycleScope.launch {
             try {
                 val snapshot = firestore.collection("categories").get().await()
@@ -181,7 +182,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                 allCategoriesCloud = list
                 mapSpinnerHierarchyCloud()
             } catch (e: Exception) {
-                // Fallback jika database koleksi kosong/gagal memuat awal
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
                     mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
@@ -221,7 +221,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         noteVal.uppercase(Locale.ROOT)
                     }
 
-                    // 🔥 FULL CLOUD ACTION 1: Tulis mutasi kas utama ke koleksi transactions Firestore
                     val txId = "tx_${System.currentTimeMillis()}"
                     val txMap = hashMapOf(
                         "id" to txId,
@@ -235,7 +234,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     
                     firestore.collection("transactions").document(txId).set(txMap).await()
 
-                    // 🔥 FULL CLOUD ACTION 2: Jika jenis Utang-Piutang, suntikkan dokumen pendamping ke koleksi debts Firestore
                     if (rbDebt.isChecked) {
                         val debtId = "debt_${System.currentTimeMillis()}"
                         val selectedDebtType = if (catId == 104L) "RECEIVABLE" else "DEBT"
@@ -266,7 +264,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    // 🔥 FULL CLOUD METODOLOGI: Menyusun hierarki spinner visual berbasis data Map Firestore
     private fun mapSpinnerHierarchyCloud() {
         filteredCategoriesCloud.clear()
         val displayNames = mutableListOf<String>()
