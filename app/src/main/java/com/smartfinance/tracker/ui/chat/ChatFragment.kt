@@ -7,8 +7,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -31,7 +29,6 @@ class ChatFragment : Fragment() {
     private lateinit var assistant: FinancialAssistant
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val firestore = FirebaseFirestore.getInstance()
 
     override fun onCreateView(
@@ -71,7 +68,7 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) { 
             loadBackupToAdapter(savedChat) 
         } else {
-            // 🔥 FULL CLOUD: Menarik data riwayat obrolan secara langsung dari dokumen Firestore Cloud
+            // 🔥 FULL CLOUD: Tarik riwayat obrolan asli langsung dari Firestore Cloud server
             firestore.collection("user_chat")
                 .document("main_chat_history")
                 .get()
@@ -103,7 +100,6 @@ class ChatFragment : Fragment() {
                 setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakapan secara permanen dari Cloud?")
                 setPositiveButton("Ya, Hapus Semua") { _, _ ->
                     prefs.edit().remove("chat_history_backup_v4").apply()
-                    // 🔥 FULL CLOUD: Langsung eksekusi perintah hapus dokumen di awan Firestore
                     firestore.collection("user_chat").document("main_chat_history").delete()
                     messageList.clear()
                     chatAdapter.notifyDataSetChanged()
@@ -116,35 +112,14 @@ class ChatFragment : Fragment() {
 
     private fun sendChatToAI(message: String) {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val upperMessage = message.uppercase(Locale.ROOT)
         
-        val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG") || upperMessage.contains("NGUTANG")
-        val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH") || upperMessage.contains("MELUNASI")
-
-        var extractedAmount = 0.0
-        val numberRegex = Regex("\\d+")
-        val match = numberRegex.find(upperMessage)
-        if (match != null) {
-            extractedAmount = match.value.toDoubleOrNull() ?: 0.0
-        }
-        if (extractedAmount == 0.0) extractedAmount = 30000.0
-        val name = dynamicContactNameExtractor(upperMessage)
-
-        if (isDebtQuery && !isPaymentQuery) {
-            messageList.add(ChatMessage(message, true))
-            chatAdapter.notifyItemInserted(messageList.size - 1)
-            binding.rvChatHistory.scrollToPosition(messageList.size - 1)
-            binding.etMessage.setText("")
-            
-            injectConfirmationButtonsToChat(name, extractedAmount)
-            return
-        }
-
+        // 🔥 FIX MUTLAK: Masukkan pesan user secara linear tanpa pemotongan kaku logika lokal
         messageList.add(ChatMessage(message, true))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
         binding.etMessage.setText("")
         
+        // Kunci tombol input selama AI memproses data di latar belakang
         binding.btnSend.isEnabled = false
         binding.btnSend.alpha = 0.5f
 
@@ -152,25 +127,23 @@ class ChatFragment : Fragment() {
         chatAdapter.notifyItemInserted(messageList.size - 1)
 
         lifecycleScope.launch {
-            val rawResponse = groqClient.sendMessageToAI(message)
+            // 1. Alirkan pesan langsung menuju server Groq Llama 3.1
+            val finalResponseText = groqClient.sendMessageToAI(message)
+            
+            // Hapus bubble animasi "AI sedang berpikir..."
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
-            if (isPaymentQuery) {
-                try {
-                    val finalResponseText = assistant.parseAndExecuteRawAiResponse(rawResponse)
-                    messageList.add(ChatMessage(finalResponseText, false))
-                } catch (e: Exception) {
-                    messageList.add(ChatMessage("✅ Berhasil memproses perubahan mutasi pembayaran hutang berjalan di Cloud!", false))
-                }
-            } else {
-                messageList.add(ChatMessage(rawResponse.trim(), false))
-            }
+            // 2. Tampilkan teks respons analisis finansial riil dari Llama ke layar HP
+            messageList.add(ChatMessage(finalResponseText.trim(), false))
 
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
+            
+            // Buka kembali kunci tombol kirim
             binding.btnSend.isEnabled = true
             binding.btnSend.alpha = 1.0f
 
+            // 3. Cadangkan log obrolan ke SharedPreferences lokal
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
@@ -178,7 +151,7 @@ class ChatFragment : Fragment() {
             }
             prefs.edit().putString("chat_history_backup_v4", backupBuilder.toString()).apply()
             
-            // 🔥 FULL CLOUD: Kirim bodi payload riwayat obrolan langsung ke server Firestore Cloud
+            // 4. Cadangkan log obrolan secara permanen ke database awan user_chat Firestore
             val chatList = ArrayList<HashMap<String, Any>>()
             messageList.forEach { msg ->
                 chatList.add(hashMapOf("text" to msg.text, "isUser" to msg.isUser, "timestamp" to System.currentTimeMillis()))
@@ -186,133 +159,6 @@ class ChatFragment : Fragment() {
             firestore.collection("user_chat").document("main_chat_history")
                 .set(hashMapOf("updatedAt" to System.currentTimeMillis(), "history" to chatList))
         }
-    }
-
-    private fun injectConfirmationButtonsToChat(name: String, amount: Double) {
-        val formattedAmount = formatRupiah.format(amount)
-        
-        // Simpan posisi index bubble pesan defensif ini agar bisa kita manipulasi nanti
-        val targetMessageIndex = messageList.size
-        messageList.add(ChatMessage("⚖️ **Nalar Validasi UI Mendeteksi Transaksi Pinjaman Baru:**\nSilakan tentukan arah aliran dana di bawah ini agar Dashboard Anda otomatis sinkron secara akurat, Mam:", false))
-        chatAdapter.notifyDataSetChanged()
-        binding.rvChatHistory.scrollToPosition(messageList.size - 1)
-
-        val context = context ?: return
-        val container = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 30, 40, 30)
-        }
-        
-        // Deklarasi tombol secara eksplisit agar bisa saling menonaktifkan
-        lateinit var btn1: Button
-        lateinit var btn2: Button
-        
-        btn1 = Button(context).apply { 
-            text = "1. Saya BerHutang Ke $name ($formattedAmount)"
-            setAllCaps(false)
-            setOnClickListener {
-                // 🔥 PERTAHANAN MURNI 1: Kunci tombol instan demi menghindari spam klik data fiktif
-                btn1.isEnabled = false
-                btn2.isEnabled = false
-                btn1.text = "⏳ Memproses Hutang..."
-                
-                lifecycleScope.launch {
-                    assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
-                    
-                    // 🔥 PERTAHANAN MURNI 2: Perbarui pesan lama di chat menjadi teks statis, hilangkan tombol pilihan
-                    if (targetMessageIndex < messageList.size) {
-                        messageList[targetMessageIndex] = ChatMessage("🔒 *Transaksi Hutang Terkonfirmasi Pasif Cloud*\nAnda memiliki HUTANG kepada $name sebesar $formattedAmount.", false)
-                    }
-                    
-                    chatAdapter.notifyDataSetChanged()
-                    binding.rvChatHistory.scrollToPosition(messageList.size - 1)
-                }
-            }
-        }
-        
-        btn2 = Button(context).apply { 
-            text = "2. $name BerHutang Ke Saya ($formattedAmount)"
-            setAllCaps(false)
-            setOnClickListener {
-                // 🔥 PERTAHANAN MURNI 1: Kunci tombol instan demi menghindari spam klik data fiktif
-                btn1.isEnabled = false
-                btn2.isEnabled = false
-                btn2.text = "⏳ Memproses Piutang..."
-                
-                lifecycleScope.launch {
-                    assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
-                    
-                    // 🔥 PERTAHANAN MURNI 2: Perbarui pesan lama di chat menjadi teks statis, hilangkan tombol pilihan
-                    if (targetMessageIndex < messageList.size) {
-                        messageList[targetMessageIndex] = ChatMessage("🔒 *Transaksi Piutang Terkonfirmasi Pasif Cloud*\n$name memiliki HUTANG kepada Anda sebesar $formattedAmount.", false)
-                    }
-                    
-                    chatAdapter.notifyDataSetChanged()
-                    binding.rvChatHistory.scrollToPosition(messageList.size - 1)
-                }
-            }
-        }
-        
-        container.addView(btn1)
-        container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(1, 20) })
-        container.addView(btn2)
-        
-        AlertDialog.Builder(context).apply {
-            setTitle("⚖️ Konfirmasi Aliran Dana")
-            setView(container)
-            setCancelable(false)
-            setNegativeButton("Batal") { dialog, _ -> 
-                // Jika dibatalkan, bersihkan bubble deteksi agar tidak memenuhi chat log
-                if (targetMessageIndex < messageList.size) {
-                    messageList.removeAt(targetMessageIndex)
-                    chatAdapter.notifyDataSetChanged()
-                }
-                dialog.dismiss() 
-            }
-            // Tampung dialog ke variabel lokal lalu dismiss di dalam aksi klik tombol
-            val alertDialogInstance = show()
-            
-            // Override onClick tombol di dalam dialog agar menutup kompak bersamaan dengan pembersihan chat bubble
-            btn1.appendOnClickListener { alertDialogInstance.dismiss() }
-            btn2.appendOnClickListener { alertDialogInstance.dismiss() }
-        }
-    }
-
-    // Ekstensi fungsi pembantu untuk menggabungkan dismiss dialog dan eksekusi coroutine
-    private fun Button.appendOnClickListener(extraAction: () -> Unit) {
-        val originalListener = this.setOnClickListener { } // Ref/dummy saja
-        this.setOnClickListener {
-            // Jalankan listener asli tombol bawaan bodi atas
-            extraAction()
-        }
-    }
-
-    private fun dynamicContactNameExtractor(userText: String): String {
-        val keywords = listOf("KEPADA", "DARI", "DENGAN", "OLEH", "UNTUK", "SAMA")
-        val words = userText.split(Regex("\\s+"))
-        
-        for (keyword in keywords) {
-            val index = words.indexOf(keyword)
-            if (index != -1 && index + 1 < words.size) {
-                val candidate = words[index + 1].replace(Regex("[^A-Z]"), "")
-                if (candidate.length > 2 && candidate != "SAYA") return candidate
-            }
-        }
-
-        for (word in words) {
-            val cleanWord = word.replace(Regex("[^A-Z]"), "")
-            if (cleanWord.length > 2 && 
-                cleanWord != "SAYA" && 
-                cleanWord != "PINJAM" && 
-                cleanWord != "UTANG" && 
-                cleanWord != "BERHUTANG" && 
-                cleanWord != "SEBESAR" && 
-                cleanWord != "RUPIAH" &&
-                cleanWord != "UANG") {
-                return cleanWord
-            }
-        }
-        return "TEMAN"
     }
 
     private fun loadBackupToAdapter(backupStr: String) {
