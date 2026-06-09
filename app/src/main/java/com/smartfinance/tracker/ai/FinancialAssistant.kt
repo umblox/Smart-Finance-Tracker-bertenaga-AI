@@ -20,7 +20,8 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         val cleanJsonStr = rawText.trim()
             .removePrefix("```json")
-            .removePrefix("```")
+            .removePrefix("
+```")
             .removeSuffix("```")
             .trim()
 
@@ -57,8 +58,7 @@ class FinancialAssistant(private val context: Context) {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            // 🔥 AMAN: Jalur otomatis dimatikan karena sudah diambil alih oleh Interseptor ChatFragment 
-                            // Ini mencegah duplikasi data ganda di database SQLite.
+                            // Diamankan oleh Interceptor ChatFragment untuk mencegah data ganda terbalik
                         }
                         "DEBT_PAYMENT" -> {
                             executeDirectDebtPayment(contactNameRaw, finalAmount, cleanAiResponseUpper, targetTimestamp)
@@ -72,11 +72,10 @@ class FinancialAssistant(private val context: Context) {
         }
     }
 
-    // 🔥 JALUR SAKTI UTANG BARU: Dipanggil langsung oleh ChatFragment (Identik dengan nalar kaku UI manual)
     suspend fun executeDirectDebtRecord(name: String, amountValue: Double, isReceivable: Boolean, timestampValue: Long) {
         val selectedType = if (isReceivable) "RECEIVABLE" else "DEBT"
         
-        // 1. Amankan ke tabel modul navigasi bawah
+        // 1. Tulis ke modul navigasi bawah
         val newDebt = DebtEntity(
             contactName = name.uppercase(Locale.ROOT), contactPhoneNumber = "0812", amount = amountValue,
             remainingAmount = amountValue, type = selectedType, note = "Proses via AI Premium",
@@ -85,7 +84,7 @@ class FinancialAssistant(private val context: Context) {
         val generatedDebtId = db.debtDao().insertDebt(newDebt)
         syncManager.syncSingleDebtToCloud(newDebt.copy(id = generatedDebtId))
 
-        // 2. Suntikkan tipe murni INCOME/EXPENSE agar Dashboard reaktif seketika
+        // 2. Suntikkan langsung ke tabel transaksi agar Dashboard langsung reaktif berubah
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
@@ -101,7 +100,6 @@ class FinancialAssistant(private val context: Context) {
     private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, aiResponseUpper: String, targetTimestamp: Long) {
         val debts = db.debtDao().getAllDebts().first()
         
-        // Cari kecocokan data aktif secara berlapis di SQLite lokal HP
         val matchDebt = debts.find { debtItem ->
             val dbName = debtItem.contactName.uppercase(Locale.ROOT)
             !debtItem.isPaid && (dbName == contactNameRaw || aiResponseUpper.contains(dbName))
@@ -163,7 +161,6 @@ class FinancialAssistant(private val context: Context) {
             val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
             var isTimeMatch = false
 
-            // 1. EVALUASI RENTANG WAKTU SECARA AKURAT
             when (timeRange) {
                 "TODAY" -> {
                     isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && 
@@ -189,17 +186,14 @@ class FinancialAssistant(private val context: Context) {
                 "ALL" -> isTimeMatch = true
             }
 
-            // 2. EVALUASI PENYARINGAN KATEGORI JIKA USER MEMINTA
             if (isTimeMatch && targetCategory.isNotEmpty()) {
                 val currentTxCat = tx.categoryName.uppercase(Locale.ROOT)
                 val currentTxNote = tx.note.uppercase(Locale.ROOT)
-                // Filter ketat: jika nama kategori tidak cocok dan nota tidak mengandung nama kategori tersebut, lewati!
                 if (!currentTxCat.contains(targetCategory) && !currentTxNote.contains(targetCategory)) {
                     isTimeMatch = false
                 }
             }
 
-            // Akumulasikan jika lolos sensor waktu dan kategori[span_1](start_span)[span_1](end_span)
             if (isTimeMatch) {
                 val tUpper = tx.type.trim().uppercase(Locale.ROOT)
                 if (tUpper == "INCOME" || tUpper == "DEBT") incSum += tx.amount
@@ -207,7 +201,6 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
-        // Susun teks balasan laporan yang rapi untuk ditampilkan di chat
         val rentangLabel = when (timeRange) {
             "TODAY" -> "Hari Ini"
             "WEEKLY" -> "Minggu Ini"
@@ -224,3 +217,20 @@ class FinancialAssistant(private val context: Context) {
                "💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}\n\n" +
                "Data diproses secara akurat berdasarkan catatan database internal aplikasi."
     }
+
+    private fun parseTransactionDate(dateStr: String): Long {
+        if (dateStr.trim().isEmpty()) return System.currentTimeMillis()
+        return try { SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+    }
+
+    private fun parseAmount(item: JSONObject): Double {
+        val amount = item.optDouble("amount", 0.0)
+        return if (amount == 0.0) item.optString("amount", "0").toDoubleOrNull() ?: 0.0 else amount
+    }
+
+    private fun dynamicContactNameExtractor(text: String): String {
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU")
+        for (name in databasePopulerNames) { if (text.contains(name)) return name }
+        return ""
+    }
+}
