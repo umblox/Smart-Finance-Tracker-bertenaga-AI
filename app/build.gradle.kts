@@ -1,8 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp")
-    id("com.google.gms.google-services") // AKTIFKAN PLUGIN GOOGLE SERVICES
+    id("com.google.gms.google-services") // PLUGIN GOOGLE SERVICES UNTUK FIRESTORE
 }
 
 android {
@@ -52,28 +51,21 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Navigation & Lifecycle
+    // Navigation & Lifecycle Dropdown UI
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
     implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
 
-    // Room Database
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
-
-    // Google Gemini AI SDK
+    // Google Gemini AI SDK Fallback
     implementation("com.google.ai.client.generativeai:generativeai:0.2.2")
 
     // Chart Library untuk Laporan Visual
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
     // ========================================================
-    // CLOUD BACKEND: SINKRONISASI AWAN FIRESTORE (ALWAYS FREE)
+    // CLOUD BACKEND: FIREBASE FIRESTORE REAL-TIME ECOSYSTEM
     // ========================================================
     implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
-    // FIX: Menggunakan penamaan dependensi mutakhir tanpa ktx agar selaras dengan BoM 34.14.0
     implementation("com.google.firebase:firebase-firestore")
 }
