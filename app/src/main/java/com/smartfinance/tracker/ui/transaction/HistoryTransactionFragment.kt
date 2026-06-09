@@ -4,36 +4,38 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
+import kotlin.collections.LinkedHashMap
 
 class HistoryTransactionFragment : Fragment() {
 
-    private lateinit var db: AppDatabase
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
+    private val firestore = FirebaseFirestore.getInstance()
+    private var historyListenerRegistration: ListenerRegistration? = null
+
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val currentCalendar = Calendar.getInstance()
     private lateinit var tvMonthLabel: TextView
     private lateinit var transactionListContainer: LinearLayout
 
     override fun onCreateView(
-        inflater: android.view.LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
 
-        // Gunakan FrameLayout sebagai root agar FAB bisa melayang di atas list
+        // Gunakan FrameLayout sebagai root agar FAB bisa melayang reaktif di atas list
         val root = FrameLayout(context).apply { layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
 
         val mainContent = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#F7FAFC")) }
@@ -46,9 +48,9 @@ class HistoryTransactionFragment : Fragment() {
         mainContent.addView(tvTitle)
 
         val navMonth = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(48, 0, 48, 24) }
-        val btnPrev = Button(context).apply { text = "◀"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0")); setTextColor(Color.parseColor("#4A5568")); setOnClickListener { currentCalendar.add(Calendar.MONTH, -1); refreshHistoryEngine() } }
+        val btnPrev = Button(context).apply { text = "◀"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0")); setTextColor(Color.parseColor("#4A5568")); setOnClickListener { currentCalendar.add(Calendar.MONTH, -1); observeCloudHistoryLive() } }
         tvMonthLabel = TextView(context).apply { textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")); gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-        val btnNext = Button(context).apply { text = "▶"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0")); setTextColor(Color.parseColor("#4A5568")); setOnClickListener { currentCalendar.add(Calendar.MONTH, 1); refreshHistoryEngine() } }
+        val btnNext = Button(context).apply { text = "▶"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CBD5E0")); setTextColor(Color.parseColor("#4A5568")); setOnClickListener { currentCalendar.add(Calendar.MONTH, 1); observeCloudHistoryLive() } }
         
         navMonth.addView(btnPrev); navMonth.addView(tvMonthLabel); navMonth.addView(btnNext)
         mainContent.addView(navMonth)
@@ -69,72 +71,134 @@ class HistoryTransactionFragment : Fragment() {
             }
             layoutParams = lp
             setOnClickListener {
-                TransactionManualDialog { refreshHistoryEngine() }.show(parentFragmentManager, "ManualDialog")
+                // Panggil Dialog Catat Manual versi Cloud
+                TransactionManualDialog { observeCloudHistoryLive() }.show(parentFragmentManager, "ManualDialog")
             }
         }
         root.addView(fab)
 
-        refreshHistoryEngine()
+        observeCloudHistoryLive()
         return root
     }
 
-    private fun refreshHistoryEngine() {
+    // 🔥 REAL-TIME HISTORY MONITOR: Memantau mutasi bulanan langsung dari snapshot Firestore
+    private fun observeCloudHistoryLive() {
+        if (!isAdded) return
+        val context = requireContext()
+
         val sdfLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
         tvMonthLabel.text = sdfLabel.format(currentCalendar.time).uppercase()
 
         transactionListContainer.removeAllViews()
-        val context = requireContext()
+        historyListenerRegistration?.remove()
 
-        lifecycleScope.launch {
-            val allTx = db.transactionDao().getAllTransactions().first()
-            val monthlyTx = allTx.filter { tx ->
-                val c = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                c.get(Calendar.MONTH) == currentCalendar.get(Calendar.MONTH) && c.get(Calendar.YEAR) == currentCalendar.get(Calendar.YEAR)
-            }.sortedByDescending { it.timestamp }
+        historyListenerRegistration = firestore.collection("transactions")
+            .addSnapshotListener { snapshots, e ->
+                if (e != null || snapshots == null) return@addSnapshotListener
 
-            if (monthlyTx.isEmpty()) {
-                transactionListContainer.addView(TextView(context).apply { text = "\nBelum ada rekam jejak keuangan."; gravity = Gravity.CENTER; setTextColor(Color.GRAY) })
-                return@launch
-            }
+                transactionListContainer.removeAllViews()
+                val monthlyCloudList = ArrayList<HashMap<String, Any>>()
 
-            val groupMap = LinkedHashMap<String, ArrayList<TransactionEntity>>()
-            val sdfDay = SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID"))
+                for (doc in snapshots.documents) {
+                    val data = doc.data ?: continue
+                    val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    
+                    val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                    // Filter rentang bulan dan tahun kalender navigasi
+                    val isMonthMatch = txCal.get(Calendar.MONTH) == currentCalendar.get(Calendar.MONTH) && 
+                                       txCal.get(Calendar.YEAR) == currentCalendar.get(Calendar.YEAR)
 
-            monthlyTx.forEach { tx ->
-                val dayString = sdfDay.format(Date(tx.timestamp))
-                if (!groupMap.containsKey(dayString)) groupMap[dayString] = ArrayList()
-                groupMap[dayString]?.add(tx)
-            }
-
-            groupMap.forEach { (dateHeader, transactions) ->
-                val dateCard = MaterialCardView(context).apply {
-                    radius = 24f; cardElevation = 3f; setCardBackgroundColor(Color.WHITE)
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 24 }
-                }
-                val cardLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 24, 28, 24) }
-                
-                cardLayout.addView(TextView(context).apply { text = dateHeader.uppercase(); textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#4A5568")) })
-                cardLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2).apply { topMargin = 12; bottomMargin = 12 }; setBackgroundColor(Color.parseColor("#EDF2F7")) })
-
-                transactions.forEach { item ->
-                    val itemRow = LinearLayout(context).apply { 
-                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, 12, 0, 12)
-                        setOnClickListener { TransactionEditorDialog(item) { refreshHistoryEngine() }.show(parentFragmentManager, "EditorDialog") }
+                    if (isMonthMatch) {
+                        val itemMap = HashMap<String, Any>().apply {
+                            put("id", doc.id)
+                            put("amount", (data["amount"] as? Number)?.toDouble() ?: 0.0)
+                            put("type", (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT))
+                            put("timestamp", timestamp)
+                            put("categoryName", data["categoryName"] as? String ?: "Umum")
+                            put("categoryId", (data["categoryId"] as? Number)?.toLong() ?: 0L)
+                            put("note", data["note"] as? String ?: "Transaksi AI")
+                        }
+                        monthlyCloudList.add(itemMap)
                     }
-                    val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                    left.addView(TextView(context).apply { text = item.note; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")); textSize = 14f })
-                    left.addView(TextView(context).apply { text = item.categoryName; textSize = 11f; setTextColor(Color.GRAY) })
-                    
-                    val rightText = if (item.type == "INCOME") "+" else "-"
-                    val rightColor = if (item.type == "INCOME") "#2F855A" else "#C53030"
-                    val tvAmt = TextView(context).apply { text = "$rightText " + formatRupiah.format(item.amount); setTextColor(Color.parseColor(rightColor)); setTypeface(null, Typeface.BOLD); textSize = 14f }
-                    
-                    itemRow.addView(left); itemRow.addView(tvAmt)
-                    cardLayout.addView(itemRow)
                 }
-                dateCard.addView(cardLayout)
-                transactionListContainer.addView(dateCard)
+
+                if (monthlyCloudList.isEmpty()) {
+                    transactionListContainer.addView(TextView(context).apply { 
+                        text = "\nBelum ada rekam jejak keuangan pada bulan ini."
+                        gravity = Gravity.CENTER; setTextColor(Color.GRAY); textSize = 13f
+                    })
+                    return@addSnapshotListener
+                }
+
+                // Urutkan transaksi dari yang paling baru di dalam bulan tersebut
+                monthlyCloudList.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
+
+                // Kelompokkan data secara live berdasarkan String Nama Hari Kaku (Header group)
+                val groupMapCloud = LinkedHashMap<String, ArrayList<HashMap<String, Any>>>()
+                val sdfDay = SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID"))
+
+                monthlyCloudList.forEach { item ->
+                    val timestamp = item["timestamp"] as Long
+                    val dayHeaderString = sdfDay.format(Date(timestamp))
+                    if (!groupMapCloud.containsKey(dayHeaderString)) {
+                        groupMapCloud[dayHeaderString] = ArrayList()
+                    }
+                    groupMapCloud[dayHeaderString]?.add(item)
+                }
+
+                // Gambar komponen kartu Material visual ke layar HP
+                groupMapCloud.forEach { (dateHeader, transactionsList) ->
+                    val dateCard = MaterialCardView(context).apply {
+                        radius = 24f; cardElevation = 3f; setCardBackgroundColor(Color.WHITE)
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 24 }
+                    }
+                    val cardLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 24, 28, 24) }
+                    
+                    cardLayout.addView(TextView(context).apply { text = dateHeader.uppercase(); textSize = 11f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#4A5568")) })
+                    cardLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2).apply { topMargin = 12; bottomMargin = 12 }; setBackgroundColor(Color.parseColor("#EDF2F7")) })
+
+                    transactionsList.forEach { item ->
+                        val itemRow = LinearLayout(context).apply { 
+                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, 12, 0, 12)
+                            
+                            // 🔥 FIX HUBUNGAN DIALOG: Panggil Editor Dialog Cloud terpadu berbasis payload Map
+                            setOnClickListener { 
+                                TransactionEditorDialog(item) {
+                                    observeCloudHistoryLive()
+                                }.show(parentFragmentManager, "EditorDialog") 
+                            }
+                        }
+                        
+                        val note = item["note"] as String
+                        val categoryName = item["categoryName"] as String
+                        val amount = item["amount"] as Double
+                        val typeUpper = item["type"] as String
+
+                        val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+                        left.addView(TextView(context).apply { text = note; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")); textSize = 14f })
+                        left.addView(TextView(context).apply { text = categoryName; textSize = 11f; setTextColor(Color.GRAY) })
+                        
+                        val isIncomeFlow = typeUpper == "INCOME" || typeUpper == "DEBT"
+                        val rightText = if (isIncomeFlow) "+" else "-"
+                        val rightColor = if (isIncomeFlow) "#2F855A" else "#C53030"
+                        
+                        val tvAmt = TextView(context).apply { 
+                            text = "$rightText ${formatRupiah.format(amount)}"
+                            setTextColor(Color.parseColor(rightColor))
+                            setTypeface(null, Typeface.BOLD); textSize = 14f 
+                        }
+                        
+                        itemRow.addView(left); itemRow.addView(tvAmt)
+                        cardLayout.addView(itemRow)
+                    }
+                    dateCard.addView(cardLayout)
+                    transactionListContainer.addView(dateCard)
+                }
             }
-        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        historyListenerRegistration?.remove()
     }
 }
