@@ -148,7 +148,6 @@ class ChatFragment : Fragment() {
             val name = dynamicContactNameExtractor(upperMessage)
 
             if (isDebtQuery && !isPaymentQuery) {
-                // 🔥 GARANSI MODE DEFENSIF MUTLAK: Munculkan Dialog Pilihan Arah via UI Thread Utama
                 binding.btnSend.post {
                     injectConfirmationButtonsToChat(name, extractedAmount)
                 }
@@ -181,7 +180,6 @@ class ChatFragment : Fragment() {
     private fun injectConfirmationButtonsToChat(name: String, amount: Double) {
         val formattedAmount = formatRupiah.format(amount)
         
-        // Suntik bubble informasi pengaman langsung ke chat history
         messageList.add(ChatMessage("⚖️ **Nalar Validasi UI Mendeteksi Transaksi Pinjaman Baru:**\nSilakan tentukan arah aliran dana di bawah ini agar Dashboard Anda otomatis sinkron secara akurat, Mam:", false))
         chatAdapter.notifyDataSetChanged()
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -194,7 +192,8 @@ class ChatFragment : Fragment() {
         
         val btn1 = Button(context).apply { 
             text = "1. Saya BerHutang Ke $name ($formattedAmount)"
-            textAllCaps = false
+            // 🔥 FIX: Menggunakan fungsi bawaan framework Android SDK asli
+            setAllCaps(false)
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
@@ -207,7 +206,8 @@ class ChatFragment : Fragment() {
         
         val btn2 = Button(context).apply { 
             text = "2. $name BerHutang Ke Saya ($formattedAmount)"
-            textAllCaps = false
+            // 🔥 FIX: Menggunakan fungsi bawaan framework Android SDK asli
+            setAllCaps(false)
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
