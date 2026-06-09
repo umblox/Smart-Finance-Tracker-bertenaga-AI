@@ -18,12 +18,17 @@ class FinancialAssistant(private val context: Context) {
     private val syncManager = FirebaseSyncManager(context)
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
-        val cleanJsonStr = rawText.trim()
-            .removePrefix("```json")
-            .removePrefix("
-```")
-            .removeSuffix("```")
-            .trim()
+        // 🔥 FIX MUTLAK JALUR SANITASI JSON: Membersihkan penanda blok kode markdown secara aman
+        var cleanJsonStr = rawText.trim()
+        if (cleanJsonStr.startsWith("```json")) {
+            cleanJsonStr = cleanJsonStr.removePrefix("```json")
+        } else if (cleanJsonStr.startsWith("```")) {
+            cleanJsonStr = cleanJsonStr.removePrefix("```")
+        }
+        if (cleanJsonStr.endsWith("```")) {
+            cleanJsonStr = cleanJsonStr.removeSuffix("```")
+        }
+        cleanJsonStr = cleanJsonStr.trim()
 
         try {
             val json = JSONObject(cleanJsonStr)
@@ -58,7 +63,7 @@ class FinancialAssistant(private val context: Context) {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            // Diamankan oleh Interceptor ChatFragment untuk mencegah data ganda terbalik
+                            // Diamankan murni oleh Interceptor di ChatFragment demi akurasi dashboard
                         }
                         "DEBT_PAYMENT" -> {
                             executeDirectDebtPayment(contactNameRaw, finalAmount, cleanAiResponseUpper, targetTimestamp)
@@ -75,7 +80,7 @@ class FinancialAssistant(private val context: Context) {
     suspend fun executeDirectDebtRecord(name: String, amountValue: Double, isReceivable: Boolean, timestampValue: Long) {
         val selectedType = if (isReceivable) "RECEIVABLE" else "DEBT"
         
-        // 1. Tulis ke modul navigasi bawah
+        // 1. Amankan data ke tabel modul pencatatan navigasi bawah
         val newDebt = DebtEntity(
             contactName = name.uppercase(Locale.ROOT), contactPhoneNumber = "0812", amount = amountValue,
             remainingAmount = amountValue, type = selectedType, note = "Proses via AI Premium",
@@ -84,7 +89,7 @@ class FinancialAssistant(private val context: Context) {
         val generatedDebtId = db.debtDao().insertDebt(newDebt)
         syncManager.syncSingleDebtToCloud(newDebt.copy(id = generatedDebtId))
 
-        // 2. Suntikkan langsung ke tabel transaksi agar Dashboard langsung reaktif berubah
+        // 2. Suntikkan langsung data kas INCOME/EXPENSE agar Dashboard berubah reaktif detik itu juga
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
