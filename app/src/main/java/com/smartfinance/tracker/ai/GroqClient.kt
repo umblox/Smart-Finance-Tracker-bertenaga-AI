@@ -92,7 +92,7 @@ ${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else 
 
 ⚠️ ATURAN ANALISIS DAN LAPORAN (ANTI-NOL / ANTI-BODOH):
 - Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang. Analisis konteks kalimat secara cerdas.
-- JIKA USER MEMINTA LAPORAN KEUANGAN (Harian, Bulanan, Tahunan, Tertinggi, Per Kategori, dll), Anda WAJIB berhitung menggunakan matematika yang akurat berdasarkan data mutasi riil di atas. Tuliskan rincian hitungan, persentase, atau detailnya secara transparan dan terperinci langsung di kolom "ai_response" menggunakan format Markdown yang rapi (bold, bullet points, baris baru). Jangan biarkan kosong atau bernilai 0 jika datanya ada di atas!
+- JIKA USER MEMINTA LAPORAN KEUANGAN (Harian, Bulanan, Tahunan, Tertinggi, Per Kategori, atau barang spesifik), Anda WAJIB berhitung menggunakan matematika yang akurat berdasarkan data mutasi riil di atas. Tuliskan rincian hitungan, persentase, atau detailnya secara transparan dan terperinci langsung di kolom "ai_response" menggunakan format Markdown yang rapi (bold, bullet points, baris baru). Jangan biarkan kosong atau bernilai 0 jika datanya ada di atas!
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
@@ -101,7 +101,8 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
     "target_date": "yyyy-MM-dd",
-    "target_category": "NAMA_KATEGORI"
+    "target_category": "NAMA_KATEGORI",
+    "target_keyword": "SUB_KATEGORI_ATAU_NAMA_BARANG_SPESIFIK"
   },
   "transactions": [
     {
@@ -112,8 +113,9 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
   ]
 }
 
-⚠️ MANAGEMENT LOGIK ACTION_TYPE:
+⚠️ MANAGEMENT LOGIK ACTION_TYPE & FILTER DINAMIS:
 - Jika user meminta laporan, melihat kas, mencari tahu pengeluaran tertinggi, set action_type ke "VIEW_REPORT" dan berikan rincian hitungan lengkap Anda di kolom ai_response.
+- Jika user bertanya tentang barang, sub-kategori, atau aktivitas spesifik (contoh: "Pertamax", "Ganti Oli", "Nasi Goreng"), masukkan nama barang/aktivitas tersebut ke dalam parameter "target_keyword" secara dinamis dalam bentuk huruf besar (UPPERCASE). Jika user hanya bertanya kategori secara umum, kosongkan parameter "target_keyword" dengan string "".
 """.trimIndent()
 
         try {
