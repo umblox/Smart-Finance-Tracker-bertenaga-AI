@@ -145,13 +145,11 @@ class AddDebtFragment : Fragment() {
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
             setTabStyles(btnTabDebt, btnTabReceivable)
-            refreshDebtList(listContainer, cardDebt, cardReceivable)
         }
 
         btnTabReceivable.setOnClickListener {
             currentTab = "RECEIVABLE"
             setTabStyles(btnTabReceivable, btnTabDebt)
-            refreshDebtList(listContainer, cardDebt, cardReceivable)
         }
 
         refreshDebtList(listContainer, cardDebt, cardReceivable)
@@ -215,11 +213,28 @@ class AddDebtFragment : Fragment() {
         val etAmount = EditText(context).apply { hint = "Nominal (ex: 250000)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
         formLayout.addView(etAmount)
         
-        formLayout.addView(TextView(context).apply { text = "\nJenis Pinjaman:"; textSize = 12f })
-        val spinnerType = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listOf("HUTANG (Saya Meminjam)", "PIUTANG (Saya Meminjamkan)"))
+        formLayout.addView(TextView(context).apply { text = "\nJenis Pinjaman:"; textSize = 12f; setTextColor(Color.parseColor("#718096")) })
+        
+        // 🔥 REMOVE SPINNER -> REWRITE TO HORIZONTAL RADIO GROUP BUTTONS INTERFACE
+        val rgType = RadioGroup(context).apply {
+            orientation = RadioGroup.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8; bottomMargin = 8 }
         }
-        formLayout.addView(spinnerType)
+        val rbDebt = RadioButton(context).apply { 
+            text = "Hutang (Saya Meminjam)"
+            id = View.generateViewId()
+            textSize = 13f
+            isChecked = true
+        }
+        val rbReceivable = RadioButton(context).apply { 
+            text = "Piutang (Saya Meminjamkan)"
+            id = View.generateViewId()
+            textSize = 13f
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = 16 }
+        }
+        rgType.addView(rbDebt)
+        rgType.addView(rbReceivable)
+        formLayout.addView(rgType)
 
         AlertDialog.Builder(context).apply {
             setTitle("📝 Tambah Catatan Pinjaman")
@@ -227,7 +242,7 @@ class AddDebtFragment : Fragment() {
             setPositiveButton("Simpan") { _, _ ->
                 val name = etName.text.toString().trim().uppercase(Locale.ROOT)
                 val amountValue = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-                val selectedType = if (spinnerType.selectedItemPosition == 0) "DEBT" else "RECEIVABLE"
+                val selectedType = if (rgType.checkedRadioButtonId == rbDebt.id) "DEBT" else "RECEIVABLE"
 
                 if (name.isNotEmpty() && amountValue > 0.0) {
                     lifecycleScope.launch {
@@ -252,18 +267,12 @@ class AddDebtFragment : Fragment() {
                             timestamp = System.currentTimeMillis()
                         )
 
-                        // 1. Simpan ke database lokal Room dan tangkap ID unik hasil generate database lokal
                         val generatedId = withContext(Dispatchers.IO) {
                             db.transactionDao().insertTransaction(newTransaction)
                         }
 
-                        // 2. Duplikasi data transaksi dengan menyisipkan ID asli hasil generate database lokal
                         val finalizedTransaction = newTransaction.copy(id = generatedId)
-
-                        // 3. REPLIKASI AWAN: Kirim salinan transaksi pinjaman baru yang valid ke Firebase Cloud
                         FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedTransaction)
-
-                        refreshDebtList(listContainer, cardDebt, cardReceivable)
                         Toast.makeText(context, "Pinjaman Berhasil Tersimpan!", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -274,7 +283,6 @@ class AddDebtFragment : Fragment() {
     }
 
     private fun refreshDebtList(container: LinearLayout, cardDebt: LinearLayout, cardReceivable: LinearLayout) {
-        // Ganti coroutine launch biasa menjadi pengamat database reaktif aliran data penuh
         lifecycleScope.launch {
             db.debtDao().getAllDebts().collect { allDebts ->
                 container.removeAllViews()
@@ -286,10 +294,8 @@ class AddDebtFragment : Fragment() {
                     if (it.type == "DEBT") totalDebtSum += it.remainingAmount else totalReceivableSum += it.remainingAmount
                 }
 
-                if (container.childCount == 0) {
-                    (cardDebt.getChildAt(1) as TextView).text = formatRupiah.format(totalDebtSum)
-                    (cardReceivable.getChildAt(1) as TextView).text = formatRupiah.format(totalReceivableSum)
-                }
+                (cardDebt.getChildAt(1) as TextView).text = formatRupiah.format(totalDebtSum)
+                (cardReceivable.getChildAt(1) as TextView).text = formatRupiah.format(totalReceivableSum)
 
                 val filteredList = allDebts.filter { it.type == currentTab }
 
@@ -384,18 +390,12 @@ class AddDebtFragment : Fragment() {
                                         timestamp = System.currentTimeMillis()
                                     )
 
-                                    // 1. Simpan ke Room lokal dan tangkap ID unik hasil generate database lokal
                                     val generatedId = withContext(Dispatchers.IO) {
                                         db.transactionDao().insertTransaction(payTransaction)
                                     }
 
-                                    // 2. Duplikasi data cicilan dengan menyisipkan ID asli hasil generate database lokal
                                     val finalizedPayTransaction = payTransaction.copy(id = generatedId)
-
-                                    // 3. REPLIKASI AWAN: Kirim salinan transaksi cicilan utang baru yang valid ke Firebase Cloud
                                     FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedPayTransaction)
-
-                                    refreshDebtList(listContainer, cardDebt, cardReceivable)
                                     Toast.makeText(context, "Cicilan Berhasil Diperbarui!", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -407,7 +407,6 @@ class AddDebtFragment : Fragment() {
                     lifecycleScope.launch {
                         val clearedDebt = debt.copy(remainingAmount = 0.0, isPaid = true)
                         withContext(Dispatchers.IO) { db.debtDao().insertDebt(clearedDebt) }
-                        refreshDebtList(listContainer, cardDebt, cardReceivable)
                         Toast.makeText(context, "Catatan Berhasil Dibersihkan!", Toast.LENGTH_SHORT).show()
                     }
                 }
