@@ -11,25 +11,32 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import com.smartfinance.tracker.data.local.entity.CategoryEntity
-import kotlinx.coroutines.flow.first
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class TransactionEditorDialog(
-    private val transaction: TransactionEntity,
+    // 🔥 FULL CLOUD: Menerima data transaksi berbasis Map dari Firestore Snapshot dokumen
+    private val transactionData: HashMap<String, Any>,
     private val onUpdateAction: () -> Unit
 ) : DialogFragment() {
 
-    private lateinit var db: AppDatabase
+    private val firestore = FirebaseFirestore.getInstance()
+    private var categoryListCloud = listOf<Map<String, Any>>()
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
+
+        val docId = transactionData["id"] as? String ?: ""
+        val currentAmount = (transactionData["amount"] as? Number)?.toLong() ?: 0L
+        val currentNote = transactionData["note"] as? String ?: ""
+        val currentTimestamp = (transactionData["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
+        val currentCategoryId = (transactionData["categoryId"] as? Number)?.toLong() ?: 0L
 
         val editorContainer = RelativeLayout(context).apply {
             setBackgroundColor(Color.parseColor("#F7FAFC"))
@@ -77,10 +84,9 @@ class TransactionEditorDialog(
 
         formLayout.addView(TextView(context).apply { text = "Nominal Transaksi (Rp)"; setTextColor(Color.parseColor("#718096")); textSize = 12f })
         val etAmount = EditText(context).apply {
-            setText(transaction.amount.toLong().toString())
+            setText(currentAmount.toString())
             setTextColor(Color.parseColor("#2D3748")); textSize = 15f
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            // FIX MODERN 1
             background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
             )
@@ -89,9 +95,8 @@ class TransactionEditorDialog(
 
         formLayout.addView(TextView(context).apply { text = "Catatan"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val etNote = EditText(context).apply {
-            setText(transaction.note)
+            setText(currentNote)
             setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            // FIX MODERN 2
             background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
             )
@@ -101,9 +106,8 @@ class TransactionEditorDialog(
         formLayout.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val etDate = EditText(context).apply {
-            setText(sdf.format(Date(transaction.timestamp)))
+            setText(sdf.format(Date(currentTimestamp)))
             setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            // FIX MODERN 3
             background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
             )
@@ -115,16 +119,30 @@ class TransactionEditorDialog(
         formLayout.addView(spinnerCategory)
         editorContainer.addView(formLayout)
 
-        var categoryList = listOf<CategoryEntity>()
+        // 🔥 FULL CLOUD: Tarik data master kategori langsung dari Firebase Firestore Cloud
         lifecycleScope.launch {
-            categoryList = db.categoryDao().getAllCategories().first()
-            val listNames = categoryList.map { it.name }
+            try {
+                val snapshot = firestore.collection("categories").get().await()
+                val list = ArrayList<Map<String, Any>>()
+                for (doc in snapshot.documents) {
+                    val data = doc.data ?: continue
+                    val mutableData = HashMap(data)
+                    mutableData["id"] = doc.getLong("id") ?: 0L
+                    list.add(mutableData)
+                }
+                categoryListCloud = list
+            } catch (e: Exception) {
+                categoryListCloud = listOf(
+                    mapOf("id" to 15L, "name" to "Lain-lain / Umum", "type" to "EXPENSE")
+                )
+            }
+
+            val listNames = categoryListCloud.map { it["name"] as String }
             val spinnerAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
             spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinnerCategory.adapter = spinnerAdapter
 
-            // FIX: Operasi komparasi aman antara sesama tipe data Long
-            val selectedIdx = categoryList.indexOfFirst { it.id == transaction.categoryId }
+            val selectedIdx = categoryListCloud.indexOfFirst { (it["id"] as Long) == currentCategoryId }
             if (selectedIdx != -1) spinnerCategory.setSelection(selectedIdx)
         }
 
@@ -136,43 +154,51 @@ class TransactionEditorDialog(
                 addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
                 setMargins((24 * density).toInt(), 0, (24 * density).toInt(), (24 * density).toInt())
             }
+            editorContainer.addView(this)
             layoutParams = lp
         }
-        editorContainer.addView(btnSave)
 
         val editorDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
             .setView(editorContainer).create()
 
         btnClose.setOnClickListener { editorDialog.dismiss() }
 
+        // 🔥 FULL CLOUD ACTION: Lenyapkan transaksi kas langsung dari server Firestore
         btnDelete.setOnClickListener {
-            lifecycleScope.launch {
-                db.transactionDao().deleteTransaction(transaction)
-                onUpdateAction()
-                editorDialog.dismiss()
+            if (docId.isNotEmpty()) {
+                firestore.collection("transactions").document(docId).delete().addOnSuccessListener {
+                    Toast.makeText(context, "Berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
+                    onUpdateAction()
+                    editorDialog.dismiss()
+                }
             }
         }
 
+        // 🔥 FULL CLOUD ACTION: Update payload transaksi kas langsung menuju server Firestore
         btnSave.setOnClickListener {
             val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
             val noteVal = etNote.text.toString().trim()
             val dateVal = etDate.text.toString().trim()
 
-            if (amountVal > 0.0 && noteVal.isNotEmpty() && dateVal.isNotEmpty()) {
-                lifecycleScope.launch {
-                    val parsedDate = try { sdf.parse(dateVal)?.time ?: transaction.timestamp } catch (e: Exception) { transaction.timestamp }
-                    val selectedCategory = categoryList[spinnerCategory.selectedItemPosition]
+            if (amountVal > 0.0 && noteVal.isNotEmpty() && dateVal.isNotEmpty() && categoryListCloud.isNotEmpty() && docId.isNotEmpty()) {
+                val parsedDate = try { sdf.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
+                val selectedCategory = categoryListCloud[spinnerCategory.selectedItemPosition]
+                val catId = selectedCategory["id"] as Long
+                val catName = selectedCategory["name"] as String
+                val catType = selectedCategory["type"] as String
 
-                    // FIX: Mengeliminasi type mismatch saat mapping data ke entitas transaksi
-                    val updatedTx = transaction.copy(
-                        amount = amountVal,
-                        note = noteVal,
-                        timestamp = parsedDate,
-                        categoryId = selectedCategory.id,
-                        categoryName = selectedCategory.name,
-                        type = selectedCategory.type
-                    )
-                    db.transactionDao().insertTransaction(updatedTx)
+                val updatedTxMap = hashMapOf(
+                    "id" to docId,
+                    "amount" to amountVal,
+                    "note" to noteVal.uppercase(Locale.ROOT),
+                    "timestamp" to parsedDate,
+                    "categoryId" to catId,
+                    "categoryName" to catName,
+                    "type" to catType
+                )
+
+                firestore.collection("transactions").document(docId).set(updatedTxMap).addOnSuccessListener {
+                    Toast.makeText(context, "Perubahan sukses disimpan di Cloud!", Toast.LENGTH_SHORT).show()
                     onUpdateAction()
                     editorDialog.dismiss()
                 }
