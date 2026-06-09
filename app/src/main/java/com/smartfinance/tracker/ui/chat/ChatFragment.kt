@@ -117,6 +117,34 @@ class ChatFragment : Fragment() {
 
     private fun sendChatToAI(message: String) {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        val upperMessage = message.uppercase(Locale.ROOT)
+        
+        // 🔥 INTERCEPTOR LEVEL 0: Cek mutlak sebelum memanggil API Groq
+        val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG") || upperMessage.contains("NGUTANG")
+        val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH") || upperMessage.contains("MELUNASI")
+
+        // Ekstrak nominal nominal secara aman dari UI Thread
+        var extractedAmount = 0.0
+        val numberRegex = Regex("\\d+")
+        val match = numberRegex.find(upperMessage)
+        if (match != null) {
+            extractedAmount = match.value.toDoubleOrNull() ?: 0.0
+        }
+        if (extractedAmount == 0.0) extractedAmount = 30000.0
+        val name = dynamicContactNameExtractor(upperMessage)
+
+        if (isDebtQuery && !isPaymentQuery) {
+            // KUNCI MATI: Langsung bypass jalur AI, paksa tampilkan mode konfirmasi defensif!
+            messageList.add(ChatMessage(message, true))
+            chatAdapter.notifyItemInserted(messageList.size - 1)
+            binding.rvChatHistory.scrollToPosition(messageList.size - 1)
+            binding.etMessage.setText("")
+            
+            injectConfirmationButtonsToChat(name, extractedAmount)
+            return
+        }
+
+        // Jalur normal untuk pembayaran utang lama, transaksi harian biasa, dan laporan keuangan
         messageList.add(ChatMessage(message, true))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -132,26 +160,7 @@ class ChatFragment : Fragment() {
             val rawResponse = groqClient.sendMessageToAI(message)
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
-            val upperMessage = message.uppercase(Locale.ROOT)
-            
-            val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG") || upperMessage.contains("NGUTANG")
-            val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH") || upperMessage.contains("MELUNASI")
-
-            var extractedAmount = 0.0
-            val numberRegex = Regex("\\d+")
-            val match = numberRegex.find(upperMessage)
-            if (match != null) {
-                extractedAmount = match.value.toDoubleOrNull() ?: 0.0
-            }
-            if (extractedAmount == 0.0) extractedAmount = 30000.0
-            
-            val name = dynamicContactNameExtractor(upperMessage)
-
-            if (isDebtQuery && !isPaymentQuery) {
-                binding.btnSend.post {
-                    injectConfirmationButtonsToChat(name, extractedAmount)
-                }
-            } else if (isPaymentQuery) {
+            if (isPaymentQuery) {
                 try {
                     val finalResponseText = assistant.parseAndExecuteRawAiResponse(rawResponse)
                     messageList.add(ChatMessage(finalResponseText, false))
