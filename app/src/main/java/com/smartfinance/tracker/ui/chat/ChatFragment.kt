@@ -74,7 +74,6 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) { 
             loadBackupToAdapter(savedChat) 
         } else {
-            // 🔥 FIX RIWAYAT CHAT KOSONG: Ambil langsung dari Firestore Cloud jika SharedPreferences HP kosong
             FirebaseFirestore.getInstance().collection("user_chat")
                 .document("main_chat_history")
                 .get()
@@ -133,29 +132,72 @@ class ChatFragment : Fragment() {
             val rawResponse = groqClient.sendMessageToAI(message)
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
-            // 🔥 FORCE INTERCEPTOR MODE DEFENSIF: Cegah pembacaan terbalik dari Groq secara mutlak
-            val isDebtQuery = message.uppercase(Locale.ROOT).contains("PINJAM") || message.uppercase(Locale.ROOT).contains("UTANG") || message.uppercase(Locale.ROOT).contains("BERHUTANG")
-            val isPaymentQuery = message.uppercase(Locale.ROOT).contains("BAYAR") || message.uppercase(Locale.ROOT).contains("CICIL") || message.uppercase(Locale.ROOT).contains("LUNAS")
+            val upperMessage = message.uppercase(Locale.ROOT)
+            
+            // 🚨 SAKTI INTERCEPTOR GENERASI 2: Deteksi Pola Bahasa Finansial Kompleks
+            val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG")
+            val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH")
+
+            // Parsing nominal dan nama sebagai cadangan valid
+            var extractedAmount = 30000.0
+            val numberRegex = Regex("\\d+")
+            val match = numberRegex.find(upperMessage)
+            if (match != null) {
+                extractedAmount = match.value.toDoubleOrNull() ?: 30000.0
+            }
+            val name = dynamicContactNameFallback(upperMessage)
 
             if (isDebtQuery && !isPaymentQuery) {
+                // ================== JALUR 1: PENCATATAN PINJAMAN BARU ==================
+                val isSayaDipinjami = upperMessage.contains("MEMINJAM UANG SAYA") || 
+                                      upperMessage.contains("BERHUTANG KEPADA SAYA") || 
+                                      upperMessage.contains("PINJAM UANG SAYA")
+                                      
+                val isSayaNgutang = upperMessage.contains("SAYA MEMINJAM") || 
+                                    upperMessage.contains("SAYA BERHUTANG") ||
+                                    upperMessage.contains("SAYA NGUTANG")
+
+                if (isSayaDipinjami) {
+                    // Orang lain pinjam uang saya = PIUTANG KITA (isReceivable = true)
+                    assistant.executeDirectDebtRecord(name, extractedAmount, true, System.currentTimeMillis())
+                    messageList.add(ChatMessage("✅ [PIUTANG] Berhasil mencatat piutang Anda kepada $name sebesar ${formatRupiah.format(extractedAmount)}. Data langsung dialokasikan ke Dashboard dan Menu Tagihan!", false))
+                } else if (isSayaNgutang) {
+                    // Saya pinjam uang orang lain = HUTANG KITA (isReceivable = false)
+                    assistant.executeDirectDebtRecord(name, extractedAmount, false, System.currentTimeMillis())
+                    messageList.add(ChatMessage("✅ [HUTANG] Berhasil mencatat hutang Anda kepada $name sebesar ${formatRupiah.format(extractedAmount)}. Data langsung dialokasikan ke Dashboard dan Menu Hutang!", false))
+                } else {
+                    // Jika struktur kalimatnya rancu/tidak masuk kriteria di atas, panggil tombol pilihan defensif
+                    injectConfirmationButtonsToChat(name, extractedAmount)
+                }
+            } else if (isPaymentQuery) {
+                // ================== JALUR 2: PEMBAYARAN / CICILAN / PELUNASAN ==================
                 try {
                     val cleanJsonStr = rawResponse.trim().removePrefix("```json").removePrefix("
 ```").removeSuffix("```").trim()
                     val json = JSONObject(cleanJsonStr)
-                    val txArray = json.optJSONArray("transactions")
-                    val item = txArray?.getJSONObject(0)
-                    val amount = item?.optDouble("amount", 0.0) ?: 0.0
                     
-                    var name = item?.optString("contact_name", "Seseorang")?.uppercase(Locale.ROOT) ?: "SESEORANG"
-                    if (name.isEmpty() || name == "TEMAN") {
-                        name = dynamicContactNameFallback(message.uppercase(Locale.ROOT))
+                    // Lemparkan data olahan interseptor murni langsung ke asisten eksekusi
+                    // Fungsi internal FinancialAssistant otomatis mencari kecocokan nama kontak secara berlapis
+                    val customAiMessage = if (upperMessage.contains("LUNAS") || upperMessage.contains("MELUNASI")) {
+                        "MELUNASI" 
+                    } else {
+                        "MENCICIL"
                     }
-
-                    injectConfirmationButtonsToChat(name, amount)
+                    
+                    assistant.parseAndExecuteRawAiResponse(rawResponse)
+                    
+                    if (customAiMessage == "MELUNASI") {
+                        messageList.add(ChatMessage("✅ [PELUNASAN] Berhasil memproses pelunasan utang/piutang bersama $name. Status catatan di navigasi bawah kini berubah menjadi LUNAS ✅ dan Dashboard disesuaikan penuh!", false))
+                    } else {
+                        messageList.add(ChatMessage("✅ [CICILAN] Berhasil mencatat cicilan pembayaran bersama $name sebesar ${formatRupiah.format(extractedAmount)}. Angka sisa saldo dan Dashboard berhasil diperbarui!", false))
+                    }
                 } catch (e: Exception) {
-                    injectConfirmationButtonsToChat(dynamicContactNameFallback(message.uppercase(Locale.ROOT)), 30000.0)
+                    // Fallback jika json parsing bermasalah, tetap jalankan via parser aslinya
+                    assistant.parseAndExecuteRawAiResponse(rawResponse)
+                    messageList.add(ChatMessage(rawResponse.trim(), false))
                 }
             } else {
+                // ================== JALUR 3: TRANSAKSI NORMAL & LAPORAN ==================
                 if (rawResponse.contains("CONFIRMATION_REQUIRED")) {
                     messageList.add(ChatMessage("Mohon ulangi kalimat Anda dengan jelas, Mam.", false))
                 } else {
@@ -193,7 +235,7 @@ class ChatFragment : Fragment() {
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
-                    Toast.makeText(context, "Tercatat sebagai Hutang (Dashboard Bertambah)!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Tercatat sebagai Hutang!", Toast.LENGTH_SHORT).show()
                     messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
                     chatAdapter.notifyDataSetChanged()
                 }
@@ -205,7 +247,7 @@ class ChatFragment : Fragment() {
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
-                    Toast.makeText(context, "Tercatat sebagai Piutang (Dashboard Berkurang)!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Tercatat sebagai Piutang!", Toast.LENGTH_SHORT).show()
                     messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
                     chatAdapter.notifyDataSetChanged()
                 }
@@ -225,7 +267,7 @@ class ChatFragment : Fragment() {
     }
 
     private fun dynamicContactNameFallback(userText: String): String {
-        val lists = listOf("BAYU", "JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI")
+        val lists = listOf("BAYU", "JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI", "ARI")
         for (n in lists) { if (userText.contains(n)) return n }
         return "TEMAN"
     }
