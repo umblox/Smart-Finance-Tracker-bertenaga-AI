@@ -147,27 +147,59 @@ class FinancialAssistant(private val context: Context) {
 
     private suspend fun compileAiReport(cleanJsonStr: String, aiResponse: String): String {
         val allTx = db.transactionDao().getAllTransactions().first()
-        val upperRawText = cleanJsonStr.uppercase(Locale.ROOT) + " " + aiResponse.uppercase(Locale.ROOT)
+        val json = JSONObject(cleanJsonStr)
+        val filterObj = json.optJSONObject("report_filter")
+        
+        val timeRange = filterObj?.optString("time_range", "MONTHLY") ?: "MONTHLY"
+        val targetDateStr = filterObj?.optString("target_date", "") ?: ""
+        val targetCategory = filterObj?.optString("target_category", "")?.uppercase(Locale.ROOT) ?: ""
+
         var incSum = 0.0
         var expSum = 0.0
         val calToday = Calendar.getInstance()
-
-        val isHarian = upperRawText.contains("HARI INI") || upperRawText.contains("HARIAN")
-        val isMingguan = upperRawText.contains("MINGGU")
-        val isTahunan = upperRawText.contains("TAHUN")
+        val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
 
         allTx.forEach { tx ->
             val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-            var isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+            var isTimeMatch = false
 
-            if (isHarian) {
-                isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-            } else if (isMingguan) {
-                isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-            } else if (isTahunan) {
-                isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+            // 1. EVALUASI RENTANG WAKTU SECARA AKURAT
+            when (timeRange) {
+                "TODAY" -> {
+                    isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && 
+                                  txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                }
+                "WEEKLY" -> {
+                    isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && 
+                                  txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                }
+                "MONTHLY" -> {
+                    isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && 
+                                  txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                }
+                "YEARLY" -> {
+                    isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                }
+                "CUSTOM_DATE" -> {
+                    if (targetDateStr.isNotEmpty()) {
+                        val txDateStr = sdfDate.format(Date(tx.timestamp))
+                        isTimeMatch = txDateStr == targetDateStr
+                    }
+                }
+                "ALL" -> isTimeMatch = true
             }
 
+            // 2. EVALUASI PENYARINGAN KATEGORI JIKA USER MEMINTA
+            if (isTimeMatch && targetCategory.isNotEmpty()) {
+                val currentTxCat = tx.categoryName.uppercase(Locale.ROOT)
+                val currentTxNote = tx.note.uppercase(Locale.ROOT)
+                // Filter ketat: jika nama kategori tidak cocok dan nota tidak mengandung nama kategori tersebut, lewati!
+                if (!currentTxCat.contains(targetCategory) && !currentTxNote.contains(targetCategory)) {
+                    isTimeMatch = false
+                }
+            }
+
+            // Akumulasikan jika lolos sensor waktu dan kategori[span_1](start_span)[span_1](end_span)
             if (isTimeMatch) {
                 val tUpper = tx.type.trim().uppercase(Locale.ROOT)
                 if (tUpper == "INCOME" || tUpper == "DEBT") incSum += tx.amount
@@ -175,23 +207,20 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
-        val label = when { isHarian -> "Hari Ini"; isMingguan -> "Minggu Ini"; isTahunan -> "Tahun Ini"; else -> "Bulan Ini" }
-        return "📊 **Laporan Finansial Riil $label Anda, Mam:**\n\n🟢 Total Arus Masuk: ${formatRupiah.format(incSum)}\n🔴 Total Arus Keluar: ${formatRupiah.format(expSum)}\n💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}"
-    }
+        // Susun teks balasan laporan yang rapi untuk ditampilkan di chat
+        val rentangLabel = when (timeRange) {
+            "TODAY" -> "Hari Ini"
+            "WEEKLY" -> "Minggu Ini"
+            "YEARLY" -> "Tahun Ini"
+            "CUSTOM_DATE" -> "Pada Tanggal $targetDateStr"
+            else -> "Bulan Ini"
+        }
+        
+        val kategoriLabel = if (targetCategory.isNotEmpty()) " untuk Kategori [$targetCategory]" else ""
 
-    private fun parseTransactionDate(dateStr: String): Long {
-        if (dateStr.trim().isEmpty()) return System.currentTimeMillis()
-        return try { SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+        return "📊 **Laporan Finansial Riil $rentangLabel$kategoriLabel Anda, Mam:**\n\n" +
+               "🟢 Total Arus Masuk: ${formatRupiah.format(incSum)}\n" +
+               "🔴 Total Arus Keluar: ${formatRupiah.format(expSum)}\n" +
+               "💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}\n\n" +
+               "Data diproses secara akurat berdasarkan catatan database internal aplikasi."
     }
-
-    private fun parseAmount(item: JSONObject): Double {
-        val amount = item.optDouble("amount", 0.0)
-        return if (amount == 0.0) item.optString("amount", "0").toDoubleOrNull() ?: 0.0 else amount
-    }
-
-    private fun dynamicContactNameExtractor(text: String): String {
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU")
-        for (name in databasePopulerNames) { if (text.contains(name)) return name }
-        return ""
-    }
-}
