@@ -14,17 +14,11 @@ class FinancialAssistant(private val context: Context) {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
+        // 🔥 FIX MUTLAK ANTI-PATAH STRINGS: Menggunakan Regex untuk membuang tag block ```json secara instan
         var cleanJsonStr = rawText.trim()
-        if (cleanJsonStr.startsWith("```json")) {
-            cleanJsonStr = cleanJsonStr.removePrefix("```json")
-        } else if (cleanJsonStr.startsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removePrefix("
-```")
-        }
-        if (cleanJsonStr.endsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removeSuffix("
-```")
-        }
+        cleanJsonStr = cleanJsonStr.replace(Regex("^```json\\s*"), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("^```\\s*"), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("\\s*```$"), "")
         cleanJsonStr = cleanJsonStr.trim()
 
         try {
@@ -194,7 +188,6 @@ class FinancialAssistant(private val context: Context) {
         val timeRange = filterObj?.optString("time_range", "MONTHLY") ?: "MONTHLY"
         val targetDateStr = filterObj?.optString("target_date", "") ?: ""
         val targetCategory = filterObj?.optString("target_category", "")?.uppercase(Locale.ROOT) ?: ""
-        // 🔥 EXTRACT KEYWORD BARANG SECARA DINAMIS
         val targetKeyword = filterObj?.optString("target_keyword", "")?.uppercase(Locale.ROOT) ?: ""
 
         var incSum = 0.0
@@ -237,17 +230,14 @@ class FinancialAssistant(private val context: Context) {
                 "ALL" -> isTimeMatch = true
             }
 
-            // 🔥 FIX UTAMA FILTER DINAMIS: Logika pengetatan ganda (AND Gate) agar tidak bocor antar barang
             if (isTimeMatch) {
                 val currentTxCat = catName.uppercase(Locale.ROOT)
                 val currentTxNote = note.uppercase(Locale.ROOT)
 
-                // 1. Validasi Kategori Utama (jika dilampirkan oleh Llama)
                 if (targetCategory.isNotEmpty() && !currentTxCat.contains(targetCategory)) {
                     isTimeMatch = false
                 }
 
-                // 2. Validasi Sub-Kategori / Nama Barang Spesifik (jika ada input dari user)
                 if (isTimeMatch && targetKeyword.isNotEmpty() && !currentTxNote.contains(targetKeyword)) {
                     isTimeMatch = false
                 }
