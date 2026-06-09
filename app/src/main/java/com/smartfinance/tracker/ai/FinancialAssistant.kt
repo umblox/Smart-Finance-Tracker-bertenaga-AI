@@ -18,10 +18,12 @@ class FinancialAssistant(private val context: Context) {
         if (cleanJsonStr.startsWith("```json")) {
             cleanJsonStr = cleanJsonStr.removePrefix("```json")
         } else if (cleanJsonStr.startsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removePrefix("```")
+            cleanJsonStr = cleanJsonStr.removePrefix("
+```")
         }
         if (cleanJsonStr.endsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removeSuffix("```")
+            cleanJsonStr = cleanJsonStr.removeSuffix("
+```")
         }
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -192,6 +194,8 @@ class FinancialAssistant(private val context: Context) {
         val timeRange = filterObj?.optString("time_range", "MONTHLY") ?: "MONTHLY"
         val targetDateStr = filterObj?.optString("target_date", "") ?: ""
         val targetCategory = filterObj?.optString("target_category", "")?.uppercase(Locale.ROOT) ?: ""
+        // 🔥 EXTRACT KEYWORD BARANG SECARA DINAMIS
+        val targetKeyword = filterObj?.optString("target_keyword", "")?.uppercase(Locale.ROOT) ?: ""
 
         var incSum = 0.0
         var expSum = 0.0
@@ -233,10 +237,18 @@ class FinancialAssistant(private val context: Context) {
                 "ALL" -> isTimeMatch = true
             }
 
-            if (isTimeMatch && targetCategory.isNotEmpty()) {
+            // 🔥 FIX UTAMA FILTER DINAMIS: Logika pengetatan ganda (AND Gate) agar tidak bocor antar barang
+            if (isTimeMatch) {
                 val currentTxCat = catName.uppercase(Locale.ROOT)
                 val currentTxNote = note.uppercase(Locale.ROOT)
-                if (!currentTxCat.contains(targetCategory) && !currentTxNote.contains(targetCategory)) {
+
+                // 1. Validasi Kategori Utama (jika dilampirkan oleh Llama)
+                if (targetCategory.isNotEmpty() && !currentTxCat.contains(targetCategory)) {
+                    isTimeMatch = false
+                }
+
+                // 2. Validasi Sub-Kategori / Nama Barang Spesifik (jika ada input dari user)
+                if (isTimeMatch && targetKeyword.isNotEmpty() && !currentTxNote.contains(targetKeyword)) {
                     isTimeMatch = false
                 }
             }
@@ -256,9 +268,11 @@ class FinancialAssistant(private val context: Context) {
             else -> "Bulan Ini"
         }
         
-        val kategoriLabel = if (targetCategory.isNotEmpty()) " untuk Kategori [$targetCategory]" else ""
+        val kategoriLabel = if (targetCategory.isNotEmpty()) " Kategori [$targetCategory]" else ""
+        val subKategoriLabel = if (targetKeyword.isNotEmpty()) " Spesifik Barang [$targetKeyword]" else ""
 
-        return "📊 **Laporan Finansial Cloud $rentangLabel$kategoriLabel Anda, Mam:**\n\n" +
+        return "📊 **Laporan Finansial Cloud $rentangLabel Anda, Mam:**\n" +
+               "📌 Lingkup:$kategoriLabel$subKategoriLabel\n\n" +
                "🟢 Total Arus Masuk: ${formatRupiah.format(incSum)}\n" +
                "🔴 Total Arus Keluar: ${formatRupiah.format(expSum)}\n" +
                "💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}\n\n" +
