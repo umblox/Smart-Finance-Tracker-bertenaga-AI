@@ -1,11 +1,8 @@
 package com.smartfinance.tracker.ai
 
 import android.content.Context
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import com.smartfinance.tracker.data.local.entity.DebtEntity
-import com.smartfinance.tracker.data.remote.FirebaseSyncManager
-import kotlinx.coroutines.flow.first
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -13,12 +10,10 @@ import java.util.*
 
 class FinancialAssistant(private val context: Context) {
 
-    private val db = AppDatabase.getDatabase(context)
+    private val firestore = FirebaseFirestore.getInstance()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val syncManager = FirebaseSyncManager(context)
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
-        // 🔥 FIX MUTLAK JALUR SANITASI JSON: Membersihkan penanda blok kode markdown secara aman
         var cleanJsonStr = rawText.trim()
         if (cleanJsonStr.startsWith("```json")) {
             cleanJsonStr = cleanJsonStr.removePrefix("```json")
@@ -63,7 +58,7 @@ class FinancialAssistant(private val context: Context) {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            // Diamankan murni oleh Interceptor di ChatFragment demi akurasi dashboard
+                            // Diamankan murni oleh Interceptor di ChatFragment demi akurasi mutlak
                         }
                         "DEBT_PAYMENT" -> {
                             executeDirectDebtPayment(contactNameRaw, finalAmount, cleanAiResponseUpper, targetTimestamp)
@@ -71,68 +66,106 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
             }
-            return aiResponse.ifEmpty { "Catatan keuangan berhasil diproses ke sistem, Mam!" }
+            return aiResponse.ifEmpty { "Catatan keuangan berhasil diproses ke Firebase Cloud, Mam!" }
         } catch (e: Exception) {
-            return "❌ Kalimat transaksi tidak dikenali oleh sistem."
+            return "❌ Kalimat transaksi tidak dikenali oleh sistem awan."
         }
     }
 
+    // 🔥 FULL CLOUD: Menulis langsung entitas pinjaman baru dan duplikasi kas ke koleksi Firestore
     suspend fun executeDirectDebtRecord(name: String, amountValue: Double, isReceivable: Boolean, timestampValue: Long) {
         val selectedType = if (isReceivable) "RECEIVABLE" else "DEBT"
-        
-        // 1. Amankan data ke tabel modul pencatatan navigasi bawah
-        val newDebt = DebtEntity(
-            contactName = name.uppercase(Locale.ROOT), contactPhoneNumber = "0812", amount = amountValue,
-            remainingAmount = amountValue, type = selectedType, note = "Proses via AI Premium",
-            timestamp = timestampValue, isPaid = false
-        )
-        val generatedDebtId = db.debtDao().insertDebt(newDebt)
-        syncManager.syncSingleDebtToCloud(newDebt.copy(id = generatedDebtId))
+        val debtId = "debt_${System.currentTimeMillis()}"
 
-        // 2. Suntikkan langsung data kas INCOME/EXPENSE agar Dashboard berubah reaktif detik itu juga
+        // 1. Kirim dokumen ke koleksi 'debts' Firestore
+        val debtMap = hashMapOf(
+            "id" to debtId,
+            "contactName" to name.uppercase(Locale.ROOT),
+            "contactPhoneNumber" to "0812",
+            "amount" to amountValue,
+            "remainingAmount" to amountValue,
+            "type" to selectedType,
+            "note" to "Proses via AI Cloud Premium",
+            "timestamp" to timestampValue,
+            "isPaid" to false
+        )
+        firestore.collection("debts").document(debtId).set(debtMap).await()
+
+        // 2. Suntikkan langsung transaksi kas pendamping agar Dashboard bergetar real-time
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
+        val txId = "tx_${System.currentTimeMillis()}"
 
-        val newTransaction = TransactionEntity(
-            amount = amountValue, type = flowType, categoryId = catId, categoryName = catName,
-            note = "[$selectedType] $name - INPUT AI PINJAMAN", timestamp = timestampValue
+        val txMap = hashMapOf(
+            "id" to txId,
+            "amount" to amountValue,
+            "type" to flowType,
+            "categoryId" to catId,
+            "categoryName" to catName,
+            "note" to "[$selectedType] $name - INPUT AI PINJAMAN",
+            "timestamp" to timestampValue
         )
-        val generatedTxId = db.transactionDao().insertTransaction(newTransaction)
-        syncManager.syncSingleTransactionToCloud(newTransaction.copy(id = generatedTxId))
+        firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
+    // 🔥 FULL CLOUD: Rekonsiliasi cicilan langsung dengan kueri dokumen aktif di Firestore
     private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, aiResponseUpper: String, targetTimestamp: Long) {
-        val debts = db.debtDao().getAllDebts().first()
+        val snapshot = firestore.collection("debts").get().await()
         
-        val matchDebt = debts.find { debtItem ->
-            val dbName = debtItem.contactName.uppercase(Locale.ROOT)
-            !debtItem.isPaid && (dbName == contactNameRaw || aiResponseUpper.contains(dbName))
-        } ?: debts.find { !it.isPaid && finalAmount == it.remainingAmount } 
+        var matchDocId: String? = null
+        var matchAmount = 0.0
+        var matchType = "DEBT"
+        var matchContactName = contactNameRaw
 
-        if (matchDebt != null) {
+        // Cari data pinjaman aktif langsung dari snapshot awan
+        for (doc in snapshot.documents) {
+            val isPaid = doc.getBoolean("isPaid") ?: false
+            if (!isPaid) {
+                val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT)
+                val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
+                
+                if (dbName == contactNameRaw || aiResponseUpper.contains(dbName) || finalAmount == remainingAmount) {
+                    matchDocId = doc.id
+                    matchAmount = remainingAmount
+                    matchType = doc.getString("type") ?: "DEBT"
+                    matchContactName = dbName
+                    break
+                }
+            }
+        }
+
+        if (matchDocId != null) {
             val isPelunasan = aiResponseUpper.contains("MELUNASI") || aiResponseUpper.contains("LUNAS")
-            val targetPayAmount = if (isPelunasan) matchDebt.remainingAmount else finalAmount
-            
-            val nextRemaining = (matchDebt.remainingAmount - targetPayAmount).coerceAtLeast(0.0)
-            val updatedDebt = matchDebt.copy(remainingAmount = nextRemaining, isPaid = nextRemaining <= 0.0)
-            
-            db.debtDao().insertDebt(updatedDebt)
-            syncManager.syncSingleDebtToCloud(updatedDebt)
+            val targetPayAmount = if (isPelunasan) matchAmount else finalAmount
+            val nextRemaining = (matchAmount - targetPayAmount).coerceAtLeast(0.0)
 
-            val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
-            val catId = if (matchDebt.type == "DEBT") 102L else 103L
-            val catName = if (matchDebt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+            // Update status sisa pinjaman di Firestore
+            firestore.collection("debts").document(matchDocId).update(
+                "remainingAmount", nextRemaining,
+                "isPaid", nextRemaining <= 0.0
+            ).await()
 
-            val payTransactionEntity = TransactionEntity(
-                amount = targetPayAmount, type = txType, categoryId = catId, categoryName = catName,
-                note = "[$catName] ${matchDebt.contactName} - CICILAN AI", timestamp = targetTimestamp
+            // Catat mutasi pembayarannya ke koleksi transaksi
+            val txType = if (matchType == "DEBT") "EXPENSE" else "INCOME"
+            val catId = if (matchType == "DEBT") 102L else 103L
+            val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+            val txId = "tx_${System.currentTimeMillis()}"
+
+            val payTxMap = hashMapOf(
+                "id" to txId,
+                "amount" to targetPayAmount,
+                "type" to txType,
+                "categoryId" to catId,
+                "categoryName" to catName,
+                "note" to "[$catName] $matchContactName - CICILAN AI CLOUD",
+                "timestamp" to targetTimestamp
             )
-            val generatedId = db.transactionDao().insertTransaction(payTransactionEntity)
-            syncManager.syncSingleTransactionToCloud(payTransactionEntity.copy(id = generatedId))
+            firestore.collection("transactions").document(txId).set(payTxMap).await()
         }
     }
 
+    // 🔥 FULL CLOUD: Catat pengeluaran/pemasukan biasa murni ke Firestore
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
         val cleanNote = item.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
         var type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
@@ -141,15 +174,22 @@ class FinancialAssistant(private val context: Context) {
         var catName = item.optString("category_name", "Lain-lain / Umum").trim()
         if (type == "INCOME") { catId = 1L; catName = "Gaji & Pendapatan" }
 
-        val transactionEntity = TransactionEntity(
-            amount = finalAmount, type = type, categoryId = catId, categoryName = catName, note = cleanNote, timestamp = targetTimestamp
+        val txId = "tx_${System.currentTimeMillis()}"
+        val txMap = hashMapOf(
+            "id" to txId,
+            "amount" to finalAmount,
+            "type" to type,
+            "categoryId" to catId,
+            "categoryName" to catName,
+            "note" to cleanNote,
+            "timestamp" to targetTimestamp
         )
-        val generatedId = db.transactionDao().insertTransaction(transactionEntity)
-        syncManager.syncSingleTransactionToCloud(transactionEntity.copy(id = generatedId))
+        firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
+    // 🔥 FULL CLOUD: Kalkulasi laporan finansial komplit ditarik real-time dari kueri dokumen Firestore
     private suspend fun compileAiReport(cleanJsonStr: String, aiResponse: String): String {
-        val allTx = db.transactionDao().getAllTransactions().first()
+        val snapshot = firestore.collection("transactions").get().await()
         val json = JSONObject(cleanJsonStr)
         val filterObj = json.optJSONObject("report_filter")
         
@@ -162,8 +202,14 @@ class FinancialAssistant(private val context: Context) {
         val calToday = Calendar.getInstance()
         val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
 
-        allTx.forEach { tx ->
-            val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+        for (doc in snapshot.documents) {
+            val amt = doc.getDouble("amount") ?: 0.0
+            val type = doc.getString("type") ?: "EXPENSE"
+            val catName = doc.getString("categoryName") ?: "Umum"
+            val note = doc.getString("note") ?: ""
+            val timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
+
+            val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
             var isTimeMatch = false
 
             when (timeRange) {
@@ -184,7 +230,7 @@ class FinancialAssistant(private val context: Context) {
                 }
                 "CUSTOM_DATE" -> {
                     if (targetDateStr.isNotEmpty()) {
-                        val txDateStr = sdfDate.format(Date(tx.timestamp))
+                        val txDateStr = sdfDate.format(Date(timestamp))
                         isTimeMatch = txDateStr == targetDateStr
                     }
                 }
@@ -192,17 +238,17 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (isTimeMatch && targetCategory.isNotEmpty()) {
-                val currentTxCat = tx.categoryName.uppercase(Locale.ROOT)
-                val currentTxNote = tx.note.uppercase(Locale.ROOT)
+                val currentTxCat = catName.uppercase(Locale.ROOT)
+                val currentTxNote = note.uppercase(Locale.ROOT)
                 if (!currentTxCat.contains(targetCategory) && !currentTxNote.contains(targetCategory)) {
                     isTimeMatch = false
                 }
             }
 
             if (isTimeMatch) {
-                val tUpper = tx.type.trim().uppercase(Locale.ROOT)
-                if (tUpper == "INCOME" || tUpper == "DEBT") incSum += tx.amount
-                if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") expSum += tx.amount
+                val tUpper = type.trim().uppercase(Locale.ROOT)
+                if (tUpper == "INCOME" || tUpper == "DEBT") incSum += amt
+                if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") expSum += amt
             }
         }
 
@@ -216,11 +262,11 @@ class FinancialAssistant(private val context: Context) {
         
         val kategoriLabel = if (targetCategory.isNotEmpty()) " untuk Kategori [$targetCategory]" else ""
 
-        return "📊 **Laporan Finansial Riil $rentangLabel$kategoriLabel Anda, Mam:**\n\n" +
+        return "📊 **Laporan Finansial Cloud $rentangLabel$kategoriLabel Anda, Mam:**\n\n" +
                "🟢 Total Arus Masuk: ${formatRupiah.format(incSum)}\n" +
                "🔴 Total Arus Keluar: ${formatRupiah.format(expSum)}\n" +
                "💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}\n\n" +
-               "Data diproses secara akurat berdasarkan catatan database internal aplikasi."
+               "Data diproses secara aman dan real-time dari Firebase Firestore Cloud."
     }
 
     private fun parseTransactionDate(dateStr: String): Long {
