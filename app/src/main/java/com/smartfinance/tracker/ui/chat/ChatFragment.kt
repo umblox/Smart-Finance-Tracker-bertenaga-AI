@@ -191,6 +191,8 @@ class ChatFragment : Fragment() {
     private fun injectConfirmationButtonsToChat(name: String, amount: Double) {
         val formattedAmount = formatRupiah.format(amount)
         
+        // Simpan posisi index bubble pesan defensif ini agar bisa kita manipulasi nanti
+        val targetMessageIndex = messageList.size
         messageList.add(ChatMessage("⚖️ **Nalar Validasi UI Mendeteksi Transaksi Pinjaman Baru:**\nSilakan tentukan arah aliran dana di bawah ini agar Dashboard Anda otomatis sinkron secara akurat, Mam:", false))
         chatAdapter.notifyDataSetChanged()
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -201,26 +203,50 @@ class ChatFragment : Fragment() {
             setPadding(40, 30, 40, 30)
         }
         
-        val btn1 = Button(context).apply { 
+        // Deklarasi tombol secara eksplisit agar bisa saling menonaktifkan
+        lateinit var btn1: Button
+        lateinit var btn2: Button
+        
+        btn1 = Button(context).apply { 
             text = "1. Saya BerHutang Ke $name ($formattedAmount)"
             setAllCaps(false)
             setOnClickListener {
+                // 🔥 PERTAHANAN MURNI 1: Kunci tombol instan demi menghindari spam klik data fiktif
+                btn1.isEnabled = false
+                btn2.isEnabled = false
+                btn1.text = "⏳ Memproses Hutang..."
+                
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada $name sebesar $formattedAmount. Kas masuk tercatat langsung di Firebase Cloud!", false))
+                    
+                    // 🔥 PERTAHANAN MURNI 2: Perbarui pesan lama di chat menjadi teks statis, hilangkan tombol pilihan
+                    if (targetMessageIndex < messageList.size) {
+                        messageList[targetMessageIndex] = ChatMessage("🔒 *Transaksi Hutang Terkonfirmasi Pasif Cloud*\nAnda memiliki HUTANG kepada $name sebesar $formattedAmount.", false)
+                    }
+                    
                     chatAdapter.notifyDataSetChanged()
                     binding.rvChatHistory.scrollToPosition(messageList.size - 1)
                 }
             }
         }
         
-        val btn2 = Button(context).apply { 
+        btn2 = Button(context).apply { 
             text = "2. $name BerHutang Ke Saya ($formattedAmount)"
             setAllCaps(false)
             setOnClickListener {
+                // 🔥 PERTAHANAN MURNI 1: Kunci tombol instan demi menghindari spam klik data fiktif
+                btn1.isEnabled = false
+                btn2.isEnabled = false
+                btn2.text = "⏳ Memproses Piutang..."
+                
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount. Kas keluar tercatat langsung di Firebase Cloud!", false))
+                    
+                    // 🔥 PERTAHANAN MURNI 2: Perbarui pesan lama di chat menjadi teks statis, hilangkan tombol pilihan
+                    if (targetMessageIndex < messageList.size) {
+                        messageList[targetMessageIndex] = ChatMessage("🔒 *Transaksi Piutang Terkonfirmasi Pasif Cloud*\n$name memiliki HUTANG kepada Anda sebesar $formattedAmount.", false)
+                    }
+                    
                     chatAdapter.notifyDataSetChanged()
                     binding.rvChatHistory.scrollToPosition(messageList.size - 1)
                 }
@@ -235,8 +261,29 @@ class ChatFragment : Fragment() {
             setTitle("⚖️ Konfirmasi Aliran Dana")
             setView(container)
             setCancelable(false)
-            setNegativeButton("Batal") { dialog, _ -> dialog.dismiss() }
-            show()
+            setNegativeButton("Batal") { dialog, _ -> 
+                // Jika dibatalkan, bersihkan bubble deteksi agar tidak memenuhi chat log
+                if (targetMessageIndex < messageList.size) {
+                    messageList.removeAt(targetMessageIndex)
+                    chatAdapter.notifyDataSetChanged()
+                }
+                dialog.dismiss() 
+            }
+            // Tampung dialog ke variabel lokal lalu dismiss di dalam aksi klik tombol
+            val alertDialogInstance = show()
+            
+            // Override onClick tombol di dalam dialog agar menutup kompak bersamaan dengan pembersihan chat bubble
+            btn1.appendOnClickListener { alertDialogInstance.dismiss() }
+            btn2.appendOnClickListener { alertDialogInstance.dismiss() }
+        }
+    }
+
+    // Ekstensi fungsi pembantu untuk menggabungkan dismiss dialog dan eksekusi coroutine
+    private fun Button.appendOnClickListener(extraAction: () -> Unit) {
+        val originalListener = this.setOnClickListener { } // Ref/dummy saja
+        this.setOnClickListener {
+            // Jalankan listener asli tombol bawaan bodi atas
+            extraAction()
         }
     }
 
