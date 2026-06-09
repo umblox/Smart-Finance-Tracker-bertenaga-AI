@@ -142,14 +142,17 @@ class AddDebtFragment : Fragment() {
 
         setTabStyles(btnTabDebt, btnTabReceivable)
 
+        // 🔥 FIX SINKRONISASI TOMBOL TAB: Tambahkan refreshDebtList agar database dipicu ulang real-time sesuai filter tab aktif
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
             setTabStyles(btnTabDebt, btnTabReceivable)
+            refreshDebtList(listContainer, cardDebt, cardReceivable)
         }
 
         btnTabReceivable.setOnClickListener {
             currentTab = "RECEIVABLE"
             setTabStyles(btnTabReceivable, btnTabDebt)
+            refreshDebtList(listContainer, cardDebt, cardReceivable)
         }
 
         refreshDebtList(listContainer, cardDebt, cardReceivable)
@@ -215,7 +218,6 @@ class AddDebtFragment : Fragment() {
         
         formLayout.addView(TextView(context).apply { text = "\nJenis Pinjaman:"; textSize = 12f; setTextColor(Color.parseColor("#718096")) })
         
-        // 🔥 REMOVE SPINNER -> REWRITE TO HORIZONTAL RADIO GROUP BUTTONS INTERFACE
         val rgType = RadioGroup(context).apply {
             orientation = RadioGroup.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8; bottomMargin = 8 }
