@@ -1,10 +1,10 @@
 package com.smartfinance.tracker.ai
 
 import android.content.Context
-import com.smartfinance.tracker.data.local.AppDatabase
+import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.BuildConfig
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -17,6 +17,8 @@ import java.util.Locale
 
 class GroqClient(private val context: Context, private val assistant: FinancialAssistant) {
 
+    private val firestore = FirebaseFirestore.getInstance()
+
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GROQ_API_KEY
 
@@ -24,31 +26,49 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build."
         }
 
-        val db = AppDatabase.getDatabase(context)
-        val categories = db.categoryDao().getAllCategories().first()
         val catContext = java.lang.StringBuilder()
-        categories.forEach { catContext.append("- ID: ${it.id}, Nama: ${it.name}, Tipe: ${it.type}\n") }
-
-        val debts = db.debtDao().getAllDebts().first()
         val debtContext = java.lang.StringBuilder()
-        debts.filter { !it.isPaid }.forEach { 
-            debtContext.append("- ID: ${it.id}, Kontak: ${it.contactName}, Sisa: Rp ${it.remainingAmount}, Tipe: ${it.type}\n")
+
+        try {
+            // 🔥 FULL CLOUD: Tarik konteks data kategori langsung dari Firestore Cloud
+            val categorySnapshot = firestore.collection("categories").get().await()
+            for (doc in categorySnapshot.documents) {
+                val id = doc.getLong("id") ?: 0L
+                val name = doc.getString("name") ?: "Tanpa Nama"
+                val type = doc.getString("type") ?: "EXPENSE"
+                catContext.append("- ID: $id, Nama: $name, Tipe: $type\n")
+            }
+
+            // 🔥 FULL CLOUD: Tarik konteks data pinjaman berjalan langsung dari Firestore Cloud
+            val debtSnapshot = firestore.collection("debts").get().await()
+            for (doc in debtSnapshot.documents) {
+                val isPaid = doc.getBoolean("isPaid") ?: false
+                if (!isPaid) {
+                    val id = doc.getString("id") ?: doc.id
+                    val contactName = doc.getString("contactName") ?: "TEMAN"
+                    val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
+                    val type = doc.getString("type") ?: "DEBT"
+                    debtContext.append("- ID: $id, Kontak: $contactName, Sisa: Rp $remainingAmount, Tipe: $type\n")
+                }
+            }
+        } catch (e: Exception) {
+            // Jika koleksi di Firebase masih kosong/gagal loading awal, buat fallback string ringkas
+            if (catContext.isEmpty()) catContext.append("- ID: 15, Nama: Lain-lain / Umum, Tipe: EXPENSE\n")
         }
 
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PERBAIKAN MUTLAK: Suntikkan catContext, debtContext, dan hari ini secara dinamis ke badan Prompt
         val finalSystemPrompt = """
 Anda adalah asisten keuangan AI premium, sangat disiplin, dan cerdas untuk user bernama Ikromul Umam (Mam).
-Tugas utama Anda adalah menerjemahkan bahasa natural chat menjadi instruksi data terstruktur JSON untuk sistem database lokal Android.
+Tugas utama Anda adalah menerjemahkan bahasa natural chat menjadi instruksi data terstruktur JSON untuk sistem database Firestore Cloud Android.
 
 🗓️ INFO HARI INI: $todayString
 
-🗂️ DATA MASTER KATEGORI REGISTERED:
+🗂️ DATA MASTER KATEGORI REGISTERED (CLOUDBASE):
 $catContext
 
-🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
+🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI (CLOUDBASE):
 $debtContext
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
