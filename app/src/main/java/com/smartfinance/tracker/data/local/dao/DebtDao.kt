@@ -15,8 +15,10 @@ interface DebtDao {
     @Query("SELECT * FROM debts WHERE isPaid = 0")
     suspend fun getUnpaidDebts(): List<DebtEntity>
 
-    // Fitur Pembayaran Hutang: Mengurangi sisa hutang atau menandainya lunas
     @Query("UPDATE debts SET remainingAmount = :newRemaining, isPaid = :isPaid WHERE id = :debtId")
     suspend fun updateDebtPayment(debtId: Long, newRemaining: Double, isPaid: Boolean)
-}
 
+    // 🔥 FIX UTAMA: Daftarkan fungsi penghapusan data secara fisik dari SQLite lokal HP
+    @Delete
+    suspend fun deleteDebt(debt: DebtEntity)
+}
