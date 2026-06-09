@@ -28,9 +28,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
 
         val catContext = java.lang.StringBuilder()
         val debtContext = java.lang.StringBuilder()
+        val txContext = java.lang.StringBuilder()
 
         try {
-            // 🔥 FULL CLOUD: Tarik konteks data kategori langsung dari Firestore Cloud
+            // 1. Ambil Data Master Kategori
             val categorySnapshot = firestore.collection("categories").get().await()
             for (doc in categorySnapshot.documents) {
                 val id = doc.getLong("id") ?: 0L
@@ -39,42 +40,64 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 catContext.append("- ID: $id, Nama: $name, Tipe: $type\n")
             }
 
-            // 🔥 FULL CLOUD: Tarik konteks data pinjaman berjalan langsung dari Firestore Cloud
+            // 2. Ambil Data Catatan Pinjaman Berjalan
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
                 val isPaid = doc.getBoolean("isPaid") ?: false
                 if (!isPaid) {
-                    val id = doc.getString("id") ?: doc.id
                     val contactName = doc.getString("contactName") ?: "TEMAN"
                     val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
                     val type = doc.getString("type") ?: "DEBT"
-                    debtContext.append("- ID: $id, Kontak: $contactName, Sisa: Rp $remainingAmount, Tipe: $type\n")
+                    debtContext.append("- Kontak: $contactName, Sisa: Rp $remainingAmount, Tipe: $type\n")
                 }
             }
+
+            // 3. 🔥 OTAK UTAMA LAPORAN: Tarik seluruh riwayat transaksi riil dari Firestore Cloud agar AI bisa berhitung
+            val txSnapshot = firestore.collection("transactions").get().await()
+            val sdfTx = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            for (doc in txSnapshot.documents) {
+                val amount = doc.getDouble("amount") ?: 0.0
+                val type = doc.getString("type") ?: "EXPENSE"
+                val categoryName = doc.getString("categoryName") ?: "Umum"
+                val note = doc.getString("note") ?: ""
+                val timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
+                val dateStr = sdfTx.format(Date(timestamp))
+                txContext.append("- [$dateStr] Kategori: $categoryName, Tipe: $type, Jumlah: Rp $amount, Catatan: $note\n")
+            }
+
         } catch (e: Exception) {
-            // Jika koleksi di Firebase masih kosong/gagal loading awal, buat fallback string ringkas
-            if (catContext.isEmpty()) catContext.append("- ID: 15, Nama: Lain-lain / Umum, Tipe: EXPENSE\n")
+            e.printStackTrace()
         }
 
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
+        // 🔥 PERBAIKAN RADIKAL PROMPT SYSTEM: AI dibebaskan berpikir cerdas & dipasok data riil untuk kalkulasi eksplisit
         val finalSystemPrompt = """
-Anda adalah asisten keuangan AI premium, sangat disiplin, dan cerdas untuk user bernama Ikromul Umam (Mam).
-Tugas utama Anda adalah menerjemahkan bahasa natural chat menjadi instruksi data terstruktur JSON untuk sistem database Firestore Cloud Android.
+Anda adalah asisten keuangan AI premium, sangat cerdas, analitis, dan solutif untuk user bernama Ikromul Umam (Mam).
+Tugas utama Anda:
+1. Menjawab pertanyaan atau melakukan analisis keuangan komprehensif, eksplisit, terperinci, dan mendalam berdasarkan data transaksi nyata yang dilampirkan di bawah.
+2. Jika user meminta instruksi perubahan data (mencatat transaksi/utang baru, mencicil, dll), terjemahkan bahasa natural tersebut menjadi instruksi terstruktur JSON.
 
 🗓️ INFO HARI INI: $todayString
 
-🗂️ DATA MASTER KATEGORI REGISTERED (CLOUDBASE):
-$catContext
+🗂️ DATA MASTER KATEGORI REGISTERED:
+${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
 
-🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI (CLOUDBASE):
-$debtContext
+🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
+${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
+
+📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL (Gunakan data ini untuk menghitung total laporan, pengeluaran tertinggi, harian, bulanan, tahunan, atau per kategori secara eksplisit):
+${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else txContext.toString()}
+
+⚠️ ATURAN ANALISIS DAN BAHASA NATURAL (ANTI-BODOH):
+- Jangan kaku! Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang atau nama kontak terkait. Analisis konteks kalimat secara cerdas.
+- Jika user meminta laporan keuangan, performa kas, pengeluaran tertinggi, atau rincian per tanggal/kategori, lakukan kalkulasi matematika secara akurat menggunakan data di atas dan tuliskan rincian detailnya pada kolom "ai_response" dalam bentuk Markdown yang cantik (gunakan bold, bullet points, dan baris baru yang rapi).
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
   "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Kalimat balasan ramah, kasual, dan informatif kepada user",
+  "ai_response": "Tuliskan jawaban ramah, kasual, laporan keuangan eksplisit mendalam, atau rincian analisis data matematika Anda di sini secara lengkap.",
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
     "target_date": "yyyy-MM-dd",
@@ -89,19 +112,9 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
   ]
 }
 
-⚠️ MANAJEMEN LOGIKA VIEW_REPORT (PERINTAH LAPORAN):
-1. Jika user meminta laporan keuangan, ringkasan kas, atau performa saldo, set action_type menjadi "VIEW_REPORT".
-2. Analisis rentang waktu permintaan user pada objek report_filter:
-   - "hari ini" / "harian" -> set time_range ke "TODAY"
-   - "minggu ini" / "mingguan" -> set time_range ke "WEEKLY"
-   - "bulan ini" / "bulanan" -> set time_range ke "MONTHLY"
-   - "tahun ini" / "tahunan" -> set time_range ke "YEARLY"
-   - Menyebut tanggal spesifik (misal: "laporan tanggal 5 juni") -> set time_range ke "CUSTOM_DATE" dan konversikan tanggalnya ke target_date format "2026-06-05".
-3. Jika user meminta laporan spesifik kategori atau jenis alokasi dana (misal: "lihat pengeluaran makanan saya" atau "berapa total piutang saya"), isi target_category dengan nama kategori murni tersebut (Contoh: "MAKANAN" atau "PIUTANG").
-
-⚠️ ATURAN PINJAMAN (DEBT_RECORD / DEBT_PAYMENT):
-1. Jika mendeteksi transaksi utang/piutang baru, set action_type menjadi "DEBT_RECORD". Cukup ekstrak amount dan contact_name secara jujur. Jangan pusingkan arah akuntansinya karena akan ditangani oleh Interceptor HP.
-2. Jika ada cicilan, pembayaran, atau pelunasan utang lama berdasarkan daftar data pinjaman berjalan di atas, set action_type menjadi "DEBT_PAYMENT".
+⚠️ MANAGEMENT LOGIK ACTION_TYPE:
+- Jika user sekadar meminta laporan, melihat data, bertanya pengeluaran tertinggi, set action_type ke "VIEW_REPORT" atau "CHAT_ONLY" dan berikan rincian hitungan lengkap Anda di kolom ai_response.
+- Jika terdeteksi mutasi dana baru, barulah isi objek transactions dengan benar.
 """.trimIndent()
 
         try {
