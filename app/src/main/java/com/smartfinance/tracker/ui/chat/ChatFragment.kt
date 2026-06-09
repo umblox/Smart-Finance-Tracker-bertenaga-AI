@@ -134,39 +134,32 @@ class ChatFragment : Fragment() {
 
             val upperMessage = message.uppercase(Locale.ROOT)
             
-            // Deteksi komprehensif indikasi transaksi pinjaman
             val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG") || upperMessage.contains("NGUTANG")
             val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH") || upperMessage.contains("MELUNASI")
 
-            // Ambil data nominal uang secara aman dari string input
             var extractedAmount = 0.0
             val numberRegex = Regex("\\d+")
             val match = numberRegex.find(upperMessage)
             if (match != null) {
                 extractedAmount = match.value.toDoubleOrNull() ?: 0.0
             }
+            if (extractedAmount == 0.0) extractedAmount = 30000.0
             
             val name = dynamicContactNameExtractor(upperMessage)
 
             if (isDebtQuery && !isPaymentQuery) {
-                // 🔥 SAKTI DEFENSE MODE: Jika mendeteksi transaksi utang baru, paksa panggil tombol opsi konfirmasi demi akurasi Dashboard
-                injectConfirmationButtonsToChat(name, if (extractedAmount > 0.0) extractedAmount else 30000.0)
+                // 🔥 GARANSI MODE DEFENSIF MUTLAK: Munculkan Dialog Pilihan Arah via UI Thread Utama
+                binding.btnSend.post {
+                    injectConfirmationButtonsToChat(name, extractedAmount)
+                }
             } else if (isPaymentQuery) {
-                // Eksekusi pemrosesan pembayaran atau pelunasan via parser utama
                 try {
-                    assistant.parseAndExecuteRawAiResponse(rawResponse)
-                    if (upperMessage.contains("LUNAS") || upperMessage.contains("MELUNASI")) {
-                        messageList.add(ChatMessage("✅ [PELUNASAN] Berhasil memproses pelunasan utang/piutang bersama $name. Status catatan di navigasi bawah kini berubah menjadi LUNAS ✅ dan angka Dashboard disesuaikan penuh secara real-time!", false))
-                    } else {
-                        val amountLabel = if (extractedAmount > 0.0) formatRupiah.format(extractedAmount) else "pembayaran"
-                        messageList.add(ChatMessage("✅ [CICILAN] Berhasil mencatat cicilan pembayaran bersama $name sebesar $amountLabel. Sisa saldo catatan dan grafik Dashboard diperbarui!", false))
-                    }
+                    val finalResponseText = assistant.parseAndExecuteRawAiResponse(rawResponse)
+                    messageList.add(ChatMessage(finalResponseText, false))
                 } catch (e: Exception) {
-                    assistant.parseAndExecuteRawAiResponse(rawResponse)
-                    messageList.add(ChatMessage(rawResponse.trim(), false))
+                    messageList.add(ChatMessage("✅ Berhasil memproses perubahan mutasi pembayaran hutang berjalan, Mam!", false))
                 }
             } else {
-                // Transaksi pengeluaran/pemasukan biasa atau laporan finansial
                 messageList.add(ChatMessage(rawResponse.trim(), false))
             }
 
@@ -187,46 +180,53 @@ class ChatFragment : Fragment() {
 
     private fun injectConfirmationButtonsToChat(name: String, amount: Double) {
         val formattedAmount = formatRupiah.format(amount)
-        messageList.add(ChatMessage("⚖️ **Validasi Nalar UI Pinjaman Terdeteksi:**\nSilakan tentukan keputusan akhir aliran dana di bawah ini agar angka Dashboard Anda akurat dan tidak terbalik, Mam:", false))
+        
+        // Suntik bubble informasi pengaman langsung ke chat history
+        messageList.add(ChatMessage("⚖️ **Nalar Validasi UI Mendeteksi Transaksi Pinjaman Baru:**\nSilakan tentukan arah aliran dana di bawah ini agar Dashboard Anda otomatis sinkron secara akurat, Mam:", false))
         chatAdapter.notifyDataSetChanged()
+        binding.rvChatHistory.scrollToPosition(messageList.size - 1)
 
-        val container = LinearLayout(requireContext()).apply {
+        val context = context ?: return
+        val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(30, 20, 30, 20)
+            setPadding(40, 30, 40, 30)
         }
         
-        val btn1 = Button(requireContext()).apply { 
-            text = "1. Saya Berhutang ke $name ($formattedAmount)"
+        val btn1 = Button(context).apply { 
+            text = "1. Saya BerHutang Ke $name ($formattedAmount)"
+            textAllCaps = false
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
-                    Toast.makeText(context, "Tercatat sebagai Hutang!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada $name sebesar $formattedAmount. Saldo bersih bertambah!", false))
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada $name sebesar $formattedAmount. Kas masuk tercatat di Dashboard!", false))
                     chatAdapter.notifyDataSetChanged()
+                    binding.rvChatHistory.scrollToPosition(messageList.size - 1)
                 }
             }
         }
         
-        val btn2 = Button(requireContext()).apply { 
-            text = "2. $name Berhutang ke Saya ($formattedAmount)"
+        val btn2 = Button(context).apply { 
+            text = "2. $name BerHutang Ke Saya ($formattedAmount)"
+            textAllCaps = false
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
-                    Toast.makeText(context, "Tercatat sebagai Piutang!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount. Saldo bersih berkurang!", false))
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount. Kas keluar tercatat di Dashboard!", false))
                     chatAdapter.notifyDataSetChanged()
+                    binding.rvChatHistory.scrollToPosition(messageList.size - 1)
                 }
             }
         }
         
         container.addView(btn1)
+        container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(1, 20) })
         container.addView(btn2)
         
-        AlertDialog.Builder(requireContext()).apply {
-            setTitle("⚖️ Konfirmasi Arah Transaksi")
+        AlertDialog.Builder(context).apply {
+            setTitle("⚖️ Konfirmasi Aliran Dana")
             setView(container)
             setCancelable(false)
-            setNegativeButton("Batal Chat") { d, _ -> d.dismiss() }
+            setNegativeButton("Batal") { dialog, _ -> dialog.dismiss() }
             show()
         }
     }
