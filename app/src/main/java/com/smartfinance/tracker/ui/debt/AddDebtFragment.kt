@@ -406,10 +406,26 @@ class AddDebtFragment : Fragment() {
                         show()
                     }
                 } else {
-                    lifecycleScope.launch {
-                        val clearedDebt = debt.copy(remainingAmount = 0.0, isPaid = true)
-                        withContext(Dispatchers.IO) { db.debtDao().insertDebt(clearedDebt) }
-                        Toast.makeText(context, "Catatan Berhasil Dibersihkan!", Toast.LENGTH_SHORT).show()
+                    // 🔥 PERBAIKAN LOGIKA MUTLAK: Hapus entitas secara permanen dari SQLite, bukan cuma di-set lunas!
+                    AlertDialog.Builder(context).apply {
+                        setTitle("⚠️ Hapus Catatan?")
+                        setMessage("Apakah Anda yakin ingin menghapus catatan pinjaman bersama ${debt.contactName} secara permanen?")
+                        setPositiveButton("Ya, Hapus") { _, _ ->
+                            lifecycleScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    // Panggil fungsi query delete bawaan Room DAO
+                                    db.debtDao().deleteDebt(debt) 
+                                    
+                                    // Opsional: Hapus dari Firebase Cloud Firestore jika sinkronisasi satu pintu
+                                    FirebaseFirestore.getInstance().collection("debts")
+                                        .document("debt_${debt.id}")
+                                        .delete()
+                                }
+                                Toast.makeText(context, "Catatan Berhasil Dihapus Permanen!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        setNegativeButton("Batal", null)
+                        show()
                     }
                 }
             }
