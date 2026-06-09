@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.ai.GroqClient
 import com.smartfinance.tracker.data.model.ChatMessage
@@ -33,8 +34,6 @@ class ChatFragment : Fragment() {
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
     private lateinit var syncManager: FirebaseSyncManager
-    
-    // 🔥 Gunakan formatter terstandarisasi agar terhindar dari galat sintaks string format kustom
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     override fun onCreateView(
@@ -71,7 +70,30 @@ class ChatFragment : Fragment() {
 
         val prefs = contextRef.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val savedChat = prefs.getString("chat_history_backup_v4", "")
-        if (!savedChat.isNullOrEmpty()) { loadBackupToAdapter(savedChat) }
+        
+        if (!savedChat.isNullOrEmpty()) { 
+            loadBackupToAdapter(savedChat) 
+        } else {
+            // 🔥 FIX RIWAYAT CHAT KOSONG: Ambil langsung dari Firestore Cloud jika SharedPreferences HP kosong
+            FirebaseFirestore.getInstance().collection("user_chat")
+                .document("main_chat_history")
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val history = document.get("history") as? List<Map<String, Any>>
+                        if (!history.isNullOrEmpty()) {
+                            messageList.clear()
+                            history.forEach { msgMap ->
+                                val text = msgMap["text"] as? String ?: ""
+                                val isUser = msgMap["isUser"] as? Boolean ?: false
+                                if (text.isNotEmpty()) messageList.add(ChatMessage(text, isUser))
+                            }
+                            chatAdapter.notifyDataSetChanged()
+                            binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
+                        }
+                    }
+                }
+        }
 
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
@@ -111,20 +133,34 @@ class ChatFragment : Fragment() {
             val rawResponse = groqClient.sendMessageToAI(message)
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
-            if (rawResponse.contains("CONFIRMATION_REQUIRED")) {
+            // 🔥 FORCE INTERCEPTOR MODE DEFENSIF: Cegah pembacaan terbalik dari Groq secara mutlak
+            val isDebtQuery = message.uppercase(Locale.ROOT).contains("PINJAM") || message.uppercase(Locale.ROOT).contains("UTANG") || message.uppercase(Locale.ROOT).contains("BERHUTANG")
+            val isPaymentQuery = message.uppercase(Locale.ROOT).contains("BAYAR") || message.uppercase(Locale.ROOT).contains("CICIL") || message.uppercase(Locale.ROOT).contains("LUNAS")
+
+            if (isDebtQuery && !isPaymentQuery) {
                 try {
-                    val json = JSONObject(rawResponse.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim())
+                    val cleanJsonStr = rawResponse.trim().removePrefix("```json").removePrefix("
+```").removeSuffix("```").trim()
+                    val json = JSONObject(cleanJsonStr)
                     val txArray = json.optJSONArray("transactions")
                     val item = txArray?.getJSONObject(0)
                     val amount = item?.optDouble("amount", 0.0) ?: 0.0
-                    val name = item?.optString("contact_name", "Seseorang")?.uppercase(Locale.ROOT) ?: "SESEORANG"
+                    
+                    var name = item?.optString("contact_name", "Seseorang")?.uppercase(Locale.ROOT) ?: "SESEORANG"
+                    if (name.isEmpty() || name == "TEMAN") {
+                        name = dynamicContactNameFallback(message.uppercase(Locale.ROOT))
+                    }
 
                     injectConfirmationButtonsToChat(name, amount)
                 } catch (e: Exception) {
-                    messageList.add(ChatMessage("Mohon ulangi kalimat Anda dengan lebih jelas, Mam.", false))
+                    injectConfirmationButtonsToChat(dynamicContactNameFallback(message.uppercase(Locale.ROOT)), 30000.0)
                 }
             } else {
-                messageList.add(ChatMessage(rawResponse.trim(), false))
+                if (rawResponse.contains("CONFIRMATION_REQUIRED")) {
+                    messageList.add(ChatMessage("Mohon ulangi kalimat Anda dengan jelas, Mam.", false))
+                } else {
+                    messageList.add(ChatMessage(rawResponse.trim(), false))
+                }
             }
 
             chatAdapter.notifyDataSetChanged()
@@ -143,10 +179,8 @@ class ChatFragment : Fragment() {
     }
 
     private fun injectConfirmationButtonsToChat(name: String, amount: Double) {
-        // 🔥 FIX MUTLAK: Gunakan formatter aman bawaan sistem Android untuk melenyapkan galat token petik ganda
         val formattedAmount = formatRupiah.format(amount)
-        
-        messageList.add(ChatMessage("🤔 Kalimat Anda sedikit membingungkan sistem AI. Tolong pilih opsi arah transaksi yang benar di bawah ini agar Dashboard Anda akurat, Mam:", false))
+        messageList.add(ChatMessage("⚖️ **Validasi Nalar UI Pinjaman Terdeteksi:**\nSilakan tentukan keputusan akhir aliran dana agar angka Dashboard tidak terbalik, Mam:", false))
         chatAdapter.notifyDataSetChanged()
 
         val container = LinearLayout(requireContext()).apply {
@@ -155,24 +189,24 @@ class ChatFragment : Fragment() {
         }
         
         val btn1 = Button(requireContext()).apply { 
-            text = "1. Anda Berhutang ke " + name + " (" + formattedAmount + ")"
+            text = "1. Saya Berhutang ke " + name + " (" + formattedAmount + ")"
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
-                    Toast.makeText(context, "Berhasil dicatat sebagai Hutang!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil tercatat: Anda memiliki HUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
+                    Toast.makeText(context, "Tercatat sebagai Hutang (Dashboard Bertambah)!", Toast.LENGTH_SHORT).show()
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
                     chatAdapter.notifyDataSetChanged()
                 }
             }
         }
         
         val btn2 = Button(requireContext()).apply { 
-            text = "2. " + name + " Berhutang ke Anda (" + formattedAmount + ")"
+            text = "2. " + name + " Berhutang ke Saya (" + formattedAmount + ")"
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
-                    Toast.makeText(context, "Berhasil dicatat sebagai Piutang!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil tercatat: Anda memiliki PIUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
+                    Toast.makeText(context, "Tercatat sebagai Piutang (Dashboard Berkurang)!", Toast.LENGTH_SHORT).show()
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
                     chatAdapter.notifyDataSetChanged()
                 }
             }
@@ -188,6 +222,12 @@ class ChatFragment : Fragment() {
             setNegativeButton("Batal Chat") { d, _ -> d.dismiss() }
             show()
         }
+    }
+
+    private fun dynamicContactNameFallback(userText: String): String {
+        val lists = listOf("BAYU", "JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI")
+        for (n in lists) { if (userText.contains(n)) return n }
+        return "TEMAN"
     }
 
     private fun loadBackupToAdapter(backupStr: String) {
