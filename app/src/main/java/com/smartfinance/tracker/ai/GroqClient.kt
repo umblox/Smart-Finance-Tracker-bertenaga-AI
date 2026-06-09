@@ -66,6 +66,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
 
             3. Jika kalimat bermakna "Orang lain membayar cicilan utangnya ke SAYA" atau "SAYA menagih/menerima uang pembayaran utang":
                - Set 'action_type' menjadi 'DEBT_PAYMENT'
+            4. ⚠️ EVALUASI AMBIGUITAS UTANG-PIUTANG:
+               - Jika struktur kalimat pengguna membingungkan, memiliki makna ganda, tidak jelas siapa subjek aktif yang memegang fisik uang tunai, atau Anda ragu menentukan arah transaksi, Anda WAJIB membatalkan eksekusi otomatis.
+               - Set 'action_type' menjadi 'CONFIRMATION_REQUIRED'
+               - Di dalam 'ai_response', Anda WAJIB mengosongkannya dan fokus menyusun data transaksi mentah berikut: 'contact_name' dan 'amount' untuk kebutuhan pembuatan tombol interaktif lokal Android.
 
             STRUKTUR KAKU OUTPUT JSON:
             {
