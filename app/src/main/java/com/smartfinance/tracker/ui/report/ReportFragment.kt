@@ -10,22 +10,20 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
-import com.smartfinance.tracker.MainActivity
-import com.smartfinance.tracker.R
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog // IMPORT EDITOR BARU
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class ReportFragment : Fragment() {
 
-    private lateinit var db: AppDatabase
+    private val firestore = FirebaseFirestore.getInstance()
+    private var reportListenerRegistration: ListenerRegistration? = null
+
     private lateinit var listContainer: LinearLayout
     private lateinit var tvReportIncome: TextView
     private lateinit var tvReportExpense: TextView
@@ -36,7 +34,6 @@ class ReportFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
         val root = RelativeLayout(context).apply {
@@ -109,88 +106,144 @@ class ReportFragment : Fragment() {
         nsv.addView(mainLayout)
         root.addView(nsv)
 
-        loadReportData()
+        observeCloudReportLive()
         return root
     }
 
-    private fun loadReportData() {
+    // 🔥 REAL-TIME WATCHER FOR REPORT: Mengikat data rekapitulasi langsung dari awan Firestore
+    private fun observeCloudReportLive() {
         if (!isAdded) return
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
-        lifecycleScope.launch {
-            val allTx = db.transactionDao().getAllTransactions().first()
-            val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+        reportListenerRegistration?.remove()
 
-            var incomeSum = 0.0
-            var expenseSum = 0.0
+        reportListenerRegistration = firestore.collection("transactions")
+            .addSnapshotListener { snapshots, e ->
+                if (e != null || snapshots == null) return@addSnapshotListener
 
-            allTx.forEach { tx ->
-                if (tx.type.trim().uppercase() == "INCOME") incomeSum += tx.amount
-                else if (tx.type.trim().uppercase() == "EXPENSE") expenseSum += tx.amount
-            }
+                val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+                var incomeSum = 0.0
+                var expenseSum = 0.0
 
-            tvReportIncome.text = "Pemasukan: ${formatRupiah.format(incomeSum)}"
-            tvReportExpense.text = "Pengeluaran: ${formatRupiah.format(expenseSum)}"
-            tvReportNet.text = "Selisih Bersih: ${formatRupiah.format(incomeSum - expenseSum)}"
+                val cloudTxList = ArrayList<HashMap<String, Any>>()
 
-            listContainer.removeAllViews()
+                for (doc in snapshots.documents) {
+                    val data = doc.data ?: continue
+                    val amount = (data["amount"] as? Number)?.toDouble() ?: 0.0
+                    val type = (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
+                    val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    val categoryName = data["categoryName"] as? String ?: "Umum"
+                    val note = data["note"] as? String ?: "Transaksi AI"
 
-            val sortedList = allTx.sortedByDescending { it.timestamp }
-
-            if (sortedList.isEmpty()) {
-                listContainer.addView(TextView(context).apply {
-                    text = "Belum ada transaksi."
-                    textSize = 14f
-                    gravity = Gravity.CENTER
-                    setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
-                })
-            } else {
-                sortedList.forEachIndexed { index, item ->
-                    val row = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
-                        // JALUR EDITAN LAPORAN: Panggil editor dialog dan jalankan refresh data ketika sukses disimpan/dihapus
-                        setOnClickListener {
-                            TransactionEditorDialog(item) { loadReportData() }.show(parentFragmentManager, "TransactionEditorDialog")
-                        }
+                    // Klasifikasi aliran akuntansi kaku pendamping utang-piutang AI
+                    if (type == "INCOME" || type == "DEBT") {
+                        incomeSum += amount
+                    } else if (type == "EXPENSE" || type == "RECEIVABLE") {
+                        expenseSum += amount
                     }
 
-                    val iconCircle = FrameLayout(context).apply {
-                        layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                        background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
-                        val txt = TextView(context).apply { text = if (item.type == "INCOME") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
-                        addView(txt)
+                    val itemMap = HashMap<String, Any>().apply {
+                        put("id", doc.id)
+                        put("amount", amount)
+                        put("type", type)
+                        put("timestamp", timestamp)
+                        put("categoryName", categoryName)
+                        put("note", note)
                     }
-                    row.addView(iconCircle)
+                    cloudTxList.add(itemMap)
+                }
 
-                    val center = LinearLayout(context).apply {
-                        orientation = LinearLayout.VERTICAL
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-                    center.addView(TextView(context).apply { text = item.note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                    center.addView(TextView(context).apply { text = "${item.categoryName} • ${sdf.format(Date(item.timestamp))}"; setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
-                    row.addView(center)
+                tvReportIncome.text = "Pemasukan: ${formatRupiah.format(incomeSum)}"
+                tvReportExpense.text = "Pengeluaran: ${formatRupiah.format(expenseSum)}"
+                tvReportNet.text = "Selisih Bersih: ${formatRupiah.format(incomeSum - expenseSum)}"
 
-                    val isInc = item.type.trim().uppercase() == "INCOME"
-                    row.addView(TextView(context).apply {
-                        text = (if (isInc) "+" else "-") + formatRupiah.format(item.amount)
-                        setTextColor(Color.parseColor(if (isInc) "#2B6CB0" else "#E53E3E"))
-                        setTypeface(null, Typeface.BOLD)
+                listContainer.removeAllViews()
+
+                // Urutkan list berdasarkan riwayat mutasi waktu terbaru di awan
+                cloudTxList.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
+
+                if (cloudTxList.isEmpty()) {
+                    listContainer.addView(TextView(context).apply {
+                        text = "Belum ada transaksi."
                         textSize = 14f
+                        gravity = Gravity.CENTER
+                        setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
                     })
+                } else {
+                    cloudTxList.forEachIndexed { index, item ->
+                        val row = LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+                            
+                            setOnClickListener {
+                                // Opsi aksi hapus/edit dokumen langsung menyasar target Firestore Document ID
+                                val docId = item["id"] as String
+                                showDeleteTransactionDialog(docId, item["note"] as String)
+                            }
+                        }
 
-                    listContainer.addView(row)
+                        val note = item["note"] as String
+                        val categoryName = item["categoryName"] as String
+                        val timestamp = item["timestamp"] as Long
+                        val amount = item["amount"] as Double
+                        val currentType = item["type"] as String
 
-                    if (index < sortedList.size - 1) {
-                        listContainer.addView(View(context).apply {
-                            setBackgroundColor(Color.parseColor("#EDF2F7"))
-                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { leftMargin = (50 * density).toInt() }
+                        val iconCircle = FrameLayout(context).apply {
+                            layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
+                            val txt = TextView(context).apply { text = if (currentType == "INCOME" || currentType == "DEBT") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
+                            addView(txt)
+                        }
+                        row.addView(iconCircle)
+
+                        val center = LinearLayout(context).apply {
+                            orientation = LinearLayout.VERTICAL
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        }
+                        center.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                        center.addView(TextView(context).apply { text = "$categoryName • ${sdf.format(Date(timestamp))}"; setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
+                        row.addView(center)
+
+                        val isInc = currentType == "INCOME" || currentType == "DEBT"
+                        row.addView(TextView(context).apply {
+                            text = (if (isInc) "+" else "-") + formatRupiah.format(amount)
+                            setTextColor(Color.parseColor(if (isInc) "#2B6CB0" else "#E53E3E"))
+                            setTypeface(null, Typeface.BOLD)
+                            textSize = 14f
                         })
+
+                        listContainer.addView(row)
+
+                        if (index < cloudTxList.size - 1) {
+                            listContainer.addView(View(context).apply {
+                                setBackgroundColor(Color.parseColor("#EDF2F7"))
+                                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { leftMargin = (50 * density).toInt() }
+                            })
+                        }
                     }
                 }
             }
+    }
+
+    // 🔥 FULL CLOUD DELETE ACTION: Lenyapkan mutasi kas yang salah rekam langsung dari server awan Firestore
+    private fun showDeleteTransactionDialog(docId: String, note: String) {
+        val contextRef = requireContext()
+        AlertDialog.Builder(contextRef).apply {
+            setTitle("🗑️ Hapus Transaksi?")
+            setMessage("Apakah Anda yakin ingin menghapus transaksi \"$note\" secara permanen dari server Cloud?")
+            setPositiveButton("Ya, Hapus") { _, _ ->
+                firestore.collection("transactions").document(docId).delete()
+                Toast.makeText(contextRef, "Transaksi berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
+            }
+            setNegativeButton("Batal", null)
+            show()
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        reportListenerRegistration?.remove()
     }
 }
