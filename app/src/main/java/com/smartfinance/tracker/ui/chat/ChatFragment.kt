@@ -17,10 +17,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.ai.GroqClient
 import com.smartfinance.tracker.data.model.ChatMessage
-import com.smartfinance.tracker.data.remote.FirebaseSyncManager
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -33,8 +31,8 @@ class ChatFragment : Fragment() {
     private lateinit var assistant: FinancialAssistant
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
-    private lateinit var syncManager: FirebaseSyncManager
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    private val firestore = FirebaseFirestore.getInstance()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -49,7 +47,6 @@ class ChatFragment : Fragment() {
         val contextRef = requireContext()
         assistant = FinancialAssistant(contextRef)
         groqClient = GroqClient(contextRef, assistant)
-        syncManager = FirebaseSyncManager(contextRef)
 
         chatAdapter = ChatAdapter(messageList)
         binding.rvChatHistory.layoutManager = LinearLayoutManager(contextRef)
@@ -74,7 +71,8 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) { 
             loadBackupToAdapter(savedChat) 
         } else {
-            FirebaseFirestore.getInstance().collection("user_chat")
+            // 🔥 FULL CLOUD: Menarik data riwayat obrolan secara langsung dari dokumen Firestore Cloud
+            firestore.collection("user_chat")
                 .document("main_chat_history")
                 .get()
                 .addOnSuccessListener { document ->
@@ -102,10 +100,11 @@ class ChatFragment : Fragment() {
         binding.btnClearChat.setOnClickListener {
             AlertDialog.Builder(contextRef).apply {
                 setTitle("🗑️ Bersihkan Riwayat Chat?")
-                setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakapan secara permanen?")
+                setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakapan secara permanen dari Cloud?")
                 setPositiveButton("Ya, Hapus Semua") { _, _ ->
                     prefs.edit().remove("chat_history_backup_v4").apply()
-                    syncManager.clearChatHistoryFromCloud { }
+                    // 🔥 FULL CLOUD: Langsung eksekusi perintah hapus dokumen di awan Firestore
+                    firestore.collection("user_chat").document("main_chat_history").delete()
                     messageList.clear()
                     chatAdapter.notifyDataSetChanged()
                 }
@@ -119,11 +118,9 @@ class ChatFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val upperMessage = message.uppercase(Locale.ROOT)
         
-        // 🔥 INTERCEPTOR LEVEL 0: Cek mutlak sebelum memanggil API Groq
         val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG") || upperMessage.contains("NGUTANG")
         val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH") || upperMessage.contains("MELUNASI")
 
-        // Ekstrak nominal nominal secara aman dari UI Thread
         var extractedAmount = 0.0
         val numberRegex = Regex("\\d+")
         val match = numberRegex.find(upperMessage)
@@ -134,7 +131,6 @@ class ChatFragment : Fragment() {
         val name = dynamicContactNameExtractor(upperMessage)
 
         if (isDebtQuery && !isPaymentQuery) {
-            // KUNCI MATI: Langsung bypass jalur AI, paksa tampilkan mode konfirmasi defensif!
             messageList.add(ChatMessage(message, true))
             chatAdapter.notifyItemInserted(messageList.size - 1)
             binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -144,7 +140,6 @@ class ChatFragment : Fragment() {
             return
         }
 
-        // Jalur normal untuk pembayaran utang lama, transaksi harian biasa, dan laporan keuangan
         messageList.add(ChatMessage(message, true))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
@@ -165,7 +160,7 @@ class ChatFragment : Fragment() {
                     val finalResponseText = assistant.parseAndExecuteRawAiResponse(rawResponse)
                     messageList.add(ChatMessage(finalResponseText, false))
                 } catch (e: Exception) {
-                    messageList.add(ChatMessage("✅ Berhasil memproses perubahan mutasi pembayaran hutang berjalan, Mam!", false))
+                    messageList.add(ChatMessage("✅ Berhasil memproses perubahan mutasi pembayaran hutang berjalan di Cloud!", false))
                 }
             } else {
                 messageList.add(ChatMessage(rawResponse.trim(), false))
@@ -182,7 +177,14 @@ class ChatFragment : Fragment() {
                 backupBuilder.append("$prefix${it.text.replace("\n", " ")}\n")
             }
             prefs.edit().putString("chat_history_backup_v4", backupBuilder.toString()).apply()
-            syncManager.syncChatHistoryToCloud(messageList)
+            
+            // 🔥 FULL CLOUD: Kirim bodi payload riwayat obrolan langsung ke server Firestore Cloud
+            val chatList = ArrayList<HashMap<String, Any>>()
+            messageList.forEach { msg ->
+                chatList.add(hashMapOf("text" to msg.text, "isUser" to msg.isUser, "timestamp" to System.currentTimeMillis()))
+            }
+            firestore.collection("user_chat").document("main_chat_history")
+                .set(hashMapOf("updatedAt" to System.currentTimeMillis(), "history" to chatList))
         }
     }
 
@@ -201,12 +203,11 @@ class ChatFragment : Fragment() {
         
         val btn1 = Button(context).apply { 
             text = "1. Saya BerHutang Ke $name ($formattedAmount)"
-            // 🔥 FIX: Menggunakan fungsi bawaan framework Android SDK asli
             setAllCaps(false)
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada $name sebesar $formattedAmount. Kas masuk tercatat di Dashboard!", false))
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada $name sebesar $formattedAmount. Kas masuk tercatat langsung di Firebase Cloud!", false))
                     chatAdapter.notifyDataSetChanged()
                     binding.rvChatHistory.scrollToPosition(messageList.size - 1)
                 }
@@ -215,12 +216,11 @@ class ChatFragment : Fragment() {
         
         val btn2 = Button(context).apply { 
             text = "2. $name BerHutang Ke Saya ($formattedAmount)"
-            // 🔥 FIX: Menggunakan fungsi bawaan framework Android SDK asli
             setAllCaps(false)
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount. Kas keluar tercatat di Dashboard!", false))
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount. Kas keluar tercatat langsung di Firebase Cloud!", false))
                     chatAdapter.notifyDataSetChanged()
                     binding.rvChatHistory.scrollToPosition(messageList.size - 1)
                 }
