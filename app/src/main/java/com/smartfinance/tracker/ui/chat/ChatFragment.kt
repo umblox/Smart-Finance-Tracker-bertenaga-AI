@@ -17,7 +17,6 @@ import com.smartfinance.tracker.ai.GroqClient
 import com.smartfinance.tracker.data.model.ChatMessage
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 import java.util.Locale
 
 class ChatFragment : Fragment() {
@@ -68,7 +67,7 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) { 
             loadBackupToAdapter(savedChat) 
         } else {
-            // 🔥 FULL CLOUD: Tarik riwayat obrolan asli langsung dari Firestore Cloud server
+            // 🔥 FULL CLOUD: Tarik riwayat asli dari Firestore Cloud server
             firestore.collection("user_chat")
                 .document("main_chat_history")
                 .get()
@@ -113,13 +112,11 @@ class ChatFragment : Fragment() {
     private fun sendChatToAI(message: String) {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
-        // 🔥 FIX MUTLAK: Masukkan pesan user secara linear tanpa pemotongan kaku logika lokal
         messageList.add(ChatMessage(message, true))
         chatAdapter.notifyItemInserted(messageList.size - 1)
         binding.rvChatHistory.scrollToPosition(messageList.size - 1)
         binding.etMessage.setText("")
         
-        // Kunci tombol input selama AI memproses data di latar belakang
         binding.btnSend.isEnabled = false
         binding.btnSend.alpha = 0.5f
 
@@ -127,31 +124,28 @@ class ChatFragment : Fragment() {
         chatAdapter.notifyItemInserted(messageList.size - 1)
 
         lifecycleScope.launch {
-            // 1. Alirkan pesan langsung menuju server Groq Llama 3.1
             val finalResponseText = groqClient.sendMessageToAI(message)
             
-            // Hapus bubble animasi "AI sedang berpikir..."
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
-            // 2. Tampilkan teks respons analisis finansial riil dari Llama ke layar HP
             messageList.add(ChatMessage(finalResponseText.trim(), false))
 
             chatAdapter.notifyDataSetChanged()
             binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
             
-            // Buka kembali kunci tombol kirim
             binding.btnSend.isEnabled = true
             binding.btnSend.alpha = 1.0f
 
-            // 3. Cadangkan log obrolan ke SharedPreferences lokal
+            // 🔥 FIX AKURAT 1: Ganti enter ke token khusus '<br>' agar layout tidak patah saat disimpan
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
-                backupBuilder.append("$prefix${it.text.replace("\n", " ")}\n")
+                val safeText = it.text.replace("\n", "<br>")
+                backupBuilder.append("$prefix$safeText\n")
             }
             prefs.edit().putString("chat_history_backup_v4", backupBuilder.toString()).apply()
             
-            // 4. Cadangkan log obrolan secara permanen ke database awan user_chat Firestore
+            // Simpan data mentah asli ke cloud tanpa modifikasi token karena cloud mendukung multiline
             val chatList = ArrayList<HashMap<String, Any>>()
             messageList.forEach { msg ->
                 chatList.add(hashMapOf("text" to msg.text, "isUser" to msg.isUser, "timestamp" to System.currentTimeMillis()))
@@ -165,11 +159,19 @@ class ChatFragment : Fragment() {
         messageList.clear()
         backupStr.split("\n").forEach { line ->
             if (line.trim().isNotEmpty()) {
-                if (line.startsWith("[USER]")) messageList.add(ChatMessage(line.substring(6), true))
-                if (line.startsWith("[AI]")) messageList.add(ChatMessage(line.substring(4), false))
+                // 🔥 FIX AKURAT 2: Kembalikan token '<br>' menjadi enter asli '\n' saat dimuat ulang ke adapter
+                if (line.startsWith("[USER]")) {
+                    val userText = line.substring(6).replace("<br>", "\n")
+                    messageList.add(ChatMessage(userText, true))
+                }
+                if (line.startsWith("[AI]")) {
+                    val aiText = line.substring(4).replace("<br>", "\n")
+                    messageList.add(ChatMessage(aiText, false))
+                }
             }
         }
         chatAdapter.notifyDataSetChanged()
+        binding.rvChatHistory.post { binding.rvChatHistory.scrollToPosition(messageList.size - 1) }
     }
 
     override fun onDestroyView() {
