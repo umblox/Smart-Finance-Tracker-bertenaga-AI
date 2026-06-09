@@ -14,24 +14,24 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
 import com.smartfinance.tracker.ui.report.ReportFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
-import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class DashboardFragment : Fragment() {
 
-    private lateinit var db: AppDatabase
+    private val firestore = FirebaseFirestore.getInstance()
+    private var transactionsListenerRegistration: ListenerRegistration? = null
+
     private lateinit var chartContainer: LinearLayout
     private lateinit var topExpenseContainer: LinearLayout
     private lateinit var recentTxContainer: LinearLayout
@@ -50,7 +50,6 @@ class DashboardFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
         val root = RelativeLayout(context).apply { 
@@ -222,7 +221,7 @@ class DashboardFragment : Fragment() {
         nsv.addView(mainLayout)
         root.addView(nsv)
         
-        observeDatabaseTransactions()
+        observeCloudTransactionsLive()
         return root
     }
 
@@ -275,16 +274,21 @@ class DashboardFragment : Fragment() {
                 background = null
             }
         }
-        observeDatabaseTransactions()
+        observeCloudTransactionsLive()
     }
 
-    private fun observeDatabaseTransactions() {
+    // 🔥 REAL-TIME WATCHER FOR DASHBOARD: Mengikat snapshot aliran kas langsung dari awan Firestore
+    private fun observeCloudTransactionsLive() {
         if (!isAdded) return
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
-        lifecycleScope.launch {
-            db.transactionDao().getAllTransactions().collectLatest { allTx ->
+        transactionsListenerRegistration?.remove()
+
+        transactionsListenerRegistration = firestore.collection("transactions")
+            .addSnapshotListener { snapshots, e ->
+                if (e != null || snapshots == null) return@addSnapshotListener
+
                 val sdf = SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
                 val calToday = Calendar.getInstance()
                 val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
@@ -295,24 +299,38 @@ class DashboardFragment : Fragment() {
                 var incomeLastMonth = 0.0
                 var expenseLastMonth = 0.0
 
-                allTx.forEach { tx ->
-                    val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                val allTxList = ArrayList<HashMap<String, Any>>()
+
+                for (doc in snapshots.documents) {
+                    val data = doc.data ?: continue
+                    val amount = (data["amount"] as? Number)?.toDouble() ?: 0.0
+                    val typeRaw = (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
+                    val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    val categoryName = data["categoryName"] as? String ?: "Umum"
+                    val note = data["note"] as? String ?: "Transaksi AI"
+
+                    val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
                     val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                     val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
-                    
-                    val currentTypeRaw = tx.type.trim().uppercase()
 
-                    // 🔥 FIX SINKRONISASI AKUNTANSI: Mendeteksi "DEBT" sebagai INCOME (Uang masuk dompet) 
-                    // dan "RECEIVABLE" sebagai EXPENSE (Uang keluar dompet dipinjamkan) agar Dashboard klop 100% dengan AI
-                    if (currentTypeRaw == "INCOME" || currentTypeRaw == "DEBT") {
-                        balanceTotal += tx.amount
-                        if (isThisMonth) incomeThisMonth += tx.amount
-                        if (isLastMonth) incomeLastMonth += tx.amount
-                    } else if (currentTypeRaw == "EXPENSE" || currentTypeRaw == "RECEIVABLE") {
-                        balanceTotal -= tx.amount
-                        if (isThisMonth) expenseThisMonth += tx.amount
-                        if (isLastMonth) expenseLastMonth += tx.amount
+                    if (typeRaw == "INCOME" || typeRaw == "DEBT") {
+                        balanceTotal += amount
+                        if (isThisMonth) incomeThisMonth += amount
+                        if (isLastMonth) incomeLastMonth += amount
+                    } else if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") {
+                        balanceTotal -= amount
+                        if (isThisMonth) expenseThisMonth += amount
+                        if (isLastMonth) expenseLastMonth += amount
                     }
+
+                    val itemMap = HashMap<String, Any>().apply {
+                        put("amount", amount)
+                        put("type", typeRaw)
+                        put("timestamp", timestamp)
+                        put("categoryName", categoryName)
+                        put("note", note)
+                    }
+                    allTxList.add(itemMap)
                 }
                 
                 tvBalance.text = formatRupiah.format(balanceTotal)
@@ -344,25 +362,26 @@ class DashboardFragment : Fragment() {
                 })
                 chartContainer.addView(summaryLayout)
 
-                // PENGELUARAN TERATAS
+                // PENGELUARAN TERATAS REAL-TIME CLOUD
                 topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
-                val filteredExpenses = allTx.filter { item -> 
-                    val typeUpper = item.type.trim().uppercase()
+                val filteredExpenses = allTxList.filter { item -> 
+                    val typeUpper = (item["type"] as? String) ?: "EXPENSE"
                     typeUpper == "EXPENSE" || typeUpper == "RECEIVABLE" 
-                }.filter { tx ->
+                }.filter { item ->
+                    val timestamp = (item["timestamp"] as? Long) ?: nowTime
                     if (selectedTopFilter == "PERMINGGU") {
-                        (nowTime - tx.timestamp) <= (7L * 24 * 60 * 60 * 1000)
+                        (nowTime - timestamp) <= (7L * 24 * 60 * 60 * 1000)
                     } else {
-                        val t = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                        val t = Calendar.getInstance().apply { timeInMillis = timestamp }
                         t.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && t.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                     }
                 }
 
-                val totalFilteredExpenseAmount = filteredExpenses.sumOf { it.amount }
+                val totalFilteredExpenseAmount = filteredExpenses.sumOf { (it["amount"] as? Double) ?: 0.0 }
 
-                val aggregatedExpenses = filteredExpenses.groupBy { it.categoryName }
-                    .mapValues { entry -> entry.value.sumOf { it.amount } }
+                val aggregatedExpenses = filteredExpenses.groupBy { (it["categoryName"] as? String) ?: "Umum" }
+                    .mapValues { entry -> entry.value.sumOf { (it["amount"] as? Double) ?: 0.0 } }
                     .toList()
                     .sortedByDescending { it.second }
                     .take(3)
@@ -410,9 +429,9 @@ class DashboardFragment : Fragment() {
                     }
                 }
 
-                // TRANSAKSI TERKINI
+                // TRANSAKSI TERKINI REAL-TIME CLOUD
                 recentTxContainer.removeAllViews()
-                val recentTxList = allTx.sortedByDescending { item -> item.timestamp }.take(4)
+                val recentTxList = allTxList.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }.take(4)
                 
                 if (recentTxList.isEmpty()) {
                     for (i in 1..3) {
@@ -424,15 +443,16 @@ class DashboardFragment : Fragment() {
                             orientation = LinearLayout.HORIZONTAL
                             gravity = Gravity.CENTER_VERTICAL
                             setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
-                            setOnClickListener { 
-                                TransactionEditorDialog(item) { observeDatabaseTransactions() }.show(parentFragmentManager, "TransactionEditorDialog")
-                            }
                         }
+
+                        val note = (item["note"] as? String) ?: "Transaksi AI"
+                        val timestamp = (item["timestamp"] as? Long) ?: nowTime
+                        val amount = (item["amount"] as? Double) ?: 0.0
+                        val currentTypeUpper = ((item["type"] as? String) ?: "EXPENSE").trim().uppercase(Locale.ROOT)
 
                         val iconCircle = FrameLayout(context).apply {
                             layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                             background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
-                            val currentTypeUpper = item.type.trim().uppercase()
                             val txt = TextView(context).apply { 
                                 text = if (currentTypeUpper == "INCOME" || currentTypeUpper == "DEBT") "📥" else "💸"
                                 textSize = 16f
@@ -446,15 +466,14 @@ class DashboardFragment : Fragment() {
                             orientation = LinearLayout.VERTICAL
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
-                        centerInfo.addView(TextView(context).apply { text = item.note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                        centerInfo.addView(TextView(context).apply { text = sdf.format(Date(item.timestamp)); setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
+                        centerInfo.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                        centerInfo.addView(TextView(context).apply { text = sdf.format(Date(timestamp)); setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
                         rowLayout.addView(centerInfo)
 
-                        val currentTxTypeUpper = item.type.trim().uppercase()
-                        val isInc = currentTxTypeUpper == "INCOME" || currentTxTypeUpper == "DEBT"
+                        val isInc = currentTypeUpper == "INCOME" || currentTypeUpper == "DEBT"
                         val colorHex = if (isInc) "#2B6CB0" else "#E53E3E"
                         rowLayout.addView(TextView(context).apply { 
-                            text = formatRupiah.format(item.amount)
+                            text = formatRupiah.format(amount)
                             setTextColor(Color.parseColor(colorHex))
                             setTypeface(null, Typeface.BOLD)
                             textSize = 14f
@@ -473,7 +492,6 @@ class DashboardFragment : Fragment() {
                     }
                 }
             }
-        }
     }
 
     private fun createPlaceholderRow(mainTitle: String, subTitle: String): View {
@@ -491,6 +509,11 @@ class DashboardFragment : Fragment() {
         layout.addView(centerInfo)
         layout.addView(TextView(context).apply { text = "Rp 0"; setTextColor(Color.parseColor("#CBD5E0")); textSize = 14f })
         return layout
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        transactionsListenerRegistration?.remove()
     }
 
     private class QuadVerticalBarChartView(
