@@ -4,8 +4,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.firebase.FirebaseApp // IMPORT WAJIB 1
-import com.smartfinance.tracker.data.remote.FirebaseSyncManager
+import com.google.firebase.FirebaseApp // IMPORT MUTLAK ASLI FIREBASE
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
@@ -18,15 +17,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 🔥 KUNCI UTAMA: Inisialisasi Firebase secara mutlak agar peta JSON-mu terbaca oleh sistem Android
+        // 🔥 KUNCI UTAMA: Inisialisasi Firebase secara mutlak agar koneksi Firestore langsung terikat saat start
         try {
             FirebaseApp.initializeApp(this)
         } catch (e: Exception) {
             e.printStackTrace()
         }
-
-        // 🔄 BACKUP OTOMATIS: Replikasi seluruh data lokal ke cloud Firebase secara senyap saat aplikasi dibuka
-        FirebaseSyncManager(this).runFullMigrationBackup()
 
         // SINKRONISASI ID: Menggunakan ID bawaan XML proyek asli Anda
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
