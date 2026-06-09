@@ -19,23 +19,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.DebtEntity
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import com.smartfinance.tracker.data.remote.FirebaseSyncManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
 
 class AddDebtFragment : Fragment() {
 
-    private lateinit var db: AppDatabase
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
+    private val firestore = FirebaseFirestore.getInstance()
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private var currentTab = "DEBT"
     private var activeContactEditText: EditText? = null
+    private var debtListenerRegistration: ListenerRegistration? = null
 
     private val contactPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -70,7 +66,6 @@ class AddDebtFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
 
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -144,16 +139,16 @@ class AddDebtFragment : Fragment() {
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
             setTabStyles(btnTabDebt, btnTabReceivable)
-            refreshDebtList(listContainer, cardDebt, cardReceivable)
+            refreshDebtListLive(listContainer, cardDebt, cardReceivable)
         }
 
         btnTabReceivable.setOnClickListener {
             currentTab = "RECEIVABLE"
             setTabStyles(btnTabReceivable, btnTabDebt)
-            refreshDebtList(listContainer, cardDebt, cardReceivable)
+            refreshDebtListLive(listContainer, cardDebt, cardReceivable)
         }
 
-        refreshDebtList(listContainer, cardDebt, cardReceivable)
+        refreshDebtListLive(listContainer, cardDebt, cardReceivable)
         return root
     }
 
@@ -231,28 +226,39 @@ class AddDebtFragment : Fragment() {
                 val selectedType = if (rgType.checkedRadioButtonId == rbDebt.id) "DEBT" else "RECEIVABLE"
 
                 if (name.isNotEmpty() && amountValue > 0.0) {
-                    lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            db.debtDao().insertDebt(DebtEntity(
-                                contactName = name, contactPhoneNumber = "0812", amount = amountValue,
-                                remainingAmount = amountValue, type = selectedType, note = "Input Manual Premium",
-                                timestamp = System.currentTimeMillis(), isPaid = false
-                            ))
-                        }
+                    val debtId = "debt_${System.currentTimeMillis()}"
+                    val debtMap = hashMapOf(
+                        "id" to debtId,
+                        "contactName" to name,
+                        "contactPhoneNumber" to "0812",
+                        "amount" to amountValue,
+                        "remainingAmount" to amountValue,
+                        "type" to selectedType,
+                        "note" to "Input Manual Premium Cloud",
+                        "timestamp" to System.currentTimeMillis(),
+                        "isPaid" to false
+                    )
 
-                        val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
-                        val catId = if (selectedType == "RECEIVABLE") 104L else 101L
-                        val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
-                        
-                        val newTransaction = TransactionEntity(
-                            amount = amountValue, type = flowType, categoryId = catId, categoryName = catName,
-                            note = "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN", timestamp = System.currentTimeMillis()
-                        )
+                    // 1. Simpan berkas pinjaman manual langsung ke Firestore
+                    firestore.collection("debts").document(debtId).set(debtMap)
 
-                        val generatedId = withContext(Dispatchers.IO) { db.transactionDao().insertTransaction(newTransaction) }
-                        FirebaseSyncManager(context).syncSingleTransactionToCloud(newTransaction.copy(id = generatedId))
-                        Toast.makeText(context, "Pinjaman Berhasil Tersimpan!", Toast.LENGTH_SHORT).show()
-                    }
+                    // 2. Kirim mutasi kas penyeimbang ke koleksi transaksi utama Firestore
+                    val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
+                    val catId = if (selectedType == "RECEIVABLE") 104L else 101L
+                    val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
+                    val txId = "tx_${System.currentTimeMillis()}"
+                    
+                    val txMap = hashMapOf(
+                        "id" to txId,
+                        "amount" to amountValue,
+                        "type" to flowType,
+                        "categoryId" to catId,
+                        "categoryName" to catName,
+                        "note" to "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN",
+                        "timestamp" to System.currentTimeMillis()
+                    )
+                    firestore.collection("transactions").document(txId).set(txMap)
+                    Toast.makeText(context, "Pinjaman Berhasil Tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
                 }
             }
             setNegativeButton("Batal", null)
@@ -260,21 +266,43 @@ class AddDebtFragment : Fragment() {
         }
     }
 
-    private fun refreshDebtList(container: LinearLayout, cardDebt: LinearLayout, cardReceivable: LinearLayout) {
-        lifecycleScope.launch {
-            db.debtDao().getAllDebts().collect { allDebts ->
+    // 🔥 REAL-TIME WATCHER: Menggunakan SnapshotListener agar otomatis live sinkron dengan Chat AI
+    private fun refreshDebtListLive(container: LinearLayout, cardDebt: LinearLayout, cardReceivable: LinearLayout) {
+        debtListenerRegistration?.remove()
+
+        debtListenerRegistration = firestore.collection("debts")
+            .addSnapshotListener { snapshots, e ->
+                if (e != null || snapshots == null) return@addSnapshotListener
+
                 container.removeAllViews()
                 var totalDebtSum = 0.0
                 var totalReceivableSum = 0.0
 
-                allDebts.filter { !it.isPaid }.forEach { 
-                    if (it.type == "DEBT") totalDebtSum += it.remainingAmount else totalReceivableSum += it.remainingAmount
+                val allDebtsList = ArrayList<HashMap<String, Any>>()
+                
+                for (doc in snapshots.documents) {
+                    val data = doc.data ?: continue
+                    val isPaid = data["isPaid"] as? Boolean ?: false
+                    val type = data["type"] as? String ?: "DEBT"
+                    val remainingAmount = (data["remainingAmount"] as? Number)?.toDouble() ?: 0.0
+
+                    if (!isPaid) {
+                        if (type == "DEBT") totalDebtSum += remainingAmount else totalReceivableSum += remainingAmount
+                    }
+                    
+                    // Masukkan map mentah ke dalam array list penampung data visual
+                    val itemMap = HashMap(data)
+                    itemMap["id"] = doc.id
+                    allDebtsList.add(itemMap)
                 }
+
+                // Urutkan berdasarkan timestamp terbaru di awan
+                allDebtsList.sortByDescending { (it["timestamp"] as? Number)?.toLong() ?: 0L }
 
                 (cardDebt.getChildAt(1) as TextView).text = formatRupiah.format(totalDebtSum)
                 (cardReceivable.getChildAt(1) as TextView).text = formatRupiah.format(totalReceivableSum)
 
-                val filteredList = allDebts.filter { it.type == currentTab }
+                val filteredList = allDebtsList.filter { (it["type"] as? String) == currentTab }
 
                 if (filteredList.isEmpty()) {
                     val tvEmpty = TextView(requireContext()).apply {
@@ -294,33 +322,44 @@ class AddDebtFragment : Fragment() {
                         val leftInfo = LinearLayout(requireContext()).apply {
                             orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
-                        leftInfo.addView(TextView(requireContext()).apply { text = debtItem.contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")) })
                         
-                        val statusLabel = if (debtItem.isPaid) "LUNAS ✅" else "Sisa: ${formatRupiah.format(debtItem.remainingAmount)}"
-                        leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 12f; setTextColor(if (debtItem.isPaid) Color.parseColor("#2F855A") else Color.parseColor("#718096")) })
+                        val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
+                        val amountOriginal = (debtItem["amount"] as? Number)?.toDouble() ?: 0.0
+                        val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
+                        val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
+                        val docId = (debtItem["id"] as? String) ?: ""
+                        val debtType = (debtItem["type"] as? String) ?: "DEBT"
+
+                        leftInfo.addView(TextView(requireContext()).apply { text = contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")) })
+                        
+                        val statusLabel = if (isPaid) "LUNAS ✅" else "Sisa: ${formatRupiah.format(remainingAmount)}"
+                        leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 12f; setTextColor(if (isPaid) Color.parseColor("#2F855A") else Color.parseColor("#718096")) })
                         itemCard.addView(leftInfo)
 
                         val tvOriginalAmount = TextView(requireContext()).apply {
-                            text = formatRupiah.format(debtItem.amount); textSize = 14f; setTypeface(null, Typeface.BOLD)
+                            text = formatRupiah.format(amountOriginal); textSize = 14f; setTypeface(null, Typeface.BOLD)
                             setTextColor(if (currentTab == "DEBT") Color.parseColor("#D69E2E") else Color.parseColor("#2B6CB0")); gravity = Gravity.END
                         }
                         itemCard.addView(tvOriginalAmount)
-                        itemCard.setOnClickListener { showDebtActionOptions(debtItem, container, cardDebt, cardReceivable) }
+                        
+                        itemCard.setOnClickListener { 
+                            showDebtActionOptionsCloud(docId, contactName, amountOriginal, remainingAmount, isPaid, debtType)
+                        }
                         container.addView(itemCard)
                     }
                 }
             }
-        }
     }
 
-    private fun showDebtActionOptions(debt: DebtEntity, listContainer: LinearLayout, cardDebt: LinearLayout, cardReceivable: LinearLayout) {
+    // 🔥 FULL CLOUD ACTION OPTIONS: Cicilan dan Penghapusan Berkas langsung menyasar target Firestore Document ID
+    private fun showDebtActionOptionsCloud(docId: String, contactName: String, originalAmount: Double, remainingAmount: Double, isPaid: Boolean, debtType: String) {
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
         
         AlertDialog.Builder(requireContext()).apply {
-            setTitle("Aksi Kontak: ${debt.contactName}")
+            setTitle("Aksi Kontak: $contactName")
             setItems(options) { _, which ->
                 if (which == 0) {
-                    if (debt.isPaid) {
+                    if (isPaid) {
                         Toast.makeText(context, "Pinjaman ini sudah lunas sepenuhnya!", Toast.LENGTH_SHORT).show()
                         return@setItems
                     }
@@ -328,52 +367,49 @@ class AddDebtFragment : Fragment() {
                     val etPay = EditText(context).apply { hint = "Masukkan jumlah uang (ex: 50000)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
                     AlertDialog.Builder(context).apply {
                         setTitle("Bayar / Cicil Pinjaman")
-                        setMessage("Sisa tanggungan saat ini: ${formatRupiah.format(debt.remainingAmount)}")
+                        setMessage("Sisa tanggungan saat ini: ${formatRupiah.format(remainingAmount)}")
                         setView(etPay)
                         setPositiveButton("Proses") { _, _ ->
                             val payValue = etPay.text.toString().toDoubleOrNull() ?: 0.0
                             if (payValue > 0.0) {
-                                lifecycleScope.launch {
-                                    val newRemaining = (debt.remainingAmount - payValue).coerceAtLeast(0.0)
-                                    withContext(Dispatchers.IO) {
-                                        db.debtDao().insertDebt(debt.copy(remainingAmount = newRemaining, isPaid = newRemaining <= 0.0))
-                                    }
+                                val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
+                                
+                                // Update snapshot dokumen pinjaman di koleksi Firestore
+                                firestore.collection("debts").document(docId).update(
+                                    "remainingAmount", newRemaining,
+                                    "isPaid", newRemaining <= 0.0
+                                )
 
-                                    val flowType = if (debt.type == "DEBT") "EXPENSE" else "INCOME"
-                                    val targetCatId = if (debt.type == "DEBT") 102L else 103L
-                                    val targetCatName = if (debt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+                                val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
+                                val targetCatId = if (debtType == "DEBT") 102L else 103L
+                                val targetCatName = if (debtType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+                                val txId = "tx_${System.currentTimeMillis()}"
 
-                                    val payTransaction = TransactionEntity(
-                                        amount = payValue, type = flowType, categoryId = targetCatId, categoryName = targetCatName,
-                                        note = "[$targetCatName] ${debt.contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL", timestamp = System.currentTimeMillis()
-                                    )
-
-                                    val generatedId = withContext(Dispatchers.IO) { db.transactionDao().insertTransaction(payTransaction) }
-                                    FirebaseSyncManager(context).syncSingleTransactionToCloud(payTransaction.copy(id = generatedId))
-                                    Toast.makeText(context, "Cicilan Berhasil Diperbarui!", Toast.LENGTH_SHORT).show()
-                                }
+                                val payTransactionMap = hashMapOf(
+                                    "id" to txId,
+                                    "amount" to payValue,
+                                    "type" to flowType,
+                                    "categoryId" to targetCatId,
+                                    "categoryName" to targetCatName,
+                                    "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL CLOUD",
+                                    "timestamp" to System.currentTimeMillis()
+                                )
+                                firestore.collection("transactions").document(txId).set(payTransactionMap)
+                                Toast.makeText(context, "Cicilan Berhasil Diperbarui di Cloud!", Toast.LENGTH_SHORT).show()
                             }
                         }
                         setNegativeButton("Batal", null)
                         show()
                     }
                 } else {
-                    // 🔥 PERBAIKAN STRUKTUR TUTUP KURUNG: Hapus fisik permanen dari disk lokal & Cloud Firestore secara seimbang
                     val contextRef = requireContext()
                     AlertDialog.Builder(contextRef).apply {
                         setTitle("⚠️ Hapus Catatan Pinjaman?")
-                        setMessage("Apakah Anda yakin ingin menghapus catatan bersama ${debt.contactName} secara permanen dari perangkat dan cloud?")
+                        setMessage("Apakah Anda yakin ingin menghapus catatan bersama $contactName secara permanen dari server Cloud?")
                         setPositiveButton("Ya, Hapus") { _, _ ->
-                            lifecycleScope.launch {
-                                withContext(Dispatchers.IO) {
-                                    db.debtDao().deleteDebt(debt)
-                                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                        .collection("debts")
-                                        .document("debt_${debt.id}")
-                                        .delete()
-                                }
-                                Toast.makeText(contextRef, "Catatan berhasil dihapus permanen!", Toast.LENGTH_SHORT).show()
-                            }
+                            // 🔥 FULL CLOUD: Lenyapkan data secara murni dari koleksi dokumen Firestore
+                            firestore.collection("debts").document(docId).delete()
+                            Toast.makeText(contextRef, "Catatan berhasil dihapus permanen dari Cloud!", Toast.LENGTH_SHORT).show()
                         }
                         setNegativeButton("Batal", null)
                         show()
@@ -392,5 +428,10 @@ class AddDebtFragment : Fragment() {
             addView(TextView(context).apply { text = label; textSize = 12f; setTextColor(Color.parseColor("#718096")) })
             addView(TextView(context).apply { text = "Rp 0"; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor(colorHex)) })
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        debtListenerRegistration?.remove()
     }
 }
