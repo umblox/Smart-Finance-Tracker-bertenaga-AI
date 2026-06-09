@@ -51,10 +51,9 @@ class SettingsFragment : Fragment() {
         })
         mainLayout.addView(menuCategory)
 
-        // Spacing pembatas antar baris menu
         mainLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(1, (12 * density).toInt()) })
 
-        // 2. MENU INPUT API KEY GROQ (KEMBALI DISEDIAKAN)
+        // 2. MENU INPUT API KEY GROQ
         val menuApi = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
@@ -87,7 +86,7 @@ class SettingsFragment : Fragment() {
 
         mainLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(1, (12 * density).toInt()) })
 
-        // 3. MENU TENTANG APLIKASI (KEMBALI DISEDIAKAN)
+        // 3. MENU TENTANG APLIKASI (🔥 SINKRONISASI INFORMASI BARU)
         val menuAbout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
@@ -95,7 +94,8 @@ class SettingsFragment : Fragment() {
             setOnClickListener {
                 AlertDialog.Builder(context)
                     .setTitle("Tentang Aplikasi")
-                    .setMessage("Smart Finance Tracker bertenaga AI v5.0\n\nCore akuntansi digerakkan penuh oleh Groq Cloud Llama 3.1 AI Engine dengan manajemen penyimpanan kaku SQLite Room Database.")
+                    // Teks deskripsi disterilkan mutlak mengikuti pembaruan arsitektur Full Cloud Firestore
+                    .setMessage("Smart Finance Tracker bertenaga AI v5.0-Cloud\n\nCore akuntansi digerakkan penuh oleh Groq Cloud Llama 3.1 AI Engine dengan manajemen penyimpanan tersinkronisasi real-time via Firebase Firestore Cloud Database.")
                     .setPositiveButton("Oke", null)
                     .show()
             }
