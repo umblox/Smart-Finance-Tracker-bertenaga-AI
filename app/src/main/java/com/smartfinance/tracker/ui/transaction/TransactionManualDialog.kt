@@ -20,21 +20,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.TransactionEntity
-import com.smartfinance.tracker.data.local.entity.CategoryEntity
-import com.smartfinance.tracker.data.remote.FirebaseSyncManager
-import kotlinx.coroutines.flow.first
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
 
-    private lateinit var db: AppDatabase
+    private val firestore = FirebaseFirestore.getInstance()
     private var currentType = "EXPENSE"
-    private var allCategories = listOf<CategoryEntity>()
-    private var filteredCategories = mutableListOf<CategoryEntity>()
+    
+    // 🔥 FULL CLOUD: Menyimpan data kategori berbasis struktur Map dari Firestore Snapshot
+    private var allCategoriesCloud = listOf<Map<String, Any>>()
+    private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
 
     private lateinit var etAmount: EditText
     private lateinit var etNote: EditText
@@ -67,7 +66,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
         val root = RelativeLayout(context).apply {
@@ -141,7 +139,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val btnPickContact = Button(context).apply { text = "Cari"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#4A5568")) }
         contactRow.addView(etContact)
         contactRow.addView(btnPickContact)
-        form.addView(contactRow)
+        formLayout -> form.addView(contactRow)
 
         scrollView.addView(form)
         root.addView(scrollView)
@@ -166,12 +164,31 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                 rbIncome.id -> "INCOME"
                 else -> "DEBT"
             }
-            mapSpinnerHierarchy()
+            mapSpinnerHierarchyCloud()
         }
 
+        // 🔥 FULL CLOUD: Tarik daftar kategori master secara langsung dari Firestore Cloud
         lifecycleScope.launch {
-            allCategories = db.categoryDao().getAllCategories().first()
-            mapSpinnerHierarchy()
+            try {
+                val snapshot = firestore.collection("categories").get().await()
+                val list = ArrayList<Map<String, Any>>()
+                for (doc in snapshot.documents) {
+                    val data = doc.data ?: continue
+                    val mutableData = HashMap(data)
+                    mutableData["id"] = doc.getLong("id") ?: 0L
+                    list.add(mutableData)
+                }
+                allCategoriesCloud = list
+                mapSpinnerHierarchyCloud()
+            } catch (e: Exception) {
+                // Fallback jika database koleksi kosong/gagal memuat awal
+                allCategoriesCloud = listOf(
+                    mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
+                    mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
+                    mapOf("id" to 15L, "name" to "Lain-lain / Umum", "type" to "EXPENSE")
+                )
+                mapSpinnerHierarchyCloud()
+            }
         }
 
         btnSave.setOnClickListener {
@@ -185,52 +202,59 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                 return@setOnClickListener
             }
 
-            if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategories.isNotEmpty()) {
+            if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty()) {
                 lifecycleScope.launch {
                     val targetTime = try { sdf.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
-                    
-                    val selectedCat = filteredCategories[spinnerCategory.selectedItemPosition]
-                    
-                    val finalType = when (selectedCat.id) {
+                    val selectedCat = filteredCategoriesCloud[spinnerCategory.selectedItemPosition]
+                    val catId = selectedCat["id"] as Long
+                    val catName = selectedCat["name"] as String
+
+                    val finalType = when (catId) {
                         101L, 103L -> "INCOME"
                         102L, 104L -> "EXPENSE"
                         else -> if (rbIncome.isChecked) "INCOME" else "EXPENSE"
                     }
 
                     val finalNote = if (rbDebt.isChecked) {
-                        "[${selectedCat.name.uppercase(Locale.ROOT)}] $contactVal - $noteVal"
+                        "[$catName] $contactVal - $noteVal".uppercase(Locale.ROOT)
                     } else {
-                        noteVal
+                        noteVal.uppercase(Locale.ROOT)
                     }
 
-                    val newTransaction = TransactionEntity(
-                        amount = amountVal,
-                        type = finalType,
-                        categoryId = selectedCat.id,
-                        categoryName = selectedCat.name,
-                        note = finalNote.uppercase(Locale.ROOT),
-                        timestamp = targetTime
+                    // 🔥 FULL CLOUD ACTION 1: Tulis mutasi kas utama ke koleksi transactions Firestore
+                    val txId = "tx_${System.currentTimeMillis()}"
+                    val txMap = hashMapOf(
+                        "id" to txId,
+                        "amount" to amountVal,
+                        "type" to finalType,
+                        "categoryId" to catId,
+                        "categoryName" to catName,
+                        "note" to finalNote,
+                        "timestamp" to targetTime
                     )
+                    
+                    firestore.collection("transactions").document(txId).set(txMap).await()
 
-                    // 1. Simpan ke Room lokal dan tangkap ID unik hasil generate database lokal
-                    val generatedId = db.transactionDao().insertTransaction(newTransaction)
+                    // 🔥 FULL CLOUD ACTION 2: Jika jenis Utang-Piutang, suntikkan dokumen pendamping ke koleksi debts Firestore
+                    if (rbDebt.isChecked) {
+                        val debtId = "debt_${System.currentTimeMillis()}"
+                        val selectedDebtType = if (catId == 104L) "RECEIVABLE" else "DEBT"
+                        
+                        val debtMap = hashMapOf(
+                            "id" to debtId,
+                            "contactName" to contactVal.uppercase(Locale.ROOT),
+                            "contactPhoneNumber" to "0812",
+                            "amount" to amountVal,
+                            "remainingAmount" to amountVal,
+                            "type" to selectedDebtType,
+                            "note" to "Input Manual Form Cloud",
+                            "timestamp" to targetTime,
+                            "isPaid" to false
+                        )
+                        firestore.collection("debts").document(debtId).set(debtMap).await()
+                    }
 
-                    // 2. Duplikasi data transaksi dengan menyisipkan ID asli hasil generate database lokal
-                    val finalizedTransaction = newTransaction.copy(id = generatedId)
-
-                    // 3. 🛡️ ALIRKAN KE FIREBASE SECARA LIVE DENGAN LISTENERS MONITORING LOG
-                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        .collection("transactions")
-                        .document("tx_${finalizedTransaction.id}")
-                        .set(finalizedTransaction)
-                        .addOnSuccessListener {
-                            Toast.makeText(context, "Berhasil Masuk Firestore Server!", Toast.LENGTH_SHORT).show()
-                        }
-                        .addOnFailureListener { exception ->
-                            // Jika pengiriman tersumbat/ditolak, baris ini memuntahkan pesan eror aslinya langsung ke layar HP
-                            Toast.makeText(context, "Firestore Gagal: ${exception.message}", Toast.LENGTH_LONG).show()
-                        }
-
+                    Toast.makeText(context, "Berhasil Disimpan Langsung ke Cloud Server!", Toast.LENGTH_SHORT).show()
                     onSaved()
                     dialog.dismiss()
                 }
@@ -242,29 +266,31 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    private fun mapSpinnerHierarchy() {
-        filteredCategories.clear()
+    // 🔥 FULL CLOUD METODOLOGI: Menyusun hierarki spinner visual berbasis data Map Firestore
+    private fun mapSpinnerHierarchyCloud() {
+        filteredCategoriesCloud.clear()
         val displayNames = mutableListOf<String>()
 
         if (currentType == "DEBT") {
-            val debtSystemCategories = allCategories.filter { it.type == "DEBT" }
+            val debtSystemCategories = allCategoriesCloud.filter { (it["type"] as? String) == "DEBT" }
             debtSystemCategories.forEach { cat ->
-                filteredCategories.add(cat)
-                displayNames.add("🔒 ${cat.name}")
+                filteredCategoriesCloud.add(cat)
+                displayNames.add("🔒 ${cat["name"] as String}")
             }
         } else {
-            val typedList = allCategories.filter { it.type == currentType }
-            val parents = typedList.filter { it.parentCategoryId == null }
-            val subs = typedList.filter { it.parentCategoryId != null }
+            val typedList = allCategoriesCloud.filter { (it["type"] as? String) == currentType }
+            val parents = typedList.filter { it["parentCategoryId"] == null }
+            val subs = typedList.filter { it["parentCategoryId"] != null }
 
             parents.forEach { parent ->
-                filteredCategories.add(parent)
-                displayNames.add("📁 ${parent.name}")
+                filteredCategoriesCloud.add(parent)
+                displayNames.add("📁 ${parent["name"] as String}")
 
-                val children = subs.filter { it.parentCategoryId == parent.id }
+                val parentId = parent["id"] as Long
+                val children = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }
                 children.forEach { child ->
-                    filteredCategories.add(child)
-                    displayNames.add("    └── 💰 ${child.name}")
+                    filteredCategoriesCloud.add(child)
+                    displayNames.add("    └── 💰 ${child["name"] as String}")
                 }
             }
         }
