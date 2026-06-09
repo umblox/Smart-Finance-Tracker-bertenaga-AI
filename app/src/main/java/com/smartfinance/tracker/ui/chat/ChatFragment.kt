@@ -74,6 +74,7 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) { 
             loadBackupToAdapter(savedChat) 
         } else {
+            // Tarik data backup dari cloud firestore
             FirebaseFirestore.getInstance().collection("user_chat")
                 .document("main_chat_history")
                 .get()
@@ -134,21 +135,20 @@ class ChatFragment : Fragment() {
 
             val upperMessage = message.uppercase(Locale.ROOT)
             
-            // 🚨 SAKTI INTERCEPTOR GENERASI 2: Deteksi Pola Bahasa Finansial Kompleks
             val isDebtQuery = upperMessage.contains("PINJAM") || upperMessage.contains("UTANG") || upperMessage.contains("BERHUTANG")
             val isPaymentQuery = upperMessage.contains("BAYAR") || upperMessage.contains("CICIL") || upperMessage.contains("LUNAS") || upperMessage.contains("TAGIH")
 
-            // Parsing nominal dan nama sebagai cadangan valid
             var extractedAmount = 30000.0
             val numberRegex = Regex("\\d+")
             val match = numberRegex.find(upperMessage)
             if (match != null) {
                 extractedAmount = match.value.toDoubleOrNull() ?: 30000.0
             }
-            val name = dynamicContactNameFallback(upperMessage)
+            
+            // 🔥 PERBAIKAN UTAMA: Nama diambil secara dinamis dari teks obrolan asli
+            val name = dynamicContactNameExtractor(upperMessage)
 
             if (isDebtQuery && !isPaymentQuery) {
-                // ================== JALUR 1: PENCATATAN PINJAMAN BARU ==================
                 val isSayaDipinjami = upperMessage.contains("MEMINJAM UANG SAYA") || 
                                       upperMessage.contains("BERHUTANG KEPADA SAYA") || 
                                       upperMessage.contains("PINJAM UANG SAYA")
@@ -158,26 +158,18 @@ class ChatFragment : Fragment() {
                                     upperMessage.contains("SAYA NGUTANG")
 
                 if (isSayaDipinjami) {
-                    // Orang lain pinjam uang saya = PIUTANG KITA (isReceivable = true)
                     assistant.executeDirectDebtRecord(name, extractedAmount, true, System.currentTimeMillis())
                     messageList.add(ChatMessage("✅ [PIUTANG] Berhasil mencatat piutang Anda kepada $name sebesar ${formatRupiah.format(extractedAmount)}. Data langsung dialokasikan ke Dashboard dan Menu Tagihan!", false))
                 } else if (isSayaNgutang) {
-                    // Saya pinjam uang orang lain = HUTANG KITA (isReceivable = false)
                     assistant.executeDirectDebtRecord(name, extractedAmount, false, System.currentTimeMillis())
                     messageList.add(ChatMessage("✅ [HUTANG] Berhasil mencatat hutang Anda kepada $name sebesar ${formatRupiah.format(extractedAmount)}. Data langsung dialokasikan ke Dashboard dan Menu Hutang!", false))
                 } else {
-                    // Jika struktur kalimatnya rancu/tidak masuk kriteria di atas, panggil tombol pilihan defensif
                     injectConfirmationButtonsToChat(name, extractedAmount)
                 }
             } else if (isPaymentQuery) {
-                // ================== JALUR 2: PEMBAYARAN / CICILAN / PELUNASAN ==================
                 try {
-                    val cleanJsonStr = rawResponse.trim().removePrefix("```json").removePrefix("
-```").removeSuffix("```").trim()
-                    val json = JSONObject(cleanJsonStr)
+                    val cleanJsonStr = rawResponse.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
                     
-                    // Lemparkan data olahan interseptor murni langsung ke asisten eksekusi
-                    // Fungsi internal FinancialAssistant otomatis mencari kecocokan nama kontak secara berlapis
                     val customAiMessage = if (upperMessage.contains("LUNAS") || upperMessage.contains("MELUNASI")) {
                         "MELUNASI" 
                     } else {
@@ -192,12 +184,10 @@ class ChatFragment : Fragment() {
                         messageList.add(ChatMessage("✅ [CICILAN] Berhasil mencatat cicilan pembayaran bersama $name sebesar ${formatRupiah.format(extractedAmount)}. Angka sisa saldo dan Dashboard berhasil diperbarui!", false))
                     }
                 } catch (e: Exception) {
-                    // Fallback jika json parsing bermasalah, tetap jalankan via parser aslinya
                     assistant.parseAndExecuteRawAiResponse(rawResponse)
                     messageList.add(ChatMessage(rawResponse.trim(), false))
                 }
             } else {
-                // ================== JALUR 3: TRANSAKSI NORMAL & LAPORAN ==================
                 if (rawResponse.contains("CONFIRMATION_REQUIRED")) {
                     messageList.add(ChatMessage("Mohon ulangi kalimat Anda dengan jelas, Mam.", false))
                 } else {
@@ -231,24 +221,24 @@ class ChatFragment : Fragment() {
         }
         
         val btn1 = Button(requireContext()).apply { 
-            text = "1. Saya Berhutang ke " + name + " (" + formattedAmount + ")"
+            text = "1. Saya Berhutang ke $name ($formattedAmount)"
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
                     Toast.makeText(context, "Tercatat sebagai Hutang!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki HUTANG kepada $name sebesar $formattedAmount.", false))
                     chatAdapter.notifyDataSetChanged()
                 }
             }
         }
         
         val btn2 = Button(requireContext()).apply { 
-            text = "2. " + name + " Berhutang ke Saya (" + formattedAmount + ")"
+            text = "2. $name Berhutang ke Saya ($formattedAmount)"
             setOnClickListener {
                 lifecycleScope.launch {
                     assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
                     Toast.makeText(context, "Tercatat sebagai Piutang!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
+                    messageList.add(ChatMessage("✅ Berhasil diproses: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount.", false))
                     chatAdapter.notifyDataSetChanged()
                 }
             }
@@ -266,21 +256,37 @@ class ChatFragment : Fragment() {
         }
     }
 
-    private fun dynamicContactNameFallback(userText: String): String {
-        val lists = listOf("BAYU", "JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI", "ARI")
-        for (n in lists) { if (userText.contains(n)) return n }
-        return "TEMAN"
-    }
-
-    private fun loadBackupToAdapter(backupStr: String) {
-        messageList.clear()
-        backupStr.split("\n").forEach { line ->
-            if (line.trim().isNotEmpty()) {
-                if (line.startsWith("[USER]")) messageList.add(ChatMessage(line.substring(6), true))
-                if (line.startsWith("[AI]")) messageList.add(ChatMessage(line.substring(4), false))
+    /**
+     * 🔥 EKSTRAKTOR NAMA ASLI 100% DINAMIS BERBASIS POSISI KATA (KATA KUNCI BAHASA)
+     */
+    private fun dynamicContactNameExtractor(userText: String): String {
+        val keywords = listOf("KEPADA", "DARI", "DENGAN", "OLEH", "UNTUK", "SAMA")
+        val words = userText.split(Regex("\\s+"))
+        
+        // Cari kata setelah kata kunci bahasa
+        for (keyword in keywords) {
+            val index = words.indexOf(keyword)
+            if (index != -1 && index + 1 < words.size) {
+                val candidate = words[index + 1].replace(Regex("[^A-Z]"), "")
+                if (candidate.length > 2 && candidate != "SAYA") return candidate
             }
         }
-        chatAdapter.notifyDataSetChanged()
+
+        // Jika tidak ada kata kunci, ambil kata pertama yang murni huruf (bukan instruksi utama saya/pinjam/nominal)
+        for (word in words) {
+            val cleanWord = word.replace(Regex("[^A-Z]"), "")
+            if (cleanWord.length > 2 && 
+                cleanWord != "SAYA" && 
+                cleanWord != "PINJAM" && 
+                cleanWord != "UTANG" && 
+                cleanWord != "BERHUTANG" && 
+                cleanWord != "SEBESAR" && 
+                cleanWord != "RUPIAH" &&
+                cleanWord != "UANG") {
+                return cleanWord
+            }
+        }
+        return "TEMAN"
     }
 
     override fun onDestroyView() {
