@@ -18,10 +18,12 @@ class FinancialAssistant(private val context: Context) {
         if (cleanJsonStr.startsWith("```json")) {
             cleanJsonStr = cleanJsonStr.removePrefix("```json")
         } else if (cleanJsonStr.startsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removePrefix("```")
+            cleanJsonStr = cleanJsonStr.removePrefix("
+```")
         }
         if (cleanJsonStr.endsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removeSuffix("```")
+            cleanJsonStr = cleanJsonStr.removeSuffix("
+```")
         }
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -49,16 +51,23 @@ class FinancialAssistant(private val context: Context) {
                     val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
                     
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
-                    if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN") {
-                        contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper)
+                    // Proteksi nama kontak: Hilangkan kata perintah natural agar tidak menjadi nama orang fiktif
+                    if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI" || contactNameRaw == "TOLONG") {
+                        contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
                     }
 
+                    // 🔥 AMAN & TERPUSAT: Langsung eksekusi tulis ke Cloud secara tangguh tanpa dialihkan lepas
                     when (actionType) {
                         "TRANSACTION" -> {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            // Diamankan murni oleh Interceptor di ChatFragment demi akurasi mutlak
+                            // Deteksi arah aliran dana: Jika AI merespon mengandung indikasi piutang/meminjamkan uang
+                            val isReceivableFlow = cleanAiResponseUpper.contains("PIUTANG") || 
+                                                   cleanAiResponseUpper.contains("MEMINJAMKAN") || 
+                                                   cleanAiResponseUpper.contains("KEPADA ANDA")
+                            
+                            executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
                         "DEBT_PAYMENT" -> {
                             executeDirectDebtPayment(contactNameRaw, finalAmount, cleanAiResponseUpper, targetTimestamp)
@@ -72,26 +81,25 @@ class FinancialAssistant(private val context: Context) {
         }
     }
 
-    // 🔥 FULL CLOUD: Menulis langsung entitas pinjaman baru dan duplikasi kas ke koleksi Firestore
+    // 🔥 FULL CLOUD EXECUTION: Menulis entitas pinjaman baru secara langsung dan instan dengan await kunci thread
     suspend fun executeDirectDebtRecord(name: String, amountValue: Double, isReceivable: Boolean, timestampValue: Long) {
         val selectedType = if (isReceivable) "RECEIVABLE" else "DEBT"
         val debtId = "debt_${System.currentTimeMillis()}"
+        val sanitizedName = name.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
 
-        // 1. Kirim dokumen ke koleksi 'debts' Firestore
         val debtMap = hashMapOf(
             "id" to debtId,
-            "contactName" to name.uppercase(Locale.ROOT),
+            "contactName" to sanitizedName,
             "contactPhoneNumber" to "0812",
             "amount" to amountValue,
             "remainingAmount" to amountValue,
             "type" to selectedType,
-            "note" to "Proses via AI Cloud Premium",
+            "note" to "Proses Otomatis via AI Cloud Premium",
             "timestamp" to timestampValue,
             "isPaid" to false
         )
         firestore.collection("debts").document(debtId).set(debtMap).await()
 
-        // 2. Suntikkan langsung transaksi kas pendamping agar Dashboard bergetar real-time
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
@@ -103,29 +111,27 @@ class FinancialAssistant(private val context: Context) {
             "type" to flowType,
             "categoryId" to catId,
             "categoryName" to catName,
-            "note" to "[$selectedType] $name - INPUT AI PINJAMAN",
+            "note" to "[$selectedType] $sanitizedName - INPUT AUTOMATIC AI",
             "timestamp" to timestampValue
         )
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
-    // 🔥 FULL CLOUD: Rekonsiliasi cicilan langsung dengan kueri dokumen aktif di Firestore
     private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, aiResponseUpper: String, targetTimestamp: Long) {
         val snapshot = firestore.collection("debts").get().await()
         
         var matchDocId: String? = null
         var matchAmount = 0.0
         var matchType = "DEBT"
-        var matchContactName = contactNameRaw
+        var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }
 
-        // Cari data pinjaman aktif langsung dari snapshot awan
         for (doc in snapshot.documents) {
             val isPaid = doc.getBoolean("isPaid") ?: false
             if (!isPaid) {
                 val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT)
                 val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
                 
-                if (dbName == contactNameRaw || aiResponseUpper.contains(dbName) || finalAmount == remainingAmount) {
+                if (dbName == contactNameRaw.uppercase(Locale.ROOT) || aiResponseUpper.contains(dbName) || finalAmount == remainingAmount) {
                     matchDocId = doc.id
                     matchAmount = remainingAmount
                     matchType = doc.getString("type") ?: "DEBT"
@@ -140,13 +146,11 @@ class FinancialAssistant(private val context: Context) {
             val targetPayAmount = if (isPelunasan) matchAmount else finalAmount
             val nextRemaining = (matchAmount - targetPayAmount).coerceAtLeast(0.0)
 
-            // Update status sisa pinjaman di Firestore
             firestore.collection("debts").document(matchDocId).update(
                 "remainingAmount", nextRemaining,
                 "isPaid", nextRemaining <= 0.0
             ).await()
 
-            // Catat mutasi pembayarannya ke koleksi transaksi
             val txType = if (matchType == "DEBT") "EXPENSE" else "INCOME"
             val catId = if (matchType == "DEBT") 102L else 103L
             val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
@@ -165,7 +169,6 @@ class FinancialAssistant(private val context: Context) {
         }
     }
 
-    // 🔥 FULL CLOUD: Catat pengeluaran/pemasukan biasa murni ke Firestore
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
         val cleanNote = item.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
         var type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
@@ -187,7 +190,6 @@ class FinancialAssistant(private val context: Context) {
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
-    // 🔥 FULL CLOUD: Kalkulasi laporan finansial komplit ditarik real-time dari kueri dokumen Firestore
     private suspend fun compileAiReport(cleanJsonStr: String, aiResponse: String): String {
         val snapshot = firestore.collection("transactions").get().await()
         val json = JSONObject(cleanJsonStr)
@@ -279,9 +281,14 @@ class FinancialAssistant(private val context: Context) {
         return if (amount == 0.0) item.optString("amount", "0").toDoubleOrNull() ?: 0.0 else amount
     }
 
-    private fun dynamicContactNameExtractor(text: String): String {
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU")
-        for (name in databasePopulerNames) { if (text.contains(name)) return name }
-        return ""
+    private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI")
+        val textUpper = text.uppercase(Locale.ROOT)
+        val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
+        
+        for (name in databasePopulerNames) { 
+            if (textUpper.contains(name) || msgUpper.contains(name)) return name 
+        }
+        return "TEMAN"
     }
 }
