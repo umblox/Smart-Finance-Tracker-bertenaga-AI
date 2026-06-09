@@ -35,7 +35,6 @@ class AddDebtFragment : Fragment() {
     private lateinit var db: AppDatabase
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
     private var currentTab = "DEBT"
-    
     private var activeContactEditText: EditText? = null
 
     private val contactPickerLauncher = registerForActivityResult(
@@ -79,7 +78,7 @@ class AddDebtFragment : Fragment() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. HEADER
+        // 1. HEADER visual
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(44, 44, 44, 20)
@@ -114,7 +113,7 @@ class AddDebtFragment : Fragment() {
         summaryLayout.addView(cardReceivable)
         root.addView(summaryLayout)
 
-        // 3. TABS
+        // 3. TABS CONTROL
         val tabLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(44, 0, 44, 16)
@@ -125,7 +124,7 @@ class AddDebtFragment : Fragment() {
         tabLayout.addView(btnTabReceivable)
         root.addView(tabLayout)
 
-        // 4. DATA LISTCONTAINER
+        // 4. DATA SCROLL CONTAINER
         val scrollView = ScrollView(context).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
@@ -142,7 +141,6 @@ class AddDebtFragment : Fragment() {
 
         setTabStyles(btnTabDebt, btnTabReceivable)
 
-        // 🔥 FIX SINKRONISASI TOMBOL TAB: Tambahkan refreshDebtList agar database dipicu ulang real-time sesuai filter tab aktif
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
             setTabStyles(btnTabDebt, btnTabReceivable)
@@ -156,7 +154,6 @@ class AddDebtFragment : Fragment() {
         }
 
         refreshDebtList(listContainer, cardDebt, cardReceivable)
-
         return root
     }
 
@@ -204,9 +201,7 @@ class AddDebtFragment : Fragment() {
             textSize = 11f
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#4A5568"))
             setTextColor(Color.WHITE)
-            setOnClickListener {
-                checkContactPermissionAndLaunch()
-            }
+            setOnClickListener { checkContactPermissionAndLaunch() }
         }
         
         rowBersama.addView(etName)
@@ -215,25 +210,14 @@ class AddDebtFragment : Fragment() {
 
         val etAmount = EditText(context).apply { hint = "Nominal (ex: 250000)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
         formLayout.addView(etAmount)
-        
         formLayout.addView(TextView(context).apply { text = "\nJenis Pinjaman:"; textSize = 12f; setTextColor(Color.parseColor("#718096")) })
         
         val rgType = RadioGroup(context).apply {
             orientation = RadioGroup.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8; bottomMargin = 8 }
         }
-        val rbDebt = RadioButton(context).apply { 
-            text = "Hutang (Saya Meminjam)"
-            id = View.generateViewId()
-            textSize = 13f
-            isChecked = true
-        }
-        val rbReceivable = RadioButton(context).apply { 
-            text = "Piutang (Saya Meminjamkan)"
-            id = View.generateViewId()
-            textSize = 13f
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = 16 }
-        }
+        val rbDebt = RadioButton(context).apply { text = "Hutang (Saya Meminjam)"; id = View.generateViewId(); textSize = 13f; isChecked = true }
+        val rbReceivable = RadioButton(context).apply { text = "Piutang (Saya Meminjamkan)"; id = View.generateViewId(); textSize = 13f; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = 16 } }
         rgType.addView(rbDebt)
         rgType.addView(rbReceivable)
         formLayout.addView(rgType)
@@ -261,20 +245,12 @@ class AddDebtFragment : Fragment() {
                         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
                         
                         val newTransaction = TransactionEntity(
-                            amount = amountValue, 
-                            type = flowType, 
-                            categoryId = catId, 
-                            categoryName = catName,
-                            note = "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN", 
-                            timestamp = System.currentTimeMillis()
+                            amount = amountValue, type = flowType, categoryId = catId, categoryName = catName,
+                            note = "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN", timestamp = System.currentTimeMillis()
                         )
 
-                        val generatedId = withContext(Dispatchers.IO) {
-                            db.transactionDao().insertTransaction(newTransaction)
-                        }
-
-                        val finalizedTransaction = newTransaction.copy(id = generatedId)
-                        FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedTransaction)
+                        val generatedId = withContext(Dispatchers.IO) { db.transactionDao().insertTransaction(newTransaction) }
+                        FirebaseSyncManager(context).syncSingleTransactionToCloud(newTransaction.copy(id = generatedId))
                         Toast.makeText(context, "Pinjaman Berhasil Tersimpan!", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -288,7 +264,6 @@ class AddDebtFragment : Fragment() {
         lifecycleScope.launch {
             db.debtDao().getAllDebts().collect { allDebts ->
                 container.removeAllViews()
-                
                 var totalDebtSum = 0.0
                 var totalReceivableSum = 0.0
 
@@ -304,25 +279,20 @@ class AddDebtFragment : Fragment() {
                 if (filteredList.isEmpty()) {
                     val tvEmpty = TextView(requireContext()).apply {
                         text = "\nTidak ada data catatan aktif pada kategori ini."
-                        textSize = 14f
-                        setTextColor(Color.parseColor("#A0AEC0"))
-                        gravity = Gravity.CENTER
+                        textSize = 14f; setTextColor(Color.parseColor("#A0AEC0")); gravity = Gravity.CENTER
                     }
                     container.addView(tvEmpty)
                 } else {
                     filteredList.forEach { debtItem ->
                         val itemCard = LinearLayout(requireContext()).apply {
-                            orientation = LinearLayout.HORIZONTAL
-                            setPadding(24, 28, 24, 28)
-                            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-                            background.setTint(Color.WHITE)
+                            orientation = LinearLayout.HORIZONTAL; setPadding(24, 28, 24, 28)
+                            setBackgroundResource(android.R.drawable.dialog_holo_light_frame); background.setTint(Color.WHITE)
                             gravity = Gravity.CENTER_VERTICAL
                             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 }
                         }
 
                         val leftInfo = LinearLayout(requireContext()).apply {
-                            orientation = LinearLayout.VERTICAL
-                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                            orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
                         leftInfo.addView(TextView(requireContext()).apply { text = debtItem.contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#2D3748")) })
                         
@@ -331,18 +301,11 @@ class AddDebtFragment : Fragment() {
                         itemCard.addView(leftInfo)
 
                         val tvOriginalAmount = TextView(requireContext()).apply {
-                            text = formatRupiah.format(debtItem.amount)
-                            textSize = 14f
-                            setTypeface(null, Typeface.BOLD)
-                            setTextColor(if (currentTab == "DEBT") Color.parseColor("#D69E2E") else Color.parseColor("#2B6CB0"))
-                            gravity = Gravity.END
+                            text = formatRupiah.format(debtItem.amount); textSize = 14f; setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (currentTab == "DEBT") Color.parseColor("#D69E2E") else Color.parseColor("#2B6CB0")); gravity = Gravity.END
                         }
                         itemCard.addView(tvOriginalAmount)
-
-                        itemCard.setOnClickListener {
-                            showDebtActionOptions(debtItem, container, cardDebt, cardReceivable)
-                        }
-
+                        itemCard.setOnClickListener { showDebtActionOptions(debtItem, container, cardDebt, cardReceivable) }
                         container.addView(itemCard)
                     }
                 }
@@ -362,10 +325,7 @@ class AddDebtFragment : Fragment() {
                         return@setItems
                     }
                     
-                    val etPay = EditText(context).apply { 
-                        hint = "Masukkan jumlah uang (ex: 50000)" 
-                        inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                    }
+                    val etPay = EditText(context).apply { hint = "Masukkan jumlah uang (ex: 50000)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
                     AlertDialog.Builder(context).apply {
                         setTitle("Bayar / Cicil Pinjaman")
                         setMessage("Sisa tanggungan saat ini: ${formatRupiah.format(debt.remainingAmount)}")
@@ -384,20 +344,12 @@ class AddDebtFragment : Fragment() {
                                     val targetCatName = if (debt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
 
                                     val payTransaction = TransactionEntity(
-                                        amount = payValue, 
-                                        type = flowType, 
-                                        categoryId = targetCatId, 
-                                        categoryName = targetCatName,
-                                        note = "[$targetCatName] ${debt.contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL", 
-                                        timestamp = System.currentTimeMillis()
+                                        amount = payValue, type = flowType, categoryId = targetCatId, categoryName = targetCatName,
+                                        note = "[$targetCatName] ${debt.contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL", timestamp = System.currentTimeMillis()
                                     )
 
-                                    val generatedId = withContext(Dispatchers.IO) {
-                                        db.transactionDao().insertTransaction(payTransaction)
-                                    }
-
-                                    val finalizedPayTransaction = payTransaction.copy(id = generatedId)
-                                    FirebaseSyncManager(context).syncSingleTransactionToCloud(finalizedPayTransaction)
+                                    val generatedId = withContext(Dispatchers.IO) { db.transactionDao().insertTransaction(payTransaction) }
+                                    FirebaseSyncManager(context).syncSingleTransactionToCloud(payTransaction.copy(id = generatedId))
                                     Toast.makeText(context, "Cicilan Berhasil Diperbarui!", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -406,7 +358,7 @@ class AddDebtFragment : Fragment() {
                         show()
                     }
                 } else {
-                    // 🔥 BERSIHKAN TOTAL: Hapus permanen dari SQLite dan Firestore Cloud, bukan cuma di-set lunas
+                    // 🔥 PERBAIKAN STRUKTUR TUTUP KURUNG: Hapus fisik permanen dari disk lokal & Cloud Firestore secara seimbang
                     val contextRef = requireContext()
                     AlertDialog.Builder(contextRef).apply {
                         setTitle("⚠️ Hapus Catatan Pinjaman?")
@@ -414,10 +366,7 @@ class AddDebtFragment : Fragment() {
                         setPositiveButton("Ya, Hapus") { _, _ ->
                             lifecycleScope.launch {
                                 withContext(Dispatchers.IO) {
-                                    // 1. Eksekusi hapus di SQLite lokal HP via Room DAO yang baru didaftarkan
-                                    db.debtDao().deleteDebt(debt) 
-                                    
-                                    // 2. Eksekusi hapus dokumen padanannya di Cloud Firestore secara instan
+                                    db.debtDao().deleteDebt(debt)
                                     com.google.firebase.firestore.FirebaseFirestore.getInstance()
                                         .collection("debts")
                                         .document("debt_${debt.id}")
@@ -430,15 +379,16 @@ class AddDebtFragment : Fragment() {
                         show()
                     }
                 }
+            }
+            show()
+        }
+    }
 
     private fun createSummaryCard(label: String, colorHex: String): LinearLayout {
         return LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 24, 24, 24)
-            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-            background.setTint(Color.WHITE)
+            orientation = LinearLayout.VERTICAL; setPadding(24, 24, 24, 24)
+            setBackgroundResource(android.R.drawable.dialog_holo_light_frame); background.setTint(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            
             addView(TextView(context).apply { text = label; textSize = 12f; setTextColor(Color.parseColor("#718096")) })
             addView(TextView(context).apply { text = "Rp 0"; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor(colorHex)) })
         }
