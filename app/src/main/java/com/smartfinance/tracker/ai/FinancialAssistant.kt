@@ -18,12 +18,10 @@ class FinancialAssistant(private val context: Context) {
         if (cleanJsonStr.startsWith("```json")) {
             cleanJsonStr = cleanJsonStr.removePrefix("```json")
         } else if (cleanJsonStr.startsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removePrefix("
-```")
+            cleanJsonStr = cleanJsonStr.removePrefix("```")
         }
         if (cleanJsonStr.endsWith("```")) {
-            cleanJsonStr = cleanJsonStr.removeSuffix("
-```")
+            cleanJsonStr = cleanJsonStr.removeSuffix("```")
         }
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -51,18 +49,15 @@ class FinancialAssistant(private val context: Context) {
                     val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
                     
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
-                    // Proteksi nama kontak: Hilangkan kata perintah natural agar tidak menjadi nama orang fiktif
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI" || contactNameRaw == "TOLONG") {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
                     }
 
-                    // 🔥 AMAN & TERPUSAT: Langsung eksekusi tulis ke Cloud secara tangguh tanpa dialihkan lepas
                     when (actionType) {
                         "TRANSACTION" -> {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            // Deteksi arah aliran dana: Jika AI merespon mengandung indikasi piutang/meminjamkan uang
                             val isReceivableFlow = cleanAiResponseUpper.contains("PIUTANG") || 
                                                    cleanAiResponseUpper.contains("MEMINJAMKAN") || 
                                                    cleanAiResponseUpper.contains("KEPADA ANDA")
@@ -81,7 +76,6 @@ class FinancialAssistant(private val context: Context) {
         }
     }
 
-    // 🔥 FULL CLOUD EXECUTION: Menulis entitas pinjaman baru secara langsung dan instan dengan await kunci thread
     suspend fun executeDirectDebtRecord(name: String, amountValue: Double, isReceivable: Boolean, timestampValue: Long) {
         val selectedType = if (isReceivable) "RECEIVABLE" else "DEBT"
         val debtId = "debt_${System.currentTimeMillis()}"
