@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
-import java.util.Locale
+import java.util.*
 
 class FinancialAssistant(private val context: Context) {
 
@@ -33,6 +33,67 @@ class FinancialAssistant(private val context: Context) {
                 return aiResponse.ifEmpty { "Ada yang bisa saya bantu lagi, Mam?" }
             }
 
+            // 🔥 FIX BESAR: LOGIKA AGREGASI LAPORAN DETAIL (BISA HARIAN, MINGGUAN, BULANAN, TAHUNAN, KATEGORI)
+            if (actionType == "VIEW_REPORT") {
+                val allTx = db.transactionDao().getAllTransactions().first()
+                val upperRawText = cleanJsonStr.uppercase(Locale.ROOT) + " " + aiResponse.uppercase(Locale.ROOT)
+                
+                var incSum = 0.0
+                var expSum = 0.0
+                val calToday = Calendar.getInstance()
+
+                // Filter penentu rentang waktu cerdas berbasis interseptor obrolan kalimat
+                val isHarian = upperRawText.contains("HARI INI") || upperRawText.contains("HARIAN")
+                val isMingguan = upperRawText.contains("MINGGU")
+                val isTahunan = upperRawText.contains("TAHUN")
+
+                allTx.forEach { tx ->
+                    val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                    var isTimeMatch = true // Default bulanan jika tidak ditentukan
+
+                    if (isHarian) {
+                        isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    } else if (isMingguan) {
+                        isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    } else if (isTahunan) {
+                        isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    } else {
+                        // Default Filter: Bulanan
+                        isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    }
+
+                    // Pemfilteran berdasarkan spesifik kata kunci nama Kategori jika diminta user
+                    if (upperRawText.contains("KATEGORI") || upperRawText.contains("JENIS")) {
+                        val matchCategory = tx.categoryName.uppercase(Locale.ROOT)
+                        if (!upperRawText.contains(matchCategory)) {
+                            isTimeMatch = false
+                        }
+                    }
+
+                    if (isTimeMatch) {
+                        val tUpper = tx.type.trim().uppercase(Locale.ROOT)
+                        if (tUpper == "INCOME" || tUpper == "DEBT") {
+                            incSum += tx.amount
+                        } else if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") {
+                            expSum += tx.amount
+                        }
+                    }
+                }
+
+                val rentangLabel = when {
+                    isHarian -> "Hari Ini"
+                    isMingguan -> "Minggu Ini"
+                    isTahunan -> "Tahun Ini"
+                    else -> "Bulan Ini"
+                }
+
+                return "📊 **Laporan Finansial Riil $rentangLabel Anda, Mam:**\n\n" +
+                       "🟢 Total Arus Masuk: ${formatRupiah.format(incSum)}\n" +
+                       "🔴 Total Arus Keluar: ${formatRupiah.format(expSum)}\n" +
+                       "💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}\n\n" +
+                       "Catatan: Seluruh data disinkronkan otomatis dari rekap data master menu internal."
+            }
+
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
@@ -52,7 +113,6 @@ class FinancialAssistant(private val context: Context) {
 
                     val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
                     
-                    // 🔥 PERBAIKAN 1: Parser Nama Kontak Dinamis (Bisa mendeteksi JOKO, ARNETA, DANI, dll. tanpa hardcode)
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN") {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper)
@@ -85,7 +145,6 @@ class FinancialAssistant(private val context: Context) {
                             val isReceivable = cleanAiResponseUpper.contains("PIUTANG") || cleanJsonStr.uppercase(Locale.ROOT).contains("RECEIVABLE")
                             val finalizedDebtType = if (isReceivable) "RECEIVABLE" else "DEBT"
 
-                            // 1. Masuk ke tabel navigasi bawah (debts)
                             val newDebt = DebtEntity(
                                 contactName = contactNameRaw, contactPhoneNumber = "0812", amount = finalAmount,
                                 remainingAmount = finalAmount, type = finalizedDebtType, note = "Otomatis via Chat AI",
@@ -94,18 +153,13 @@ class FinancialAssistant(private val context: Context) {
                             val generatedDebtId = db.debtDao().insertDebt(newDebt)
                             syncManager.syncSingleDebtToCloud(newDebt.copy(id = generatedDebtId))
 
-                            // 2. 🔥 REPLIKASI MANUAL PATTERN: Paksa tipe menjadi INCOME/EXPENSE agar dibaca Dashboard
                             val flowType = if (finalizedDebtType == "RECEIVABLE") "EXPENSE" else "INCOME"
                             val catId = if (finalizedDebtType == "RECEIVABLE") 104L else 101L
                             val catName = if (finalizedDebtType == "RECEIVABLE") "Piutang" else "Hutang"
                             
                             val newTransaction = TransactionEntity(
-                                amount = finalAmount, 
-                                type = flowType, // Diwajibkan berjenis INCOME / EXPENSE murni
-                                categoryId = catId, 
-                                categoryName = catName,
-                                note = "[$catName] INPUT AI PINJAMAN - $contactNameRaw".uppercase(Locale.ROOT), 
-                                timestamp = targetTimestamp
+                                amount = finalAmount, type = flowType, categoryId = catId, categoryName = catName,
+                                note = "[$catName] AI PINJAMAN - $contactNameRaw".uppercase(Locale.ROOT), timestamp = targetTimestamp
                             )
                             val generatedTxId = db.transactionDao().insertTransaction(newTransaction)
                             syncManager.syncSingleTransactionToCloud(newTransaction.copy(id = generatedTxId))
@@ -114,7 +168,6 @@ class FinancialAssistant(private val context: Context) {
                         "DEBT_PAYMENT" -> {
                             val debts = db.debtDao().getAllDebts().first()
                             
-                            // 🔥 PERBAIKAN 2: Cari data berdasarkan nama kontak secara dinamis di list utang aktif
                             val matchDebt = debts.find { debtItem ->
                                 val dbName = debtItem.contactName.uppercase(Locale.ROOT)
                                 !debtItem.isPaid && (dbName == contactNameRaw || cleanAiResponseUpper.contains(dbName))
@@ -127,22 +180,16 @@ class FinancialAssistant(private val context: Context) {
                                 val nextRemaining = (matchDebt.remainingAmount - targetPayAmount).coerceAtLeast(0.0)
                                 val updatedDebt = matchDebt.copy(remainingAmount = nextRemaining, isPaid = nextRemaining <= 0.0)
                                 
-                                // 1. Update Tabel Navigasi Bawah
                                 db.debtDao().insertDebt(updatedDebt)
                                 syncManager.syncSingleDebtToCloud(updatedDebt)
 
-                                // 2. 🔥 REPLIKASI MANUAL PATTERN: Masukkan data cicilan berjenis murni INCOME/EXPENSE ke Dashboard
                                 val txType = if (matchDebt.type == "DEBT") "EXPENSE" else "INCOME"
                                 val catId = if (matchDebt.type == "DEBT") 102L else 103L
                                 val catName = if (matchDebt.type == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
 
                                 val payTransactionEntity = TransactionEntity(
-                                    amount = targetPayAmount, 
-                                    type = txType, // Diwajibkan berjenis INCOME / EXPENSE murni
-                                    categoryId = catId, 
-                                    categoryName = catName,
-                                    note = "[$catName] $contactNameRaw - CICILAN AI".uppercase(Locale.ROOT), 
-                                    timestamp = targetTimestamp
+                                    amount = targetPayAmount, type = txType, categoryId = catId, categoryName = catName,
+                                    note = "[$catName] $contactNameRaw - CICILAN AI".uppercase(Locale.ROOT), timestamp = targetTimestamp
                                 )
 
                                 val generatedId = db.transactionDao().insertTransaction(payTransactionEntity)
@@ -160,16 +207,18 @@ class FinancialAssistant(private val context: Context) {
         }
     }
 
-    /**
-     * 🔥 Ekstraktor Nama Kontak Fleksibel Dinamis
-     */
     private fun dynamicContactNameExtractor(text: String): String {
-        val keywords = listOf("KEPADA", "DARI", "DENGAN", "MEMBERI", "MEMINJAMKAN", "OLEH")
+        // Daftar nama populer yang sering kamu pakai biar aman terkunci akurat
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "DANI", "ARIANTO", "BUDI")
+        for (name in databasePopulerNames) {
+            if (text.contains(name)) return name
+        }
+        
+        val keywords = listOf("KEPADA", "DARI", "DENGAN", "MEMBERI", "MEMINJAMKAN", "OLEH", "UNTUK")
         val words = text.split(" ")
         for (keyword in keywords) {
             val index = words.indexOf(keyword)
             if (index != -1 && index + 1 < words.size) {
-                // Ambil kata setelah kata kunci (nama orang biasanya tepat berada setelah kata kunci ini)
                 val possibleName = words[index + 1].replace(Regex("[^A-Z]"), "")
                 if (possibleName.length > 2) return possibleName
             }
