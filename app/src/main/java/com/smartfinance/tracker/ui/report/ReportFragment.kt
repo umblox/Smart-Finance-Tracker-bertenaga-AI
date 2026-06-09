@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.card.MaterialCardView
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog // 🔥 IMPORT EDITOR BARU
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -110,7 +111,6 @@ class ReportFragment : Fragment() {
         return root
     }
 
-    // 🔥 REAL-TIME WATCHER FOR REPORT: Mengikat data rekapitulasi langsung dari awan Firestore
     private fun observeCloudReportLive() {
         if (!isAdded) return
         val context = requireContext()
@@ -135,8 +135,8 @@ class ReportFragment : Fragment() {
                     val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                     val categoryName = data["categoryName"] as? String ?: "Umum"
                     val note = data["note"] as? String ?: "Transaksi AI"
+                    val categoryId = (data["categoryId"] as? Number)?.toLong() ?: 0L
 
-                    // Klasifikasi aliran akuntansi kaku pendamping utang-piutang AI
                     if (type == "INCOME" || type == "DEBT") {
                         incomeSum += amount
                     } else if (type == "EXPENSE" || type == "RECEIVABLE") {
@@ -149,6 +149,7 @@ class ReportFragment : Fragment() {
                         put("type", type)
                         put("timestamp", timestamp)
                         put("categoryName", categoryName)
+                        put("categoryId", categoryId)
                         put("note", note)
                     }
                     cloudTxList.add(itemMap)
@@ -160,7 +161,6 @@ class ReportFragment : Fragment() {
 
                 listContainer.removeAllViews()
 
-                // Urutkan list berdasarkan riwayat mutasi waktu terbaru di awan
                 cloudTxList.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
 
                 if (cloudTxList.isEmpty()) {
@@ -177,10 +177,11 @@ class ReportFragment : Fragment() {
                             gravity = Gravity.CENTER_VERTICAL
                             setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
                             
+                            // 🔥 FIX SINKRONISASI: Memanggil Editor Dialog Cloud terpadu untuk Aksi Ubah & Hapus
                             setOnClickListener {
-                                // Opsi aksi hapus/edit dokumen langsung menyasar target Firestore Document ID
-                                val docId = item["id"] as String
-                                showDeleteTransactionDialog(docId, item["note"] as String)
+                                TransactionEditorDialog(item) {
+                                    // Live snapshot otomatis memicu perubahan, callback ini mengunci reaktivitas data UI
+                                }.show(parentFragmentManager, "TransactionEditorDialog")
                             }
                         }
 
@@ -225,21 +226,6 @@ class ReportFragment : Fragment() {
                     }
                 }
             }
-    }
-
-    // 🔥 FULL CLOUD DELETE ACTION: Lenyapkan mutasi kas yang salah rekam langsung dari server awan Firestore
-    private fun showDeleteTransactionDialog(docId: String, note: String) {
-        val contextRef = requireContext()
-        AlertDialog.Builder(contextRef).apply {
-            setTitle("🗑️ Hapus Transaksi?")
-            setMessage("Apakah Anda yakin ingin menghapus transaksi \"$note\" secara permanen dari server Cloud?")
-            setPositiveButton("Ya, Hapus") { _, _ ->
-                firestore.collection("transactions").document(docId).delete()
-                Toast.makeText(contextRef, "Transaksi berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
-            }
-            setNegativeButton("Batal", null)
-            show()
-        }
     }
 
     override fun onDestroyView() {
