@@ -1,6 +1,7 @@
 package com.smartfinance.tracker.ui.chat
 
 import android.graphics.Color
+import android.text.Html
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -35,7 +36,18 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
-        holder.textView.text = message.text
+        
+        // 🔥 FIX MARKDOWN VISUAL: Mengonversi sintaks '**text**' Groq menjadi format HTML Bold agar rapi di layar
+        val rawText = message.text
+        if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
+            val formattedHtml = rawText
+                .replace("\n", "<br/>")
+                .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
+            
+            holder.textView.text = Html.fromHtml(formattedHtml, Html.FROM_HTML_MODE_LEGACY)
+        } else {
+            holder.textView.text = rawText
+        }
 
         val params = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -45,7 +57,6 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             bottomMargin = 4
         }
 
-        // PERBAIKAN MUTLAK: Atur max width langsung ke TextView secara aman setelah layout dirender
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.75).toInt()
             if (maxChatWidth > 0) {
