@@ -74,7 +74,6 @@ class ChatFragment : Fragment() {
         if (!savedChat.isNullOrEmpty()) { 
             loadBackupToAdapter(savedChat) 
         } else {
-            // Tarik data backup dari cloud firestore
             FirebaseFirestore.getInstance().collection("user_chat")
                 .document("main_chat_history")
                 .get()
@@ -145,7 +144,6 @@ class ChatFragment : Fragment() {
                 extractedAmount = match.value.toDoubleOrNull() ?: 30000.0
             }
             
-            // 🔥 PERBAIKAN UTAMA: Nama diambil secara dinamis dari teks obrolan asli
             val name = dynamicContactNameExtractor(upperMessage)
 
             if (isDebtQuery && !isPaymentQuery) {
@@ -256,14 +254,10 @@ class ChatFragment : Fragment() {
         }
     }
 
-    /**
-     * 🔥 EKSTRAKTOR NAMA ASLI 100% DINAMIS BERBASIS POSISI KATA (KATA KUNCI BAHASA)
-     */
     private fun dynamicContactNameExtractor(userText: String): String {
         val keywords = listOf("KEPADA", "DARI", "DENGAN", "OLEH", "UNTUK", "SAMA")
         val words = userText.split(Regex("\\s+"))
         
-        // Cari kata setelah kata kunci bahasa
         for (keyword in keywords) {
             val index = words.indexOf(keyword)
             if (index != -1 && index + 1 < words.size) {
@@ -272,7 +266,6 @@ class ChatFragment : Fragment() {
             }
         }
 
-        // Jika tidak ada kata kunci, ambil kata pertama yang murni huruf (bukan instruksi utama saya/pinjam/nominal)
         for (word in words) {
             val cleanWord = word.replace(Regex("[^A-Z]"), "")
             if (cleanWord.length > 2 && 
@@ -287,6 +280,18 @@ class ChatFragment : Fragment() {
             }
         }
         return "TEMAN"
+    }
+
+    // 🔥 KEMBALIKAN FUNGSI BACKUP UI YANG TERHAPUS
+    private fun loadBackupToAdapter(backupStr: String) {
+        messageList.clear()
+        backupStr.split("\n").forEach { line ->
+            if (line.trim().isNotEmpty()) {
+                if (line.startsWith("[USER]")) messageList.add(ChatMessage(line.substring(6), true))
+                if (line.startsWith("[AI]")) messageList.add(ChatMessage(line.substring(4), false))
+            }
+        }
+        chatAdapter.notifyDataSetChanged()
     }
 
     override fun onDestroyView() {
