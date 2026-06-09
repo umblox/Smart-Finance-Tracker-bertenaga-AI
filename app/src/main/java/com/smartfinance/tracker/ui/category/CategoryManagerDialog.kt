@@ -12,20 +12,27 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
-import com.smartfinance.tracker.data.local.AppDatabase
-import com.smartfinance.tracker.data.local.entity.CategoryEntity
-import kotlinx.coroutines.flow.first
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.util.Locale
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class CategoryManagerDialog : DialogFragment() {
 
-    private lateinit var db: AppDatabase
+    private val firestore = FirebaseFirestore.getInstance()
+    private var categoryListenerRegistration: ListenerRegistration? = null
+    
     private lateinit var containerList: LinearLayout
     private var currentTypeFilter = "EXPENSE"
+    
+    // 🔥 FULL CLOUD: Menampung data kategori master berbasis struktur data Map dari Firestore Cloud
+    private var allCategoriesCloud = listOf<Map<String, Any>>()
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
-        db = AppDatabase.getDatabase(context)
         val density = context.resources.displayMetrics.density
 
         val mainLayout = LinearLayout(context).apply {
@@ -60,7 +67,7 @@ class CategoryManagerDialog : DialogFragment() {
             btnExpense.setTypeface(null, Typeface.BOLD); btnExpense.setTextColor(Color.parseColor("#008080"))
             btnIncome.setTypeface(null, Typeface.NORMAL); btnIncome.setTextColor(Color.parseColor("#718096"))
             btnDebt.setTypeface(null, Typeface.NORMAL); btnDebt.setTextColor(Color.parseColor("#718096"))
-            renderHierarchy()
+            renderHierarchyCloud()
         }
 
         btnIncome.setOnClickListener {
@@ -68,7 +75,7 @@ class CategoryManagerDialog : DialogFragment() {
             btnIncome.setTypeface(null, Typeface.BOLD); btnIncome.setTextColor(Color.parseColor("#008080"))
             btnExpense.setTypeface(null, Typeface.NORMAL); btnExpense.setTextColor(Color.parseColor("#718096"))
             btnDebt.setTypeface(null, Typeface.NORMAL); btnDebt.setTextColor(Color.parseColor("#718096"))
-            renderHierarchy()
+            renderHierarchyCloud()
         }
 
         btnDebt.setOnClickListener {
@@ -76,7 +83,7 @@ class CategoryManagerDialog : DialogFragment() {
             btnDebt.setTypeface(null, Typeface.BOLD); btnDebt.setTextColor(Color.parseColor("#008080"))
             btnExpense.setTypeface(null, Typeface.NORMAL); btnExpense.setTextColor(Color.parseColor("#718096"))
             btnIncome.setTypeface(null, Typeface.NORMAL); btnIncome.setTextColor(Color.parseColor("#718096"))
-            renderHierarchy()
+            renderHierarchyCloud()
         }
 
         tabLayout.addView(btnExpense)
@@ -91,7 +98,7 @@ class CategoryManagerDialog : DialogFragment() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 setMargins((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
             }
-            setOnClickListener { showFullScreenEditor(null) }
+            setOnClickListener { showFullScreenEditorCloud(null) }
         }
         mainLayout.addView(btnAdd)
 
@@ -103,88 +110,117 @@ class CategoryManagerDialog : DialogFragment() {
         scrollView.addView(containerList)
         mainLayout.addView(scrollView)
 
-        renderHierarchy()
+        // 🔥 REAL-TIME ATTACHMENT: Mengikat SnapshotListener secara reaktif ke koleksi Firebase
+        observeCategoriesCloudLive()
 
         return AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
             .setView(mainLayout)
             .create()
     }
 
-    private fun renderHierarchy() {
-        lifecycleScope.launch {
-            val allCategories = db.categoryDao().getAllCategories().first()
-            val filtered = allCategories.filter { it.type == currentTypeFilter }
-            
-            containerList.removeAllViews()
-            val density = requireContext().resources.displayMetrics.density
+    private fun observeCategoriesCloudLive() {
+        if (!isAdded) return
+        
+        categoryListenerRegistration?.remove()
+        categoryListenerRegistration = firestore.collection("categories")
+            .addSnapshotListener { snapshots, e ->
+                if (e != null || snapshots == null) return@addSnapshotListener
 
-            val parentCategories = filtered.filter { it.parentCategoryId == null }
-            val subCategories = filtered.filter { it.parentCategoryId != null }
+                val list = ArrayList<Map<String, Any>>()
+                for (doc in snapshots.documents) {
+                    val data = doc.data ?: continue
+                    val mutableData = HashMap(data)
+                    mutableData["docId"] = doc.id
+                    mutableData["id"] = doc.getLong("id") ?: 0L
+                    list.add(mutableData)
+                }
+                allCategoriesCloud = list
+                renderHierarchyCloud()
+            }
+    }
 
-            parentCategories.forEach { parent ->
-                val parentRow = LinearLayout(context).apply {
+    private fun renderHierarchyCloud() {
+        containerList.removeAllViews()
+        val context = context ?: return
+        val density = context.resources.displayMetrics.density
+
+        // Filter data Map berdasarkan jenis aliran kas aktif di Tab Layout
+        val filtered = allCategoriesCloud.filter { (it["type"] as? String) == currentTypeFilter }
+
+        val parentCategories = filtered.filter { it["parentCategoryId"] == null }
+        val subCategories = filtered.filter { it["parentCategoryId"] != null }
+
+        parentCategories.forEach { parent ->
+            val parentRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, (14 * density).toInt(), 0, (14 * density).toInt())
+                setOnClickListener { showFullScreenEditorCloud(parent) }
+            }
+
+            val iconView = TextView(context).apply { text = "📁"; textSize = 18f; setPadding(0, 0, (12 * density).toInt(), 0) }
+            val titleView = TextView(context).apply {
+                text = parent["name"] as? String ?: ""; setTextColor(Color.parseColor("#2D3748")); textSize = 15f; setTypeface(null, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            parentRow.addView(iconView)
+            parentRow.addView(titleView)
+
+            val isLocked = parent["isLocked"] as? Boolean ?: false
+            if (isLocked) {
+                val lockView = TextView(context).apply { text = "🔒"; textSize = 14f; setPadding((8 * density).toInt(), 0, (4 * density).toInt(), 0) }
+                parentRow.addView(lockView)
+            }
+            containerList.addView(parentRow)
+
+            val parentId = parent["id"] as Long
+            val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }
+            kids.forEach { child ->
+                val childRow = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, (14 * density).toInt(), 0, (14 * density).toInt())
-                    setOnClickListener { showFullScreenEditor(parent) }
+                    setPadding((16 * density).toInt(), (10 * density).toInt(), 0, (10 * density).toInt())
+                    setOnClickListener { showFullScreenEditorCloud(child) }
                 }
 
-                val iconView = TextView(context).apply { text = "📁"; textSize = 18f; setPadding(0, 0, (12 * density).toInt(), 0) }
-                val titleView = TextView(context).apply {
-                    text = parent.name; setTextColor(Color.parseColor("#2D3748")); textSize = 15f; setTypeface(null, Typeface.BOLD)
+                val treeLine = View(context).apply {
+                    setBackgroundColor(Color.parseColor("#CBD5E0"))
+                    layoutParams = LinearLayout.LayoutParams((2 * density).toInt(), (24 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
+                }
+                childRow.addView(treeLine)
+
+                val childIcon = TextView(context).apply { text = "💰"; textSize = 14f; setPadding(0, 0, (10 * density).toInt(), 0) }
+                val childTitle = TextView(context).apply {
+                    text = child["name"] as? String ?: ""; setTextColor(Color.parseColor("#4A5568")); textSize = 14f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
-                parentRow.addView(iconView)
-                parentRow.addView(titleView)
+                childRow.addView(childIcon)
+                childRow.addView(childTitle)
 
-                // Jika kategori terkunci (bawaan sistem), tampilkan indikator gembok di sebelah kanan row
-                if (parent.isLocked) {
-                    val lockView = TextView(context).apply { text = "🔒"; textSize = 14f; setPadding((8 * density).toInt(), 0, (4 * density).toInt(), 0) }
-                    parentRow.addView(lockView)
+                val isChildLocked = child["isLocked"] as? Boolean ?: false
+                if (isChildLocked) {
+                    val childLock = TextView(context).apply { text = "🔒"; textSize = 12f; setPadding((8 * density).toInt(), 0, (4 * density).toInt(), 0) }
+                    childRow.addView(childLock)
                 }
-                containerList.addView(parentRow)
-
-                val kids = subCategories.filter { it.parentCategoryId == parent.id }
-                kids.forEach { child ->
-                    val childRow = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding((16 * density).toInt(), (10 * density).toInt(), 0, (10 * density).toInt())
-                        setOnClickListener { showFullScreenEditor(child) }
-                    }
-
-                    val treeLine = View(context).apply {
-                        setBackgroundColor(Color.parseColor("#CBD5E0"))
-                        layoutParams = LinearLayout.LayoutParams((2 * density).toInt(), (24 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
-                    }
-                    childRow.addView(treeLine)
-
-                    val childIcon = TextView(context).apply { text = "💰"; textSize = 14f; setPadding(0, 0, (10 * density).toInt(), 0) }
-                    val childTitle = TextView(context).apply {
-                        text = child.name; setTextColor(Color.parseColor("#4A5568")); textSize = 14f
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-                    childRow.addView(childIcon)
-                    childRow.addView(childTitle)
-
-                    if (child.isLocked) {
-                        val childLock = TextView(context).apply { text = "🔒"; textSize = 12f; setPadding((8 * density).toInt(), 0, (4 * density).toInt(), 0) }
-                        childRow.addView(childLock)
-                    }
-                    containerList.addView(childRow)
-                }
-
-                containerList.addView(View(context).apply {
-                    setBackgroundColor(Color.parseColor("#E2E8F0"))
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (4 * density).toInt() }
-                })
+                containerList.addView(childRow)
             }
+
+            containerList.addView(View(context).apply {
+                setBackgroundColor(Color.parseColor("#E2E8F0"))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (4 * density).toInt() }
+            })
         }
     }
 
-    private fun showFullScreenEditor(category: CategoryEntity?) {
+    private fun showFullScreenEditorCloud(category: Map<String, Any>?) {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
+
+        val docId = category?.get("docId") as? String ?: ""
+        val currentId = category?.get("id") as? Long
+        val currentName = category?.get("name") as? String ?: ""
+        val isLocked = category?.get("isLocked") as? Boolean ?: false
+        val currentParentId = (category?.get("parentCategoryId") as? Number)?.toLong()
 
         val editorContainer = RelativeLayout(context).apply {
             setBackgroundColor(Color.parseColor("#F7FAFC"))
@@ -217,8 +253,7 @@ class CategoryManagerDialog : DialogFragment() {
             text = "HAPUS"; textSize = 13f; setTextColor(Color.parseColor("#E53E3E")); setTypeface(null, Typeface.BOLD)
             setPadding((16 * density).toInt(), (6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt())
             
-            // PROTEKSI LOGIKA: Sembunyikan tombol hapus jika kategori bernilai isLocked == true
-            visibility = if (category != null && !category.isLocked) View.VISIBLE else View.GONE
+            visibility = if (category != null && !isLocked) View.VISIBLE else View.GONE
             
             layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
@@ -238,19 +273,18 @@ class CategoryManagerDialog : DialogFragment() {
 
         formLayout.addView(TextView(context).apply { text = "Nama Kategori"; setTextColor(Color.parseColor("#718096")); textSize = 12f })
         val etName = EditText(context).apply {
-            setText(category?.name ?: "")
+            setText(currentName)
             setTextColor(Color.parseColor("#2D3748"))
             textSize = 15f
             hint = "Masukkan nama kategori"
             setHintTextColor(Color.parseColor("#A0AEC0"))
             
-            // FIX MODERN: Menggantikan setColorFilter usang agar kompatibel penuh dengan Android API terbaru
             background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 Color.parseColor("#CBD5E0"), 
                 androidx.core.graphics.BlendModeCompat.SRC_ATOP
             )
             
-            if (category != null && category.isLocked) {
+            if (category != null && isLocked) {
                 isEnabled = false
                 setTextColor(Color.GRAY)
             }
@@ -262,40 +296,34 @@ class CategoryManagerDialog : DialogFragment() {
         val spinnerParent = Spinner(context).apply {
             setBackgroundColor(Color.WHITE)
             setPadding((10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt())
-            if (category != null && category.isLocked) isEnabled = false
+            if (category != null && isLocked) isEnabled = false
         }
         formLayout.addView(spinnerParent)
         editorContainer.addView(formLayout)
 
-        lifecycleScope.launch {
-            val allCats = db.categoryDao().getAllCategories().first()
-            val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter && it.id != category?.id }
-            
-            val listNames = mutableListOf("[Tanpa Induk / Kategori Utama]")
-            parents.forEach { listNames.add(it.name) }
-            
-            val spinnerAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
-            spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerParent.adapter = spinnerAdapter
-            
-            category?.parentCategoryId?.let { parentId ->
-                val matchIdx = parents.indexOfFirst { it.id == parentId }
-                if (matchIdx != -1) spinnerParent.setSelection(matchIdx + 1)
-            }
+        // Menyusun dropdown spinner parent kustom dari cache lokal map Cloud
+        val parents = allCategoriesCloud.filter { it["parentCategoryId"] == null && (it["type"] as? String) == currentTypeFilter && (it["id"] as Long) != currentId }
+        val listNames = mutableListOf("[Tanpa Induk / Kategori Utama]")
+        parents.forEach { listNames.add(it["name"] as String) }
+        
+        val spinnerAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerParent.adapter = spinnerAdapter
+        
+        currentParentId?.let { pId ->
+            val matchIdx = parents.indexOfFirst { (it["id"] as Long) == pId }
+            if (matchIdx != -1) spinnerParent.setSelection(matchIdx + 1)
         }
 
         val btnSave = Button(context).apply {
             text = "Simpan"
-            textSize = 14f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE)
             background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = 22 * density
                 setColor(Color.parseColor("#008080"))
             }
             
-            // Sembunyikan tombol simpan jika kategori sistem terkunci karena tidak perlu ada perubahan mutasi data
-            visibility = if (category != null && category.isLocked) View.GONE else View.VISIBLE
+            visibility = if (category != null && isLocked) View.GONE else View.VISIBLE
             
             layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
@@ -310,35 +338,37 @@ class CategoryManagerDialog : DialogFragment() {
 
         btnClose.setOnClickListener { editorDialog.dismiss() }
 
+        // 🔥 FULL CLOUD ACTION: Lenyapkan berkas kategori dari Firestore Server
         btnDelete.setOnClickListener {
-            if (category != null && !category.isLocked) {
-                lifecycleScope.launch {
-                    db.categoryDao().deleteCategory(category)
-                    renderHierarchy()
+            if (category != null && !isLocked && docId.isNotEmpty()) {
+                firestore.collection("categories").document(docId).delete().addOnSuccessListener {
+                    Toast.makeText(context, "Kategori berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
                     editorDialog.dismiss()
                 }
             }
         }
 
+        // 🔥 FULL CLOUD ACTION: Buat dokumen baru atau perbarui dokumen di server Firestore
         btnSave.setOnClickListener {
             val finalName = etName.text.toString().trim()
             if (finalName.isNotEmpty()) {
-                lifecycleScope.launch {
-                    val allCats = db.categoryDao().getAllCategories().first()
-                    val parents = allCats.filter { it.parentCategoryId == null && it.type == currentTypeFilter && it.id != category?.id }
-                    val selectedPos = spinnerParent.selectedItemPosition
-                    val finalParentId = if (selectedPos == 0) null else parents[selectedPos - 1].id
+                val selectedPos = spinnerParent.selectedItemPosition
+                val finalParentId = if (selectedPos == 0) null else parents[selectedPos - 1]["id"] as Long
 
-                    val newCat = CategoryEntity(
-                        id = category?.id ?: 0,
-                        name = finalName,
-                        type = currentTypeFilter,
-                        iconName = category?.iconName ?: "ic_custom",
-                        parentCategoryId = finalParentId,
-                        isLocked = false
-                    )
-                    db.categoryDao().insertCategory(newCat)
-                    renderHierarchy()
+                val targetDocId = if (docId.isEmpty()) "cat_${System.currentTimeMillis()}" else docId
+                val targetNumericId = currentId ?: System.currentTimeMillis()
+
+                val categoryMap = hashMapOf(
+                    "id" to targetNumericId,
+                    "name" to finalName,
+                    "type" to currentTypeFilter,
+                    "iconName" to (category?.get("iconName") as? String ?: "ic_custom"),
+                    "parentCategoryId" to finalParentId,
+                    "isLocked" to false
+                )
+
+                firestore.collection("categories").document(targetDocId).set(categoryMap).addOnSuccessListener {
+                    Toast.makeText(context, "Kategori sukses disimpan ke Cloud!", Toast.LENGTH_SHORT).show()
                     editorDialog.dismiss()
                 }
             } else {
@@ -347,5 +377,10 @@ class CategoryManagerDialog : DialogFragment() {
         }
 
         editorDialog.show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        categoryListenerRegistration?.remove()
     }
 }
