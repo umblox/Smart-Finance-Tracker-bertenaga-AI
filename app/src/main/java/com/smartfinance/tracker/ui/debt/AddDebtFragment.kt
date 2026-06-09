@@ -406,32 +406,30 @@ class AddDebtFragment : Fragment() {
                         show()
                     }
                 } else {
-                    // 🔥 PERBAIKAN LOGIKA MUTLAK: Hapus entitas secara permanen dari SQLite, bukan cuma di-set lunas!
-                    AlertDialog.Builder(context).apply {
-                        setTitle("⚠️ Hapus Catatan?")
-                        setMessage("Apakah Anda yakin ingin menghapus catatan pinjaman bersama ${debt.contactName} secara permanen?")
+                    // 🔥 BERSIHKAN TOTAL: Hapus permanen dari SQLite dan Firestore Cloud, bukan cuma di-set lunas
+                    val contextRef = requireContext()
+                    AlertDialog.Builder(contextRef).apply {
+                        setTitle("⚠️ Hapus Catatan Pinjaman?")
+                        setMessage("Apakah Anda yakin ingin menghapus catatan bersama ${debt.contactName} secara permanen dari perangkat dan cloud?")
                         setPositiveButton("Ya, Hapus") { _, _ ->
                             lifecycleScope.launch {
                                 withContext(Dispatchers.IO) {
-                                    // Panggil fungsi query delete bawaan Room DAO
+                                    // 1. Eksekusi hapus di SQLite lokal HP via Room DAO yang baru didaftarkan
                                     db.debtDao().deleteDebt(debt) 
                                     
-                                    // Opsional: Hapus dari Firebase Cloud Firestore jika sinkronisasi satu pintu
-                                    FirebaseFirestore.getInstance().collection("debts")
+                                    // 2. Eksekusi hapus dokumen padanannya di Cloud Firestore secara instan
+                                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                        .collection("debts")
                                         .document("debt_${debt.id}")
                                         .delete()
                                 }
-                                Toast.makeText(context, "Catatan Berhasil Dihapus Permanen!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(contextRef, "Catatan berhasil dihapus permanen!", Toast.LENGTH_SHORT).show()
                             }
                         }
                         setNegativeButton("Batal", null)
                         show()
                     }
                 }
-            }
-            show()
-        }
-    }
 
     private fun createSummaryCard(label: String, colorHex: String): LinearLayout {
         return LinearLayout(requireContext()).apply {
