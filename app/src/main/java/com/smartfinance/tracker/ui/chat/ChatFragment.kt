@@ -20,6 +20,7 @@ import com.smartfinance.tracker.data.remote.FirebaseSyncManager
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.text.NumberFormat
 import java.util.Locale
 
 class ChatFragment : Fragment() {
@@ -32,6 +33,9 @@ class ChatFragment : Fragment() {
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
     private lateinit var syncManager: FirebaseSyncManager
+    
+    // 🔥 Gunakan formatter terstandarisasi agar terhindar dari galat sintaks string format kustom
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -52,7 +56,6 @@ class ChatFragment : Fragment() {
         binding.rvChatHistory.layoutManager = LinearLayoutManager(contextRef)
         binding.rvChatHistory.adapter = chatAdapter
 
-        // Konfigurasi tombol send bawaan visualisasi kustom...
         binding.btnSend.apply {
             visibility = View.VISIBLE
             text = ""
@@ -109,10 +112,8 @@ class ChatFragment : Fragment() {
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
             if (rawResponse.contains("CONFIRMATION_REQUIRED")) {
-                // Render Mode Defensif Interaktif Opsi Jalur Ganda
                 try {
-                    val json = JSONObject(rawResponse.trim().removePrefix("
-```json").removePrefix("```").removeSuffix("```").trim())
+                    val json = JSONObject(rawResponse.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim())
                     val txArray = json.optJSONArray("transactions")
                     val item = txArray?.getJSONObject(0)
                     val amount = item?.optDouble("amount", 0.0) ?: 0.0
@@ -123,7 +124,6 @@ class ChatFragment : Fragment() {
                     messageList.add(ChatMessage("Mohon ulangi kalimat Anda dengan lebih jelas, Mam.", false))
                 }
             } else {
-                // Jalur normal asisten cerdas
                 messageList.add(ChatMessage(rawResponse.trim(), false))
             }
 
@@ -132,7 +132,6 @@ class ChatFragment : Fragment() {
             binding.btnSend.isEnabled = true
             binding.btnSend.alpha = 1.0f
 
-            // Save Backup preferensi lokal
             val backupBuilder = StringBuilder()
             messageList.forEach { 
                 val prefix = if (it.isUser) "[USER]" else "[AI]"
@@ -144,39 +143,41 @@ class ChatFragment : Fragment() {
     }
 
     private fun injectConfirmationButtonsToChat(name: String, amount: Double) {
-        val formattedAmount = "Rp " + String.format("%,.0f", amount)
-        messageList.add(ChatMessage("🤔 Kalimat Anda sedikit membingungkan sistem AI. Tolong pilih opsi arah transaksi yang benar di bawah ini agar Dashboard Anda akurat, Mam:", false))
+        // 🔥 FIX MUTLAK: Gunakan formatter aman bawaan sistem Android untuk melenyapkan galat token petik ganda
+        val formattedAmount = formatRupiah.format(amount)
         
-        // Pemicu tombol aksi lokal
+        messageList.add(ChatMessage("🤔 Kalimat Anda sedikit membingungkan sistem AI. Tolong pilih opsi arah transaksi yang benar di bawah ini agar Dashboard Anda akurat, Mam:", false))
         chatAdapter.notifyDataSetChanged()
 
-        // Munculkan dialog interseptor kaku di layar chat
         val container = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(30, 20, 30, 20)
         }
+        
         val btn1 = Button(requireContext()).apply { 
-            text = "1. Anda Berhutang ke $name ($formattedAmount)"
+            text = "1. Anda Berhutang ke " + name + " (" + formattedAmount + ")"
             setOnClickListener {
                 lifecycleScope.launch {
-                    assistant.executeDirectDebtRecord(name, amount, isReceivable = false, timestampValue = System.currentTimeMillis())
-                    Toast.makeText(context, "Berhasil dicatat sebagai Hutang (Kas Masuk Dashboard)!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil tercatat: Anda memiliki HUTANG kepada $name sebesar $formattedAmount.", false))
+                    assistant.executeDirectDebtRecord(name, amount, false, System.currentTimeMillis())
+                    Toast.makeText(context, "Berhasil dicatat sebagai Hutang!", Toast.LENGTH_SHORT).show()
+                    messageList.add(ChatMessage("✅ Berhasil tercatat: Anda memiliki HUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
                     chatAdapter.notifyDataSetChanged()
                 }
             }
         }
+        
         val btn2 = Button(requireContext()).apply { 
-            text = "2. $name Berhutang ke Anda ($formattedAmount)"
+            text = "2. " + name + " Berhutang ke Anda (" + formattedAmount + ")"
             setOnClickListener {
                 lifecycleScope.launch {
-                    assistant.executeDirectDebtRecord(name, amount, isReceivable = true, timestampValue = System.currentTimeMillis())
-                    Toast.makeText(context, "Berhasil dicatat sebagai Piutang (Kas Keluar Dashboard)!", Toast.LENGTH_SHORT).show()
-                    messageList.add(ChatMessage("✅ Berhasil tercatat: Anda memiliki PIUTANG kepada $name sebesar $formattedAmount.", false))
+                    assistant.executeDirectDebtRecord(name, amount, true, System.currentTimeMillis())
+                    Toast.makeText(context, "Berhasil dicatat sebagai Piutang!", Toast.LENGTH_SHORT).show()
+                    messageList.add(ChatMessage("✅ Berhasil tercatat: Anda memiliki PIUTANG kepada " + name + " sebesar " + formattedAmount + ".", false))
                     chatAdapter.notifyDataSetChanged()
                 }
             }
         }
+        
         container.addView(btn1)
         container.addView(btn2)
         
