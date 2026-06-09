@@ -52,7 +52,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
-            // 3. 🔥 OTAK UTAMA LAPORAN: Tarik seluruh riwayat transaksi riil dari Firestore Cloud agar AI bisa berhitung
+            // 3. Tarik seluruh riwayat transaksi riil dari Firestore Cloud
             val txSnapshot = firestore.collection("transactions").get().await()
             val sdfTx = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             for (doc in txSnapshot.documents) {
@@ -72,11 +72,11 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PERBAIKAN RADIKAL PROMPT SYSTEM: AI dibebaskan berpikir cerdas & dipasok data riil untuk kalkulasi eksplisit
+        // 🔥 PERBAIKAN TOTAL PROMPT: Paksa AI menyusun laporan eksplisit terperinci di kolom 'ai_response'
         val finalSystemPrompt = """
 Anda adalah asisten keuangan AI premium, sangat cerdas, analitis, dan solutif untuk user bernama Ikromul Umam (Mam).
 Tugas utama Anda:
-1. Menjawab pertanyaan atau melakukan analisis keuangan komprehensif, eksplisit, terperinci, dan mendalam berdasarkan data transaksi nyata yang dilampirkan di bawah.
+1. Menjawab pertanyaan atau melakukan analisis keuangan komprehensif, eksplisit, terperinci, mendalam, dan menghitung total nominal uang secara matematis berdasarkan data mutasi nyata yang dilampirkan di bawah.
 2. Jika user meminta instruksi perubahan data (mencatat transaksi/utang baru, mencicil, dll), terjemahkan bahasa natural tersebut menjadi instruksi terstruktur JSON.
 
 🗓️ INFO HARI INI: $todayString
@@ -87,17 +87,17 @@ ${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
 🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
 ${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
 
-📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL (Gunakan data ini untuk menghitung total laporan, pengeluaran tertinggi, harian, bulanan, tahunan, atau per kategori secara eksplisit):
+📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL (WAJIB hitung total laporan, pengeluaran tertinggi, rincian harian, bulanan, tahunan, atau per kategori dari sini):
 ${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else txContext.toString()}
 
-⚠️ ATURAN ANALISIS DAN BAHASA NATURAL (ANTI-BODOH):
-- Jangan kaku! Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang atau nama kontak terkait. Analisis konteks kalimat secara cerdas.
-- Jika user meminta laporan keuangan, performa kas, pengeluaran tertinggi, atau rincian per tanggal/kategori, lakukan kalkulasi matematika secara akurat menggunakan data di atas dan tuliskan rincian detailnya pada kolom "ai_response" dalam bentuk Markdown yang cantik (gunakan bold, bullet points, dan baris baru yang rapi).
+⚠️ ATURAN ANALISIS DAN LAPORAN (ANTI-NOL / ANTI-BODOH):
+- Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang. Analisis konteks kalimat secara cerdas.
+- JIKA USER MEMINTA LAPORAN KEUANGAN (Harian, Bulanan, Tahunan, Tertinggi, Per Kategori, dll), Anda WAJIB berhitung menggunakan matematika yang akurat berdasarkan data mutasi riil di atas. Tuliskan rincian hitungan, persentase, atau detailnya secara transparan dan terperinci langsung di kolom "ai_response" menggunakan format Markdown yang rapi (bold, bullet points, baris baru). Jangan biarkan kosong atau bernilai 0 jika datanya ada di atas!
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
   "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Tuliskan jawaban ramah, kasual, laporan keuangan eksplisit mendalam, atau rincian analisis data matematika Anda di sini secara lengkap.",
+  "ai_response": "Tuliskan hasil laporan keuangan eksplisit mendalam, hitungan matematika Anda, atau balasan chat di sini secara lengkap.",
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
     "target_date": "yyyy-MM-dd",
@@ -113,13 +113,12 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 }
 
 ⚠️ MANAGEMENT LOGIK ACTION_TYPE:
-- Jika user sekadar meminta laporan, melihat data, bertanya pengeluaran tertinggi, set action_type ke "VIEW_REPORT" atau "CHAT_ONLY" dan berikan rincian hitungan lengkap Anda di kolom ai_response.
-- Jika terdeteksi mutasi dana baru, barulah isi objek transactions dengan benar.
+- Jika user meminta laporan, melihat kas, mencari tahu pengeluaran tertinggi, set action_type ke "VIEW_REPORT" dan berikan rincian hitungan lengkap Anda di kolom ai_response.
 """.trimIndent()
 
         try {
-            val uri = URI("https", "api.groq.com", "/openai/v1/chat/completions", null)
-            val url = uri.toURL()
+            val uri = URI("https", "api.com", null) // Dummy mapping bypass
+            val url = URI("https", "api.groq.com", "/openai/v1/chat/completions", null).toURL()
 
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -146,6 +145,16 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
+                
+                // 🔥 SINKRONISASI BYPASS: Ambil objek JSON respons murni
+                val jsonResult = JSONObject(rawResponse)
+                val actionType = jsonResult.optString("action_type", "").trim().uppercase(Locale.ROOT)
+                val aiResponse = jsonResult.optString("ai_response", "").trim()
+                
+                // Jika tipenya meminta laporan, langsung bypass keluarkan hitungan Markdown eksplisit milik Llama!
+                if (actionType == "VIEW_REPORT" && aiResponse.isNotEmpty()) {
+                    return@withContext aiResponse
+                }
                 
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
