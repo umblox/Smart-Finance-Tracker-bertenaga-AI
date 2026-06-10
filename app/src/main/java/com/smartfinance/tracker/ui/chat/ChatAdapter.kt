@@ -1,6 +1,7 @@
 package com.smartfinance.tracker.ui.chat
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.text.Html
 import android.view.Gravity
 import android.view.ViewGroup
@@ -8,7 +9,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.smartfinance.tracker.data.model.ChatMessage
-import com.smartfinance.tracker.R
 
 class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
@@ -26,11 +26,10 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             setPadding(0, 4, 0, 4)
         }
 
-        // 🔥 FIX MUTLAK BARIS 32: Mengubah properti kaku menjadi fungsi setLineSpacing() agar lolos compiler
         val textView = TextView(context).apply {
             textSize = 14.5f
-            setPadding(36, 24, 36, 24)
-            setLineSpacing(0f, 1.15f)
+            setPadding(36, 24, 36, 24) // Padding balon chat lebih empuk dan estetik
+            setLineSpacing(0f, 1.15f) // Mengganti lineSpacingMultiplier yang memicu error val
         }
         
         linearParent.addView(textView)
@@ -39,6 +38,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
+        val density = holder.itemView.context.resources.displayMetrics.density
         
         val rawText = message.text
         if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
@@ -71,14 +71,31 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             params.gravity = Gravity.END
             params.leftMargin = 100
             params.rightMargin = 0
-            holder.textView.setBackgroundResource(R.drawable.chat_bubble_user)
+            
+            // ✨ BENTUK BALON USER: Dibangun langsung lewat kode, warna Deep Teal Premium
+            val bubbleUser = GradientDrawable().apply {
+                setColor(Color.parseColor("#0D9488"))
+                val radius = 16 * density
+                // Melengkung di sudut kiri atas, kanan atas, kiri bawah. Lancip di kanan bawah.
+                cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, radius, radius)
+            }
+            holder.textView.background = bubbleUser
             holder.textView.setTextColor(Color.WHITE)
         } else {
             holder.container.gravity = Gravity.START
             params.gravity = Gravity.START
             params.rightMargin = 100
             params.leftMargin = 0
-            holder.textView.setBackgroundResource(R.drawable.chat_bubble_ai)
+            
+            // ✨ BENTUK BALON AI: Warna Putih Bersih dengan border tipis elegan Abu-abu Soft
+            val bubbleAi = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                setStroke((1 * density).toInt(), Color.parseColor("#E2E8F0"))
+                val radius = 16 * density
+                // Lancip di kiri bawah, sudut lainnya melengkung halus modern
+                cornerRadii = floatArrayOf(radius, radius, radius, radius, radius, radius, 0f, 0f)
+            }
+            holder.textView.background = bubbleAi
             holder.textView.setTextColor(Color.parseColor("#2D3748"))
         }
         holder.textView.layoutParams = params
