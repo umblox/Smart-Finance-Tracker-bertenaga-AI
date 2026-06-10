@@ -54,21 +54,16 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
             holder.textView.text = rawText
         }
 
-        // 🔥 FIX PALING AMAN: Hindari val reassignment sepenuhnya
-        var params: LinearLayout.LayoutParams = if (holder.textView.layoutParams is LinearLayout.LayoutParams) {
-            holder.textView.layoutParams as LinearLayout.LayoutParams
-        } else {
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        }
+        // 🔥 FIX BARU: Selalu buat LayoutParams baru (paling aman, tidak ada reassignment)
+        val params = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
 
-        // Modifikasi params
         params.topMargin = (2 * density).toInt()
         params.bottomMargin = (2 * density).toInt()
 
-        // Set max width
+        // Max width
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
