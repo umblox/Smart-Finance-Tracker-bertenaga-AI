@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/app/res-auto"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F7FAFC"
+    android:background="#F8FAFC"
     android:padding="16dp">
 
     <LinearLayout
@@ -13,16 +13,17 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:layout_alignParentTop="true"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="12dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🤖 ASISTEN FINANSIAL LLAMAX"
-            android:textSize="16sp"
+            android:text="✨ ASISTEN FINANSIAL PRIBADI ANDA"
+            android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="#2D3748" />
+            android:textColor="#1E293B"
+            android:letterSpacing="0.05" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnClearChat"
@@ -30,7 +31,9 @@
             android:layout_height="wrap_content"
             android:text="Bersihkan"
             android:textSize="12sp"
-            app:backgroundTint="#C53030"
+            android:textColor="#EF4444"
+            android:textStyle="bold"
+            app:backgroundTint="@android:color/transparent"
             style="@style/Widget.MaterialComponents.Button.TextButton"/>
     </LinearLayout>
 
@@ -40,8 +43,9 @@
         android:layout_height="match_parent"
         android:layout_below="@id/layoutHeader"
         android:layout_above="@id/layoutInput"
-        android:layout_marginBottom="12dp"
-        android:scrollbars="vertical"/>
+        android:layout_marginBottom="16dp"
+        android:clipToPadding="false"
+        android:scrollbars="none"/>
 
     <LinearLayout
         android:id="@+id/layoutInput"
@@ -49,33 +53,47 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_alignParentBottom="true"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:paddingTop="4dp">
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:hintEnabled="false">
+            app:hintEnabled="false"
+            app:boxCornerRadiusTopStart="24dp"
+            app:boxCornerRadiusTopEnd="24dp"
+            app:boxCornerRadiusBottomStart="24dp"
+            app:boxCornerRadiusBottomEnd="24dp"
+            app:boxStrokeColor="#0D9488"
+            app:boxBackgroundColor="#FFFFFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Ketik transaksi atau tanya laporan..."
+                android:textColor="#1E293B"
+                android:textSize="14sp"
                 android:inputType="textLongMessage"
-                android:maxLines="3"/>
+                android:maxLines="3"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSend"
-            android:layout_width="54dp"
-            android:layout_height="54dp"
-            android:layout_marginStart="8dp"
-            android:backgroundTint="#008080"
-            app:icon="?attr/actionModeShareDrawable"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="10dp"
+            android:backgroundTint="#0D9488"
+            app:icon="@android:drawable/ic_menu_send"
             app:iconGravity="textStart"
             app:iconPadding="0dp"
+            app:iconSize="20dp"
+            app:cornerRadius="24dp"
+            app:elevation="4dp"
             style="@style/Widget.MaterialComponents.Button.Icon"/>
     </LinearLayout>
 
