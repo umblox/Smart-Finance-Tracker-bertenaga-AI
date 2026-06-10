@@ -54,7 +54,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
             holder.textView.text = rawText
         }
 
-        // 🔥 FIX BARU: Selalu buat LayoutParams baru (paling aman, tidak ada reassignment)
+        // Buat LayoutParams BARU setiap bind (paling aman)
         val params = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
