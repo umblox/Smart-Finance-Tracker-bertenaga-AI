@@ -42,11 +42,12 @@ class TransactionEditorDialog(
         val currentTimestamp = (transactionData["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
         val currentCategoryId = (transactionData["categoryId"] as? Number)?.toLong() ?: 0L
         val originalType = transactionData["type"] as? String ?: "EXPENSE"
-        
-        // 🔥 AKURAT: Tangkap jembatan KTP debtId dari map payload transaksi
         val targetDebtId = transactionData["debtId"] as? String ?: ""
 
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
+
+        // ✅ FIX MUTLAK: Ambil container internal LinearLayout di dalam ScrollView biar ga meledak runtime-nya
+        val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
 
         val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
         val etNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
@@ -65,11 +66,12 @@ class TransactionEditorDialog(
             textSize = 14f
             setPadding(20, 20, 20, 20)
         }
-        (viewInflated as LinearLayout).addView(TextView(context).apply { 
+        
+        innerLayout.addView(TextView(context).apply { 
             text = "Tanggal Transaksi (YYYY-MM-DD)"
             textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding(20, 10, 0, 0)
         }, 4)
-        viewInflated.addView(etDate, 5)
+        innerLayout.addView(etDate, 5)
 
         if (originalType == "INCOME" || originalType == "DEBT") {
             rbIncome.isChecked = true
@@ -101,24 +103,21 @@ class TransactionEditorDialog(
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(40, 20, 40, 40) }
         }
-        viewInflated.addView(btnSave)
+        innerLayout.addView(btnSave)
 
         val rowHeaderAction = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END; setPadding(10, 10, 20, 0) }
         val btnDelete = TextView(context).apply { text = "🗑️ HAPUS TRANSAKSI"; textSize = 12f; setTextColor(Color.parseColor("#EF4444")); setTypeface(null, Typeface.BOLD); setPadding(20, 20, 20, 20) }
         rowHeaderAction.addView(btnDelete)
-        viewInflated.addView(rowHeaderAction, 0)
+        innerLayout.addView(rowHeaderAction, 0)
 
         val editorDialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
-        // 🗑️ ACTION SINKRONISASI HAPUS MUTLAK BERBASIS TARGET ID KTP
         btnDelete.setOnClickListener {
             if (docId.isNotEmpty()) {
                 lifecycleScope.launch {
-                    // 🔥 BERES: Jika membawa KTP debtId, langsung lenyapkan dokumen pinjamannya di awan!
                     if (targetDebtId.isNotEmpty()) {
                         firestore.collection("debts").document(targetDebtId).delete()
                     }
-                    
                     firestore.collection("transactions").document(docId).delete().addOnSuccessListener {
                         Toast.makeText(context, "Berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
                         onUpdateAction()
@@ -128,7 +127,6 @@ class TransactionEditorDialog(
             }
         }
 
-        // ✏️ ACTION SINKRONISASI EDIT MUTLAK BERBASIS TARGET ID KTP
         btnSave.setOnClickListener {
             val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
             val noteVal = etNote.text.toString().trim()
@@ -142,7 +140,6 @@ class TransactionEditorDialog(
                 lifecycleScope.launch {
                     val upperNote = noteVal.uppercase(Locale.ROOT)
                     
-                    // 🔥 BERES: Jika membawa KTP debtId, update nilai nominal utang pasangannya secara presisi
                     if (targetDebtId.isNotEmpty()) {
                         firestore.collection("debts").document(targetDebtId).update(
                             "amount", amountVal,
@@ -160,7 +157,7 @@ class TransactionEditorDialog(
                         "categoryId" to targetCatId,
                         "categoryName" to categoryNameManual,
                         "type" to selectedType,
-                        "debtId" to targetDebtId // Tetap amankan KTP pengikatnya
+                        "debtId" to targetDebtId
                     )
 
                     firestore.collection("transactions").document(docId).set(updatedTxMap).addOnSuccessListener {
