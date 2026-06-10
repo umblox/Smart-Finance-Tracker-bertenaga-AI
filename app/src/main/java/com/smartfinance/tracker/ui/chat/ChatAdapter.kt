@@ -15,7 +15,7 @@ import com.smartfinance.tracker.data.model.ChatMessage
 
 class ChatAdapter(
     private val messages: List<ChatMessage>,
-    private val onReactionClick: (Int, String) -> Unit = { _, _ -> } // Callback reaksi
+    private val onReactionClick: (Int, String) -> Unit = { _, _ -> }
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -37,11 +37,10 @@ class ChatAdapter(
     override fun getItemCount(): Int = messages.size + if (isTyping) 1 else 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        val context = parent.context
         return if (viewType == VIEW_TYPE_TYPING) {
-            TypingViewHolder(createTypingView(context))
+            TypingViewHolder(createTypingView(parent.context))
         } else {
-            MessageViewHolder(createMessageView(context))
+            MessageViewHolder(createMessageView(parent.context))
         }
     }
 
@@ -52,74 +51,79 @@ class ChatAdapter(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            setPadding(0, 8, 0, 8)
         }
 
         val bubbleContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         }
 
         val bubble = TextView(context).apply {
             textSize = 15.5f
             setPadding(32, 24, 32, 24)
             lineSpacingMultiplier = 1.25f
-            elevation = 3f
+            elevation = 4f
         }
-
-        val tail = TextView(context).apply { text = " " } // Placeholder untuk tail
 
         bubbleContainer.addView(bubble)
         container.addView(bubbleContainer)
-        
-        // Reactions row
-        val reactions = LinearLayout(context).apply {
+
+        // Reactions
+        val reactionsLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, 4, 0, 0)
+            setPadding(0, 6, 0, 0)
         }
+        container.addView(reactionsLayout)
 
-        container.addView(reactions)
-        return container.apply {
-            tag = Triple(bubble, reactions, tail)
-        }
+        return container
     }
 
     private fun createTypingView(context: Context): LinearLayout {
-        val container = LinearLayout(context).apply {
+        return LinearLayout(context).apply {
             gravity = Gravity.START
-            setPadding(16, 8, 16, 8)
-        }
+            setPadding(24, 12, 24, 12)
+            orientation = LinearLayout.HORIZONTAL
 
-        val typingText = TextView(context).apply {
-            text = "AI sedang mengetik"
-            textSize = 13f
-            setTextColor(Color.GRAY)
-        }
+            val typingText = TextView(context).apply {
+                text = "AI sedang mengetik"
+                textSize = 13f
+                setTextColor(Color.GRAY)
+            }
 
-        val dots = TextView(context).apply {
-            text = "•••"
-            textSize = 18f
-            setTextColor(Color.GRAY)
-        }
+            val dots = TextView(context).apply {
+                text = "•••"
+                textSize = 18f
+                setTextColor(Color.GRAY)
+            }
 
-        container.addView(typingText)
-        container.addView(dots)
-        return container
+            addView(typingText)
+            addView(dots)
+        }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         if (holder is TypingViewHolder) {
-            // Animasi typing dots
-            val dots = (holder.itemView.getChildAt(1) as TextView)
-            animateTypingDots(dots)
+            animateTypingDots((holder.itemView.getChildAt(1) as TextView))
             return
         }
 
+        if (holder !is MessageViewHolder) return
+
         val message = messages[position]
-        val (bubble, reactionsLayout, _) = holder.itemView.tag as Triple<TextView, LinearLayout, TextView>
-        val density = holder.itemView.context.resources.displayMetrics.density
+        val container = holder.itemView as LinearLayout
+        val bubbleContainer = container.getChildAt(0) as LinearLayout
+        val bubble = bubbleContainer.getChildAt(0) as TextView
+        val reactionsLayout = container.getChildAt(1) as LinearLayout
+
+        val density = container.context.resources.displayMetrics.density
         val isNew = position == messages.size - 1
 
-        // Text content
+        // Text Content
         val rawText = message.text
         bubble.text = if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
             val formatted = rawText.replace("\n", "<br/>")
@@ -127,20 +131,21 @@ class ChatAdapter(
             Html.fromHtml(formatted, Html.FROM_HTML_MODE_LEGACY)
         } else rawText
 
-        val params = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            topMargin = (4 * density).toInt()
-            bottomMargin = (8 * density).toInt()
-        }
-
         // Max width
         bubble.post {
             bubble.maxWidth = (bubble.rootView.width * 0.78).toInt()
         }
 
+        val params = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = (4 * density).toInt()
+            bottomMargin = (8 * density).toInt()
+        }
+
         if (message.isUser) {
-            (bubble.parent as LinearLayout).gravity = Gravity.END
+            bubbleContainer.gravity = Gravity.END
             params.gravity = Gravity.END
             params.leftMargin = (64 * density).toInt()
 
@@ -151,7 +156,7 @@ class ChatAdapter(
             }
             bubble.setTextColor(Color.WHITE)
         } else {
-            (bubble.parent as LinearLayout).gravity = Gravity.START
+            bubbleContainer.gravity = Gravity.START
             params.gravity = Gravity.START
             params.rightMargin = (64 * density).toInt()
 
@@ -165,17 +170,17 @@ class ChatAdapter(
 
         bubble.layoutParams = params
 
-        // Simple reactions
+        // Reactions
         setupReactions(reactionsLayout, position, message)
 
-        if (isNew) applyEntryAnimation(holder.itemView, message.isUser)
+        if (isNew) applyEntryAnimation(container, message.isUser)
     }
 
     private fun setupReactions(reactionsLayout: LinearLayout, position: Int, message: ChatMessage) {
         reactionsLayout.removeAllViews()
-        val reactions = listOf("❤️", "👍", "😂", "😮", "👎")
+        val emojis = listOf("❤️", "👍", "😂", "😮", "👎")
         
-        reactions.forEach { emoji ->
+        emojis.forEach { emoji ->
             TextView(reactionsLayout.context).apply {
                 text = emoji
                 textSize = 18f
