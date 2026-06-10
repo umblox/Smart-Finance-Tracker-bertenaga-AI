@@ -13,7 +13,8 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.card.MaterialCardView
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog // 🔥 IMPORT EDITOR BARU
+import com.smartfinance.tracker.ui.transaction.TransactionEditorDialog
+import com.smartfinance.tracker.R // Pastikan import resource terpasang aman
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -39,7 +40,7 @@ class ReportFragment : Fragment() {
 
         val root = RelativeLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.parseColor("#F7FAFC"))
+            setBackgroundColor(Color.parseColor("#F8FAFC")) // Menggunakan warna abu premium soft
         }
 
         val nsv = NestedScrollView(context).apply {
@@ -53,16 +54,17 @@ class ReportFragment : Fragment() {
         }
 
         mainLayout.addView(TextView(context).apply {
-            text = "Laporan Keuangan"
-            textSize = 22f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.parseColor("#1A202C"))
-            setPadding(0, 0, 0, (16 * density).toInt())
+            text = "Riwayat Buku Transaksi"
+            textSize = 20f
+            setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
+            setTextColor(Color.parseColor("#1E293B"))
+            setPadding(0, (8 * density).toInt(), 0, (16 * density).toInt())
         })
 
+        // Ringkasan Saldo Atas Berbentuk Card Melengkung Halus Elegant
         val cardSummary = MaterialCardView(context).apply {
-            radius = 12 * density; cardElevation = 0f
-            strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
+            radius = 14 * density; cardElevation = 2 * density
+            strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
         }
@@ -84,25 +86,18 @@ class ReportFragment : Fragment() {
         mainLayout.addView(cardSummary)
 
         mainLayout.addView(TextView(context).apply {
-            text = "Semua Riwayat Transaksi"
-            textSize = 14f
+            text = "Semua Riwayat Mutasi"
+            textSize = 13.5f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.parseColor("#718096"))
-            setPadding(0, 0, 0, (8 * density).toInt())
+            setTextColor(Color.parseColor("#64748B"))
+            setPadding((4 * density).toInt(), 0, 0, (10 * density).toInt())
         })
-
-        val cardList = MaterialCardView(context).apply {
-            radius = 12 * density; cardElevation = 0f
-            strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
-            setCardBackgroundColor(Color.WHITE)
-        }
 
         listContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        cardList.addView(listContainer)
-        mainLayout.addView(cardList)
+        mainLayout.addView(listContainer)
 
         nsv.addView(mainLayout)
         root.addView(nsv)
@@ -137,6 +132,7 @@ class ReportFragment : Fragment() {
                     val note = data["note"] as? String ?: "Transaksi AI"
                     val categoryId = (data["categoryId"] as? Number)?.toLong() ?: 0L
 
+                    // 🔥 FIX SINKRONISASI MATEMATIKA KAS: Satukan aturan filter agar utang piutang sinkron mutlak!
                     if (type == "INCOME" || type == "DEBT") {
                         incomeSum += amount
                     } else if (type == "EXPENSE" || type == "RECEIVABLE") {
@@ -165,64 +161,69 @@ class ReportFragment : Fragment() {
 
                 if (cloudTxList.isEmpty()) {
                     listContainer.addView(TextView(context).apply {
-                        text = "Belum ada transaksi."
+                        text = "Belum ada riwayat transaksi."
                         textSize = 14f
                         gravity = Gravity.CENTER
-                        setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
+                        setTextColor(Color.parseColor("#94A3B8"))
+                        setPadding(0, (40 * density).toInt(), 0, (40 * density).toInt())
                     })
                 } else {
-                    cloudTxList.forEachIndexed { index, item ->
-                        val row = LinearLayout(context).apply {
-                            orientation = LinearLayout.HORIZONTAL
-                            gravity = Gravity.CENTER_VERTICAL
-                            setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+                    cloudTxList.forEach { item ->
+                        val currentType = item["type"] as String
+                        // 🔥 FIX KONDISI VISUAL: Sinkronkan penentuan arah tanda plus-minus kas masuk/keluar
+                        val isInc = currentType == "INCOME" || currentType == "DEBT"
+
+                        // ✨ MEWAH: Setiap row baris riwayat dibungkus MaterialCardView melengkung asimetris premium
+                        val rowCard = MaterialCardView(context).apply {
+                            radius = 14 * density
+                            cardElevation = 1.5f * density
+                            strokeWidth = 0
+                            setCardBackgroundColor(Color.WHITE)
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (10 * density).toInt() }
                             
-                            // 🔥 FIX SINKRONISASI: Memanggil Editor Dialog Cloud terpadu untuk Aksi Ubah & Hapus
                             setOnClickListener {
                                 TransactionEditorDialog(item) {
-                                    // Live snapshot otomatis memicu perubahan, callback ini mengunci reaktivitas data UI
+                                    // Live snapshot cloud mengunci reaktivitas otomatis
                                 }.show(parentFragmentManager, "TransactionEditorDialog")
                             }
+                        }
+
+                        val rowInside = LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding((14 * density).toInt(), (16 * density).toInt(), (14 * density).toInt(), (16 * density).toInt())
                         }
 
                         val note = item["note"] as String
                         val categoryName = item["categoryName"] as String
                         val timestamp = item["timestamp"] as Long
                         val amount = item["amount"] as Double
-                        val currentType = item["type"] as String
 
                         val iconCircle = FrameLayout(context).apply {
                             layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#EDF2F7")) }
-                            val txt = TextView(context).apply { text = if (currentType == "INCOME" || currentType == "DEBT") "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER }
+                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#F1F5F9")) }
+                            val txt = TextView(context).apply { text = if (isInc) "📥" else "💸"; textSize = 15f; gravity = Gravity.CENTER }
                             addView(txt)
                         }
-                        row.addView(iconCircle)
+                        rowInside.addView(iconCircle)
 
                         val center = LinearLayout(context).apply {
                             orientation = LinearLayout.VERTICAL
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
-                        center.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                        center.addView(TextView(context).apply { text = "$categoryName • ${sdf.format(Date(timestamp))}"; setTextColor(Color.parseColor("#A0AEC0")); textSize = 11f })
-                        row.addView(center)
+                        center.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#1E293B")); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
+                        center.addView(TextView(context).apply { text = "$categoryName • ${sdf.format(Date(timestamp))}"; setTextColor(Color.parseColor("#94A3B8")); textSize = 11.5f; setPadding(0, (2 * density).toInt(), 0, 0) })
+                        rowInside.addView(center)
 
-                        val isInc = currentType == "INCOME" || currentType == "DEBT"
-                        row.addView(TextView(context).apply {
+                        rowInside.addView(TextView(context).apply {
                             text = (if (isInc) "+" else "-") + formatRupiah.format(amount)
-                            setTextColor(Color.parseColor(if (isInc) "#2B6CB0" else "#E53E3E"))
+                            setTextColor(Color.parseColor(if (isInc) "#0284C7" else "#EF4444")) // Warna modern sky-blue & crimson soft
                             setTypeface(null, Typeface.BOLD)
-                            textSize = 14f
+                            textSize = 14.5f
                         })
 
-                        listContainer.addView(row)
-
-                        if (index < cloudTxList.size - 1) {
-                            listContainer.addView(View(context).apply {
-                                setBackgroundColor(Color.parseColor("#EDF2F7"))
-                                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { leftMargin = (50 * density).toInt() }
-                            })
-                        }
+                        rowCard.addView(rowInside)
+                        listContainer.addView(rowCard)
                     }
                 }
             }
