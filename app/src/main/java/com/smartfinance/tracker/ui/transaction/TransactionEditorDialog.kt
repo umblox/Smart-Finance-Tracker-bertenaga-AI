@@ -1,20 +1,28 @@
 package com.smartfinance.tracker.ui.transaction
 
+import android.Manifest
+import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.R
 import kotlinx.coroutines.launch
@@ -35,9 +43,27 @@ class TransactionEditorDialog(
     private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
     
     private lateinit var spinnerCategory: Spinner
+    private lateinit var etContact: TextInputEditText
+    private var isDebtTransaction = false
+
+    private val contactPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val contactUri = result.data?.data ?: return@registerForActivityResult
+            val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            requireContext().contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                    if (nameIndex != -1) etContact.setText(cursor.getString(nameIndex))
+                }
+            }
+        }
+    }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
+        val density = context.resources.displayMetrics.density
 
         val docId = transactionData["id"] as? String ?: ""
         val currentAmount = (transactionData["amount"] as? Number)?.toLong() ?: 0L
@@ -46,8 +72,7 @@ class TransactionEditorDialog(
         val currentCategoryId = (transactionData["categoryId"] as? Number)?.toLong() ?: 0L
         val targetDebtId = transactionData["debtId"] as? String ?: ""
         
-        val initialTypeRaw = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
-        currentType = if (targetDebtId.isNotEmpty()) "DEBT" else initialTypeRaw
+        isDebtTransaction = targetDebtId.isNotEmpty()
 
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
         val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
@@ -56,47 +81,94 @@ class TransactionEditorDialog(
         val etNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
         spinnerCategory = viewInflated.findViewById(R.id.spinnerPremiumTxCategory)
         val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
-        val rbExpense = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
-        val rbIncome = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
+        val rbLeft = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
+        val rbRight = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
 
         etAmount.setText(currentAmount.toString())
-        etNote.setText(currentNote)
+
+        // 🌟 RE-STRUKTUR FORM UTANG PIUTANG ADAPTIF CERDAS
+        if (isDebtTransaction) {
+            rbLeft.text = "Saya Berhutang (Hutang)"
+            rbRight.text = "Orang Lain Berhutang (Piutang)"
+            
+            val isReceivableInitial = currentCategoryId == 104L || currentNote.contains("PIUTANG")
+            if (isReceivableInitial) rbRight.isChecked = true else rbLeft.isChecked = true
+            currentType = "DEBT"
+
+            var extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
+            if (extractedName.contains("-")) {
+                extractedName = extractedName.split("-")[0].trim()
+            }
+            etNote.setText(currentNote.substringAfter("- ").ifEmpty { "INPUT MANUAL" })
+
+            val contactLabel = TextView(context).apply {
+                text = "Nama Kontak Terkait:"
+                textSize = 12sp; setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.BOLD)
+                setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
+            }
+            innerLayout.addView(contactLabel)
+
+            val contactRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((20 * density).toInt(), 0, (20 * density).toInt(), 0)
+            }
+            
+            val tilContact = TextInputLayout(context, null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                boxStrokeColor = Color.parseColor("#0D9488")
+                setBoxCornerRadius(12 * density, 12 * density, 12 * density, 12 * density)
+            }
+            etContact = TextInputEditText(context).apply {
+                setText(extractedName)
+                setTextColor(Color.parseColor("#1E293B"))
+            }
+            tilContact.addView(etContact)
+            
+            val btnPick = MaterialButton(context).apply {
+                text = "👥 HUBUNG"
+                textSize = 11sp
+                cornerRadius = (10 * density).toInt()
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#475569"))
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (54 * density).toInt()).apply { leftMargin = (10 * density).toInt() }
+                setOnClickListener {
+                    val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                    contactPickerLauncher.launch(intent)
+                }
+            }
+            contactRow.addView(tilContact)
+            contactRow.addView(btnPick)
+            innerLayout.addView(contactRow)
+
+        } else {
+            val initialTypeRaw = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
+            currentType = initialTypeRaw
+            etNote.setText(currentNote)
+            if (currentType == "INCOME") rbRight.isChecked = true else rbLeft.isChecked = true
+        }
+
+        // Tampilkan input Tanggal secara berurutan natural tanpa hardcoded index rapuh
+        innerLayout.addView(TextView(context).apply { 
+            text = "Tanggal Transaksi (YYYY-MM-DD)"
+            textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
+        })
         
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val etDate = EditText(context).apply {
             setText(sdf.format(Date(currentTimestamp)))
             setTextColor(Color.parseColor("#2D3748"))
-            textSize = 14f
-            setPadding(20, 20, 20, 20)
+            textSize = 14.5f
+            setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (12 * density).toInt())
         }
-        
-        innerLayout.addView(TextView(context).apply { 
-            text = "Tanggal Transaksi (YYYY-MM-DD)"
-            textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding(20, 10, 0, 0)
-        }, 4)
-        innerLayout.addView(etDate, 5)
-
-        // Kunci penanda radio group kas keluar/masuk asli dokumen
-        if (currentType == "INCOME" || currentType == "DEBT") {
-            rbIncome.isChecked = true
-        } else {
-            rbExpense.isChecked = true
-        }
-
-        // Jika transaksi terikat utang piutang, bekukan tipe agar matematika saldo tidak hancur miring
-        if (targetDebtId.isNotEmpty()) {
-            rbIncome.isEnabled = false
-            rbExpense.isEnabled = false
-        }
+        innerLayout.addView(etDate)
 
         rgType.setOnCheckedChangeListener { _, checkedId ->
-            if (targetDebtId.isEmpty()) {
-                currentType = if (checkedId == rbIncome.id) "INCOME" else "EXPENSE"
+            if (!isDebtTransaction) {
+                currentType = if (checkedId == rbRight.id) "INCOME" else "EXPENSE"
                 mapSpinnerHierarchyCloud(currentCategoryId)
             }
         }
 
-        // Ambil master data kategori cloud secara real-time
         lifecycleScope.launch {
             try {
                 val snapshot = firestore.collection("categories").get().await()
@@ -118,21 +190,20 @@ class TransactionEditorDialog(
             }
         }
 
-        // 🔘 BARIS TOMBOL AKSI PREMIUM BAWAH (SIMPAN + BATAL)
+        // BARIS TOMBOL AKSI PREMIUM (BATAL + SIMPAN)
         val actionButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             weightSum = 2f
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(40, 20, 40, 40)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
+                setMargins((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (10 * density).toInt()) 
             }
         }
 
-        // Tombol Batal Keluar Dialog Aman
         val btnCancel = MaterialButton(context).apply {
             text = "Batal"
             textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = 16 }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
         }
         
         val btnSave = MaterialButton(context).apply {
@@ -146,14 +217,20 @@ class TransactionEditorDialog(
         actionButtonsRow.addView(btnSave)
         innerLayout.addView(actionButtonsRow)
 
-        // Baris Atas Khusus Aksi Hapus Lenyap
-        val rowHeaderAction = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END; setPadding(10, 10, 20, 0) }
-        val btnDelete = TextView(context).apply { text = "🗑️ HAPUS TRANSAKSI"; textSize = 12f; setTextColor(Color.parseColor("#EF4444")); setTypeface(null, Typeface.BOLD); setPadding(20, 20, 20, 20) }
-        rowHeaderAction.addView(btnDelete)
-        innerLayout.addView(rowHeaderAction, 0)
+        // Tombol Hapus ditaruh di bawah baris aksi utama secara simetris, aman & elegan
+        val btnDelete = MaterialButton(context).apply {
+            text = "🗑️ HAPUS TRANSAKSI PERMANEN"
+            textSize = 12f; cornerRadius = 24; setTextColor(Color.parseColor("#EF4444"))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FEE2E2"))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins((20 * density).toInt(), 0, (20 * density).toInt(), (20 * density).toInt())
+            }
+        }
+        innerLayout.addView(btnDelete)
 
         val editorDialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
+        // ✅ FIX LIFECYCLE: Click listener dipasang aman DI BAWAH setelah editorDialog resmi terlahir
         btnCancel.setOnClickListener { editorDialog.dismiss() }
 
         btnDelete.setOnClickListener {
@@ -173,37 +250,48 @@ class TransactionEditorDialog(
 
         btnSave.setOnClickListener {
             val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-            val noteVal = etNote.text.toString().trim()
+            val noteRawVal = etNote.text.toString().trim()
             val dateVal = etDate.text.toString().trim()
 
-            if (amountVal > 0.0 && noteVal.isNotEmpty() && dateVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty() && docId.isNotEmpty()) {
+            if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty() && docId.isNotEmpty()) {
                 val parsedDate = try { sdf.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
                 
                 val selectedCategory = filteredCategoriesCloud[spinnerCategory.selectedItemPosition]
-                val catId = selectedCategory["id"] as Long
-                val catName = selectedCategory["name"] as String
+                var catId = selectedCategory["id"] as Long
+                var catName = selectedCategory["name"] as String
 
                 lifecycleScope.launch {
-                    val upperNote = noteVal.uppercase(Locale.ROOT)
-                    
-                    if (targetDebtId.isNotEmpty()) {
-                        firestore.collection("debts").document(targetDebtId).update(
-                            "amount", amountVal,
-                            "remainingAmount", amountVal
-                        )
-                    }
+                    var finalTxType = if (rgType.checkedRadioButtonId == rbRight.id) "INCOME" else "EXPENSE"
+                    var finalNote = noteRawVal.uppercase(Locale.ROOT)
 
-                    // Tentukan penyelarasan tipe data kas akhir agar seirama dengan ReportFragment
-                    val finalTxType = if (targetDebtId.isNotEmpty()) {
-                        if (catId == 104L) "RECEIVABLE" else "DEBT"
-                    } else {
-                        if (rgType.checkedRadioButtonId == rbIncome.id) "INCOME" else "EXPENSE"
+                    if (isDebtTransaction) {
+                        val contactNameVal = etContact.text.toString().trim().uppercase(Locale.ROOT)
+                        if (contactNameVal.isEmpty()) {
+                            Toast.makeText(context, "Nama kontak wajib diisi!", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+
+                        val isReceivableSelected = rgType.checkedRadioButtonId == rbRight.id
+                        catId = if (isReceivableSelected) 104L else 101L
+                        catName = if (isReceivableSelected) "Piutang" else "Hutang"
+                        
+                        val selectedDebtType = if (isReceivableSelected) "RECEIVABLE" else "DEBT"
+                        finalTxType = if (isReceivableSelected) "EXPENSE" else "INCOME"
+                        finalNote = "[$catName] $contactNameVal - $finalNote"
+
+                        firestore.collection("debts").document(targetDebtId).update(
+                            "contactName", contactNameVal,
+                            "amount", amountVal,
+                            "remainingAmount", amountVal,
+                            "type", selectedDebtType,
+                            "timestamp", parsedDate
+                        )
                     }
 
                     val updatedTxMap = hashMapOf(
                         "id" to docId,
                         "amount" to amountVal,
-                        "note" to upperNote,
+                        "note" to finalNote,
                         "timestamp" to parsedDate,
                         "categoryId" to catId,
                         "categoryName" to catName,
@@ -257,7 +345,13 @@ class TransactionEditorDialog(
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerCategory.adapter = adapter
 
-        val selectedIdx = filteredCategoriesCloud.indexOfFirst { (it["id"] as Long) == selectedCategoryId }
+        val targetSearchId = if (isDebtTransaction) {
+            if (rgType.checkedRadioButtonId == rbRight.id) 104L else 101L
+        } else {
+            selectedCategoryId
+        }
+
+        val selectedIdx = filteredCategoriesCloud.indexOfFirst { (it["id"] as Long) == targetSearchId }
         if (selectedIdx != -1) spinnerCategory.setSelection(selectedIdx)
     }
 }
