@@ -231,11 +231,8 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    // ✨ CORRECTION FIX: Parameter inflate diganti menjadi null agar 100% steril bebas amukan compiler
     private fun showAddDebtManualDialog(listContainer: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
         val context = requireContext()
-        
-        // Pemanggilan layout XML pembantu kustom menggunakan parameter root null standar dialog
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
 
         val etName = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName)
@@ -283,7 +280,8 @@ class AddDebtFragment : Fragment() {
                         "categoryId" to catId,
                         "categoryName" to catName,
                         "note" to "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN",
-                        "timestamp" to System.currentTimeMillis()
+                        "timestamp" to System.currentTimeMillis(),
+                        "debtId" to debtId // 🔥 JEMBATAN EMAS: Menyuntikkan KTP debtId ke dokumen transaksi penyeimbang
                     )
                     firestore.collection("transactions").document(txId).set(txMap)
                     Toast.makeText(context, "Pinjaman Berhasil Tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
@@ -398,7 +396,6 @@ class AddDebtFragment : Fragment() {
                         return@setItems
                     }
                     
-                    // CORRECTION FIX: Memanggil inflater dialog_add_debt_premium secara sah dengan root null
                     val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
                     val tilPay = viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
                     val etPay = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
