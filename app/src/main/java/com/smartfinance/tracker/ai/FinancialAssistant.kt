@@ -31,7 +31,8 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (actionType == "VIEW_REPORT") {
-                return compileAiReport(cleanJsonStr, aiResponse)
+                // ✅ CLEAN UP: Parameter 'aiResponse' tak terpakai telah dibuang murni dari panggilan fungsi ini
+                return compileAiReport(cleanJsonStr)
             }
 
             val txArray = json.optJSONArray("transactions")
@@ -102,7 +103,8 @@ class FinancialAssistant(private val context: Context) {
             "categoryId" to catId,
             "categoryName" to catName,
             "note" to "[$selectedType] $sanitizedName - INPUT AUTOMATIC AI",
-            "timestamp" to timestampValue
+            "timestamp" to timestampValue,
+            "debtId" to debtId // 🔥 SINKRON TOTAL: AI sekarang otomatis menyuntikkan jembatan KTP debtId ke transaksi penyeimbang!
         )
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
@@ -153,7 +155,8 @@ class FinancialAssistant(private val context: Context) {
                 "categoryId" to catId,
                 "categoryName" to catName,
                 "note" to "[$catName] $matchContactName - CICILAN AI CLOUD",
-                "timestamp" to targetTimestamp
+                "timestamp" to targetTimestamp,
+                "debtId" to matchDocId // Menjaga jembatan ID cicilan pembayaran utang
             )
             firestore.collection("transactions").document(txId).set(payTxMap).await()
         }
@@ -180,7 +183,8 @@ class FinancialAssistant(private val context: Context) {
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
-    private suspend fun compileAiReport(cleanJsonStr: String, aiResponse: String): String {
+    // ✅ CLEAN UP: Parameter 'aiResponse' dibuang bersih untuk membasmi logs warning kompilator
+    private suspend fun compileAiReport(cleanJsonStr: String): String {
         val snapshot = firestore.collection("transactions").get().await()
         val json = JSONObject(cleanJsonStr)
         val filterObj = json.optJSONObject("report_filter")
