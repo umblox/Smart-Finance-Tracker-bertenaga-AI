@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -20,7 +21,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.firestore.FirebaseFirestore
+import com.smartfinance.tracker.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -36,10 +40,10 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
 
-    private lateinit var etAmount: EditText
-    private lateinit var etNote: EditText
-    private lateinit var etDate: EditText
-    private lateinit var etContact: EditText
+    private lateinit var etAmount: TextInputEditText
+    private lateinit var etNote: TextInputEditText
+    private lateinit var etDate: TextInputEditText
+    private lateinit var etContact: TextInputEditText
     private lateinit var spinnerCategory: Spinner
     private lateinit var rbExpense: RadioButton
     private lateinit var rbIncome: RadioButton
@@ -67,97 +71,38 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
-        val density = context.resources.displayMetrics.density
 
-        val root = RelativeLayout(context).apply {
-            setBackgroundColor(Color.parseColor("#F7FAFC"))
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
+        // Inflate menggunakan file XML premium pembantu agar steril bebas error compiler
+        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_manual_premium, null, false)
 
-        val topBar = RelativeLayout(context).apply {
-            id = View.generateViewId()
-            setBackgroundColor(Color.WHITE)
-            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
-            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT)
-        }
-        val btnClose = TextView(context).apply { text = "✕"; textSize = 20f; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD) }
-        topBar.addView(btnClose)
-        val tvTitle = TextView(context).apply { text = "Catat Manual"; textSize = 16f; setTextColor(Color.parseColor("#1A202C")); setTypeface(null, Typeface.BOLD); layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply { addRule(RelativeLayout.CENTER_IN_PARENT) } }
-        topBar.addView(tvTitle)
-        root.addView(topBar)
+        etAmount = viewInflated.findViewById(R.id.etManualPremiumAmount)
+        etNote = viewInflated.findViewById(R.id.etManualPremiumNote)
+        etDate = viewInflated.findViewById(R.id.etManualPremiumDate)
+        etContact = viewInflated.findViewById(R.id.etManualPremiumContact)
+        spinnerCategory = viewInflated.findViewById(R.id.spinnerManualPremiumCategory)
+        rbExpense = viewInflated.findViewById(R.id.rbManualPremiumExpense)
+        rbIncome = viewInflated.findViewById(R.id.rbManualPremiumIncome)
+        rbDebt = viewInflated.findViewById(R.id.rbManualPremiumDebt)
+        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgManualPremiumType)
+        val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnManualPremiumPick)
 
-        val scrollView = ScrollView(context).apply {
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT).apply { addRule(RelativeLayout.BELOW, topBar.id); bottomMargin = (80 * density).toInt() }
-            layoutParams = lp
-        }
-        val form = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding((20 * density).toInt(), (16 * density).toInt(), (20 * density).toInt(), (16 * density).toInt()) }
-
-        form.addView(TextView(context).apply { text = "Nominal Transaksi (Rp)"; setTextColor(Color.parseColor("#718096")); textSize = 11f })
-        etAmount = EditText(context).apply { 
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER; setTextColor(Color.parseColor("#2D3748"))
-            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
-            )
-        }
-        form.addView(etAmount)
-
-        form.addView(TextView(context).apply { text = "Jenis Aliran Kas"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (12 * density).toInt(), 0, 0) })
-        val rgType = RadioGroup(context).apply { orientation = RadioGroup.HORIZONTAL; setPadding(0, (4 * density).toInt(), 0, (8 * density).toInt()) }
-        rbExpense = RadioButton(context).apply { text = "Pengeluaran"; id = View.generateViewId(); isChecked = true }
-        rbIncome = RadioButton(context).apply { text = "Pemasukan"; id = View.generateViewId() }
-        rbDebt = RadioButton(context).apply { text = "Utang-Piutang"; id = View.generateViewId() }
-        rgType.addView(rbExpense)
-        rgType.addView(rbIncome)
-        rgType.addView(rbDebt)
-        form.addView(rgType)
-
-        form.addView(TextView(context).apply { text = "Kategori Transaksi"; setTextColor(Color.parseColor("#718096")); textSize = 11f })
-        spinnerCategory = Spinner(context).apply { setBackgroundColor(Color.WHITE); setPadding((8 * density).toInt(), (10 * density).toInt(), (8 * density).toInt(), (10 * density).toInt()) }
-        form.addView(spinnerCategory)
-
-        form.addView(TextView(context).apply { text = "Nama Transaksi / Catatan"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
-        etNote = EditText(context).apply { 
-            setTextColor(Color.parseColor("#2D3748")); hint = "Contoh: Sisa bayar sembako / pinjam modal"
-            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
-            )
-        }
-        form.addView(etNote)
-
-        form.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        etDate = EditText(context).apply { 
-            setText(sdf.format(Date())); setTextColor(Color.parseColor("#2D3748"))
-            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
-            )
-        }
-        form.addView(etDate)
+        etDate.setText(sdf.format(Date()))
 
-        form.addView(TextView(context).apply { text = "Kontak Terkait (Wajib untuk Utang-Piutang)"; setTextColor(Color.parseColor("#718096")); textSize = 11f; setPadding(0, (16 * density).toInt(), 0, 0) })
-        val contactRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        etContact = EditText(context).apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f); setTextColor(Color.parseColor("#2D3748")) }
-        val btnPickContact = Button(context).apply { text = "Cari"; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#4A5568")) }
-        contactRow.addView(etContact)
-        contactRow.addView(btnPickContact)
-        // 🔥 FIX MUTLAK: Teks typo siluman telah dihapus murni di baris ini
-        form.addView(contactRow)
-
-        scrollView.addView(form)
-        root.addView(scrollView)
-
-        val btnSave = Button(context).apply {
-            text = "Simpan Transaksi Manual"
+        val btnSave = MaterialButton(context).apply {
+            text = "Simpan Transaksi Premium"
+            textSize = 14f
+            cornerRadius = 24
             setTextColor(Color.WHITE)
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 22 * density; setColor(Color.parseColor("#008080")) }
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, (46 * density).toInt()).apply { addRule(RelativeLayout.ALIGN_PARENT_BOTTOM); setMargins((24 * density).toInt(), 0, (24 * density).toInt(), (16 * density).toInt()) }
-            layoutParams = lp
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(40, 10, 40, 30)
+            }
         }
-        root.addView(btnSave)
+        (viewInflated as LinearLayout).addView(btnSave)
 
-        val dialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen).setView(root).create()
+        val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
-        btnClose.setOnClickListener { dialog.dismiss() }
         btnPickContact.setOnClickListener { checkContactPermissionAndOpen() }
 
         rgType.setOnCheckedChangeListener { _, checkedId ->
@@ -209,9 +154,10 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     val catId = selectedCat["id"] as Long
                     val catName = selectedCat["name"] as String
 
+                    // 🔥 SINKRONISASI TOTAL: Pastikan tipe data kas mutlak sinkron dengan pembacaan ReportFragment
                     val finalType = when (catId) {
-                        101L, 103L -> "INCOME"
-                        102L, 104L -> "EXPENSE"
+                        101L, 103L -> "INCOME"     // Utang baru & Penagihan = Kas Masuk
+                        102L, 104L -> "EXPENSE"    // Pembayaran & Piutang baru = Kas Keluar
                         else -> if (rbIncome.isChecked) "INCOME" else "EXPENSE"
                     }
 
