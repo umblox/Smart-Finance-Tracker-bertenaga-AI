@@ -205,7 +205,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                             "contactName" to contactVal.uppercase(Locale.ROOT),
                             "contactPhoneNumber" to "0812",
                             "amount" to amountVal,
-                            "remainingAmount" to amountValue,
+                            "remainingAmount" to amountVal,
                             "type" to selectedDebtType,
                             "note" to "Input Manual Form Cloud",
                             "timestamp" to targetTime,
