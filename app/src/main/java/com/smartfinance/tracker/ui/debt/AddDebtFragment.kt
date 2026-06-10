@@ -132,7 +132,6 @@ class AddDebtFragment : Fragment() {
             }
         }
 
-        // 🔥 FIX: Menggunakan constructor standar tanpa style bertone yang bikin unresolved reference
         val btnTabDebt = MaterialButton(context).apply {
             text = "Hutang Saya"
             textSize = 13f
@@ -199,7 +198,6 @@ class AddDebtFragment : Fragment() {
                 orientation = LinearLayout.VERTICAL
                 setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
             }
-            // 🔥 FIX: Menggunakan setTextColor() untuk membenahi error unresolved reference properti kaku
             val tvTitle = TextView(ctx).apply { text = title; setTextColor(Color.parseColor("#64748B")); textSize = 12f }
             val tvValue = TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 16f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
             
@@ -247,10 +245,9 @@ class AddDebtFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        // 🔥 FIX: Menggunakan constructor standar TextInputLayout dan fungsi setBoxCornerRadii() untuk melengkungkan sudut
-        val tilName = TextInputLayout(context).apply {
+        // 🔥 FIX MUTLAK: Menggunakan style constructor XML asli bawaan untuk mengunci rupa Outlined Box premium
+        val tilName = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
             hint = "Nama Kontak Orang"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
             setBoxStrokeColor(Color.parseColor("#0D9488"))
             val r = 12 * density
             setBoxCornerRadii(r, r, r, r)
@@ -274,10 +271,9 @@ class AddDebtFragment : Fragment() {
         rowContact.addView(btnPickContact)
         formLayout.addView(rowContact)
 
-        // 🔥 FIX: Menggunakan Outlined Box Murni fungsional standar agar aman dari Unresolved Reference Style
-        val tilAmount = TextInputLayout(context).apply {
+        // 🔥 FIX MUTLAK: Menggunakan Outlined Style bawaan Google yang sah
+        val tilAmount = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
             hint = "Nominal Transaksi (Rp)"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
             setBoxStrokeColor(Color.parseColor("#0D9488"))
             val r = 12 * density
             setBoxCornerRadii(r, r, r, r)
@@ -462,10 +458,9 @@ class AddDebtFragment : Fragment() {
                         setPadding((20 * density).toInt(), (14 * density).toInt(), (20 * density).toInt(), 0)
                     }
                     
-                    // 🔥 FIX: Menggunakan Outlined Box Murni standar bawaan tanpa style bertone yang bikin amukan compiler
-                    val tilPay = TextInputLayout(context).apply {
+                    // 🔥 FIX MUTLAK: Menggunakan Outlined Style bawaan Google yang sah
+                    val tilPay = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
                         hint = "Masukkan Jumlah Pembayaran (Rp)"
-                        boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
                         setBoxStrokeColor(Color.parseColor("#0D9488"))
                         val r = 12 * density
                         setBoxCornerRadii(r, r, r, r)
