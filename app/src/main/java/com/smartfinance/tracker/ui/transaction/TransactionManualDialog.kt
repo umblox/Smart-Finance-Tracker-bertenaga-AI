@@ -72,8 +72,10 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
 
-        // Inflate menggunakan file XML premium pembantu agar steril bebas error compiler
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_manual_premium, null, false)
+
+        // ✅ FIX MUTLAK: Ambil container LinearLayout yang ada di DALAM ScrollView agar lolos dari ClassCastException
+        val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
 
         etAmount = viewInflated.findViewById(R.id.etManualPremiumAmount)
         etNote = viewInflated.findViewById(R.id.etManualPremiumNote)
@@ -96,10 +98,10 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             setTextColor(Color.WHITE)
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(40, 10, 40, 30)
+                setMargins(40, 20, 40, 30)
             }
         }
-        (viewInflated as LinearLayout).addView(btnSave)
+        innerLayout.addView(btnSave)
 
         val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
@@ -154,10 +156,9 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     val catId = selectedCat["id"] as Long
                     val catName = selectedCat["name"] as String
 
-                    // 🔥 SINKRONISASI TOTAL: Pastikan tipe data kas mutlak sinkron dengan pembacaan ReportFragment
                     val finalType = when (catId) {
-                        101L, 103L -> "INCOME"     // Utang baru & Penagihan = Kas Masuk
-                        102L, 104L -> "EXPENSE"    // Pembayaran & Piutang baru = Kas Keluar
+                        101L, 103L -> "INCOME"     
+                        102L, 104L -> "EXPENSE"    
                         else -> if (rbIncome.isChecked) "INCOME" else "EXPENSE"
                     }
 
