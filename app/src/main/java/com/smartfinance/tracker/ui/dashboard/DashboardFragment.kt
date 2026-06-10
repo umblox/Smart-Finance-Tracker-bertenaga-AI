@@ -69,7 +69,7 @@ class DashboardFragment : Fragment() {
         }
 
         mainLayout.addView(TextView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             text = "Smart Finance AI"
             textSize = 22f
             setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
@@ -77,25 +77,25 @@ class DashboardFragment : Fragment() {
             setPadding(0, 4, 0, (16 * density).toInt())
         })
 
-        // 1. Ambil Konstruksi Balutan Saldo Dari XML Terikat
+        // 1. BALUTAN SALDO PREMIUM TEAL OVAL
         val cardBalance = MaterialCardView(context).apply { 
-            radius = 20 * density
-            cardElevation = 4 * density
+            radius = 16 * density
+            cardElevation = 2 * density
             strokeWidth = 0
             setCardBackgroundColor(Color.parseColor("#0D9488")) 
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
         }
         val balanceLayout = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
-            setPadding((24 * density).toInt(), (24 * density).toInt(), (24 * density).toInt(), (24 * density).toInt()) 
+            setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt()) 
         }
         balanceLayout.addView(TextView(context).apply { text = "TOTAL SALDO BERSIH"; setTextColor(Color.parseColor("#CCFBF1")); textSize = 11f; setTypeface(null, Typeface.BOLD); letterSpacing = 0.05f })
-        tvBalance = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 30f; setTypeface(null, Typeface.BOLD); setPadding(0, (6 * density).toInt(), 0, 0) }
+        tvBalance = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 28f; setTypeface(null, Typeface.BOLD); setPadding(0, (6 * density).toInt(), 0, 0) }
         balanceLayout.addView(tvBalance)
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-        // 2. Baris Penggabung Kartu Kas Ringkasan Mini
+        // 2. SUMMARY KAS MINI CARD
         val statsRowContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
@@ -103,7 +103,7 @@ class DashboardFragment : Fragment() {
         }
 
         val cardInc = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#F1F5F9")))
+            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (6 * density).toInt() }
         }
@@ -113,7 +113,7 @@ class DashboardFragment : Fragment() {
         cardInc.addView(incLayout.apply { addView(tvIncomeSummary) })
 
         val cardExp = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = (1 * density).toInt(); setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#F1F5F9")))
+            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = (6 * density).toInt() }
         }
@@ -126,14 +126,14 @@ class DashboardFragment : Fragment() {
         statsRowContainer.addView(cardExp)
         mainLayout.addView(statsRowContainer)
 
-        // 3. Modul Interior Chart Infografis Infografis
+        // 3. CHART INFOGRAFIS MODERN
         val headerReportRow = createHeaderSectionRow("Grafik Laporan Keuangan", "Detail Laporan") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
         mainLayout.addView(headerReportRow)
 
         val cardChart = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
+            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
         }
@@ -151,14 +151,14 @@ class DashboardFragment : Fragment() {
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // 4. Modul Pengeluaran Teratas
+        // 4. MODUL PENGELUARAN TERATAS
         val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran Teratas", "Lihat Analisis") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
         mainLayout.addView(headerTopExpenseRow)
 
         val cardTopExpense = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
+            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
         }
@@ -203,23 +203,17 @@ class DashboardFragment : Fragment() {
         cardTopExpense.addView(topExpenseInsideLayout)
         mainLayout.addView(cardTopExpense)
 
-        // 5. Modul Transaksi Terkini
+        // 5. MODUL TRANSAKSI TERKINI
         val headerRecentRow = createHeaderSectionRow("Transaksi Terkini", "Lihat Semua") {
             (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
         }
         mainLayout.addView(headerRecentRow)
 
-        val cardRecent = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
-            setCardBackgroundColor(Color.WHITE)
+        listContainer = LinearLayout(context).apply { 
+            orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        recentTxContainer = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
-        }
-        cardRecent.addView(recentTxContainer)
-        mainLayout.addView(cardRecent)
+        mainLayout.addView(listContainer)
 
         nsv.addView(mainLayout)
         root.addView(nsv)
@@ -233,13 +227,11 @@ class DashboardFragment : Fragment() {
         return LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
-                bottomMargin = (10 * density).toInt() 
-            }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (10 * density).toInt() }
             addView(TextView(context).apply {
                 text = title
                 textSize = 14f
-                setTypeface(null, Typeface.BOLD)
+                setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
                 setTextColor(Color.parseColor("#475569"))
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
@@ -315,6 +307,7 @@ class DashboardFragment : Fragment() {
                     val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                     val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
 
+                    // 🔒 SINKRONISASI MUTLAK: Hitung penyeimbang kas persis seperti alur laporan utama
                     if (typeRaw == "INCOME" || typeRaw == "DEBT") {
                         balanceTotal += amount
                         if (isThisMonth) incomeThisMonth += amount
@@ -364,7 +357,7 @@ class DashboardFragment : Fragment() {
                 })
                 chartContainer.addView(summaryLayout)
 
-                // 3. PENGELUARAN TERATAS REAL-TIME CLOUD
+                // 3. RESTRUKTURISASI KARTU PENGELUARAN TERATAS REAL-TIME
                 topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
                 val filteredExpenses = allTxList.filter { item -> 
@@ -398,16 +391,23 @@ class DashboardFragment : Fragment() {
                             ((totalAmount / totalFilteredExpenseAmount) * 100).toInt()
                         } else 0
 
+                        // ✨ PREMIUM: Setiap baris kategori dibalut MaterialCardView tipis melengkung ultra-bersih
+                        val rowCard = MaterialCardView(context).apply {
+                            radius = 12 * density; cardElevation = 1 * density; strokeWidth = 0
+                            setCardBackgroundColor(Color.parseColor("#F8FAFC"))
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
+                        }
+
                         val rowLayout = LinearLayout(context).apply { 
                             orientation = LinearLayout.HORIZONTAL
                             gravity = Gravity.CENTER_VERTICAL
-                            setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
+                            setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
                         }
 
                         val iconCircle = FrameLayout(context).apply {
-                            layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#F1F5F9")) }
-                            val txt = TextView(context).apply { text = "💰"; textSize = 15f; gravity = Gravity.CENTER }
+                            layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.WHITE) }
+                            val txt = TextView(context).apply { text = "💰"; textSize = 14f; gravity = Gravity.CENTER }
                             addView(txt)
                         }
                         rowLayout.addView(iconCircle)
@@ -416,8 +416,8 @@ class DashboardFragment : Fragment() {
                             orientation = LinearLayout.VERTICAL
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
-                        centerInfo.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                        centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#64748B")); textSize = 12f })
+                        centerInfo.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#1E293B")); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14f })
+                        centerInfo.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#64748B")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
                         rowLayout.addView(centerInfo)
 
                         rowLayout.addView(TextView(context).apply { 
@@ -427,36 +427,45 @@ class DashboardFragment : Fragment() {
                             textSize = 14f
                         })
 
-                        topExpenseContainer.addView(rowLayout)
+                        rowCard.addView(rowLayout)
+                        topExpenseContainer.addView(rowCard)
                     }
                 }
 
-                // 4. TRANSAKSI TERKINI REAL-TIME CLOUD
-                recentTxContainer.removeAllViews()
+                // 4. RESTRUKTURISASI MUTASI TERKINI GAYA PREMIUM CARD VIEW
+                listContainer.removeAllViews()
                 val recentTxList = allTxList.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }.take(4)
                 
                 if (recentTxList.isEmpty()) {
                     for (i in 1..3) {
-                        recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
+                        listContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
                     }
                 } else {
-                    recentTxList.forEachIndexed { index, item ->
-                        val rowLayout = LinearLayout(context).apply { 
-                            orientation = LinearLayout.HORIZONTAL
-                            gravity = Gravity.CENTER_VERTICAL
-                            setPadding((8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
-                        }
-
+                    recentTxList.forEach { item ->
                         val note = (item["note"] as? String) ?: "Transaksi AI"
                         val timestamp = (item["timestamp"] as? Long) ?: nowTime
                         val amount = (item["amount"] as? Double) ?: 0.0
                         val currentTypeUpper = ((item["type"] as? String) ?: "EXPENSE").trim().uppercase(Locale.ROOT)
 
+                        // ✨ PREMIUM: Row mutasi dibungkus MaterialCardView melengkung elegant
+                        val mutasiCard = MaterialCardView(context).apply {
+                            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
+                            setCardBackgroundColor(Color.WHITE)
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (10 * density).toInt() }
+                        }
+
+                        val rowLayout = LinearLayout(context).apply { 
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
+                        }
+
+                        val isInc = currentTypeUpper == "INCOME" || currentTypeUpper == "DEBT"
                         val iconCircle = FrameLayout(context).apply {
                             layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                             background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#F1F5F9")) }
                             val txt = TextView(context).apply { 
-                                text = if (currentTypeUpper == "INCOME" || currentTypeUpper == "DEBT") "📥" else "💸"
+                                text = if (isInc) "📥" else "💸"
                                 textSize = 15f
                                 gravity = Gravity.CENTER 
                             }
@@ -468,29 +477,20 @@ class DashboardFragment : Fragment() {
                             orientation = LinearLayout.VERTICAL
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
-                        centerInfo.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                        centerInfo.addView(TextView(context).apply { text = sdf.format(Date(timestamp)); setTextColor(Color.parseColor("#94A3B8")); textSize = 11f })
+                        centerInfo.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#1E293B")); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
+                        centerInfo.addView(TextView(context).apply { text = sdf.format(Date(timestamp)); setTextColor(Color.parseColor("#94A3B8")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
                         rowLayout.addView(centerInfo)
 
-                        val isInc = currentTypeUpper == "INCOME" || currentTypeUpper == "DEBT"
                         val colorHex = if (isInc) "#0284C7" else "#F43F5E"
                         rowLayout.addView(TextView(context).apply { 
-                            text = formatRupiah.format(amount)
+                            text = (if (isInc) "+" else "-") + formatRupiah.format(amount)
                             setTextColor(Color.parseColor(colorHex))
                             setTypeface(null, Typeface.BOLD)
-                            textSize = 14f
+                            textSize = 14.5f
                         })
 
-                        recentTxContainer.addView(rowLayout)
-                        
-                        if (index < recentTxList.size - 1) {
-                            recentTxContainer.addView(View(context).apply {
-                                setBackgroundColor(Color.parseColor("#F1F5F9"))
-                                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { 
-                                    leftMargin = (50 * density).toInt() 
-                                }
-                            })
-                        }
+                        mutasiCard.addView(rowLayout)
+                        listContainer.addView(mutasiCard)
                     }
                 }
             }
@@ -552,7 +552,6 @@ class DashboardFragment : Fragment() {
                 return
             }
 
-            // 🔥 SMOOTH ROUNDED COLUMN: Mengubah sudut radius tiang chart biar oval halus mewah
             val r = 12f
 
             val xIncLast = spacing
