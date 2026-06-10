@@ -73,8 +73,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val context = requireContext()
 
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_manual_premium, null, false)
-
-        // ✅ FIX MUTLAK: Ambil container LinearLayout yang ada di DALAM ScrollView agar lolos dari ClassCastException
         val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
 
         etAmount = viewInflated.findViewById(R.id.etManualPremiumAmount)
@@ -91,19 +89,36 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         etDate.setText(sdf.format(Date()))
 
-        val btnSave = MaterialButton(context).apply {
-            text = "Simpan Transaksi Premium"
-            textSize = 14f
-            cornerRadius = 24
-            setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+        // Jembatan Dialog murni biar bisa di-dismiss dari dalam scope klik tombol batal
+        val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
+
+        // 🔥 FIX SINKRONISASI UX: Membuat baris tombol kembar horizontal (Batal + Simpan)
+        val actionButtonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            weightSum = 2f
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 setMargins(40, 20, 40, 30)
             }
         }
-        innerLayout.addView(btnSave)
 
-        val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
+        val btnCancel = MaterialButton(context).apply {
+            text = "Batal"
+            textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = 16 }
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        val btnSave = MaterialButton(context).apply {
+            text = "Simpan"
+            textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        actionButtonsRow.addView(btnCancel)
+        actionButtonsRow.addView(btnSave)
+        innerLayout.addView(actionButtonsRow)
 
         btnPickContact.setOnClickListener { checkContactPermissionAndOpen() }
 
@@ -190,7 +205,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                             "contactName" to contactVal.uppercase(Locale.ROOT),
                             "contactPhoneNumber" to "0812",
                             "amount" to amountVal,
-                            "remainingAmount" to amountVal,
+                            "remainingAmount" to amountValue,
                             "type" to selectedDebtType,
                             "note" to "Input Manual Form Cloud",
                             "timestamp" to targetTime,
