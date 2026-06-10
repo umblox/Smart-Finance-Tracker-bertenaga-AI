@@ -1,6 +1,7 @@
 package com.smartfinance.tracker.ui.chat
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.text.Html
 import android.view.Gravity
 import android.view.ViewGroup
@@ -22,12 +23,13 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 4, 0, 4)
+            setPadding(0, 6, 0, 6)
         }
 
         val textView = TextView(context).apply {
-            textSize = 15f
-            setPadding(28, 20, 28, 20)
+            textSize = 14.5f
+            setPadding(36, 24, 36, 24)
+            lineSpacingMultiplier = 1.15f
         }
         
         linearParent.addView(textView)
@@ -36,8 +38,8 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
+        val density = holder.itemView.context.resources.displayMetrics.density
         
-        // 🔥 FIX MARKDOWN VISUAL: Mengonversi sintaks '**text**' Groq menjadi format HTML Bold agar rapi di layar
         val rawText = message.text
         if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
             val formattedHtml = rawText
@@ -53,12 +55,12 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
-            topMargin = 4
-            bottomMargin = 4
+            topMargin = 2
+            bottomMargin = 2
         }
 
         holder.textView.post {
-            val maxChatWidth = (holder.itemView.rootView.width * 0.75).toInt()
+            val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
                 holder.textView.maxWidth = maxChatWidth
             }
@@ -67,19 +69,31 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         if (message.isUser) {
             holder.container.gravity = Gravity.END
             params.gravity = Gravity.END
-            params.leftMargin = 100
+            params.leftMargin = (60 * density).toInt()
             params.rightMargin = 0
-            holder.textView.setBackgroundResource(android.R.drawable.toast_frame)
-            holder.textView.background.setTint(Color.parseColor("#008080"))
+            
+            // 🔥 SHAPE PREMIUM USER: Balon melengkung asimetris warna Soft Teal
+            holder.textView.background = GradientDrawable().apply {
+                setColor(Color.parseColor("#0D9488"))
+                val r = 16 * density
+                // Berurutan: Top-Left, Top-Right, Bottom-Right, Bottom-Left
+                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, r, r)
+            }
             holder.textView.setTextColor(Color.WHITE)
         } else {
             holder.container.gravity = Gravity.START
             params.gravity = Gravity.START
-            params.rightMargin = 100
+            params.rightMargin = (60 * density).toInt()
             params.leftMargin = 0
-            holder.textView.setBackgroundResource(android.R.drawable.toast_frame)
-            holder.textView.background.setTint(Color.parseColor("#E2E8F0"))
-            holder.textView.setTextColor(Color.parseColor("#2D3748"))
+            
+            // 🔥 SHAPE PREMIUM AI: Balon melengkung asimetris warna Pure White
+            holder.textView.background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                val r = 16 * density
+                cornerRadii = floatArrayOf(r, r, r, r, r, r, 0f, 0f)
+                setStroke((1 * density).toInt(), Color.parseColor("#E2E8F0"))
+            }
+            holder.textView.setTextColor(Color.parseColor("#1E293B"))
         }
         holder.textView.layoutParams = params
     }
