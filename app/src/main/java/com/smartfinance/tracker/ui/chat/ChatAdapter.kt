@@ -40,7 +40,8 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
         
-        val rawText = message.text
+        // 🔥 FIX MUTLAK: Menggunakan var (bukan val) agar teks hasil format bisa ditimpa dengan aman
+        var rawText = message.text
         if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
             val formattedHtml = rawText
                 .replace("\n", "<br/>")
@@ -72,11 +73,9 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             params.leftMargin = (60 * density).toInt()
             params.rightMargin = 0
             
-            // 🔥 SHAPE PREMIUM USER: Balon melengkung asimetris warna Soft Teal
             holder.textView.background = GradientDrawable().apply {
                 setColor(Color.parseColor("#0D9488"))
                 val r = 16 * density
-                // Berurutan: Top-Left, Top-Right, Bottom-Right, Bottom-Left
                 cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, r, r)
             }
             holder.textView.setTextColor(Color.WHITE)
@@ -86,7 +85,6 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             params.rightMargin = (60 * density).toInt()
             params.leftMargin = 0
             
-            // 🔥 SHAPE PREMIUM AI: Balon melengkung asimetris warna Pure White
             holder.textView.background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 val r = 16 * density
