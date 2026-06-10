@@ -61,7 +61,8 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
-                holder.textView.maxWidth = maxChatWidth
+                // 🔥 KOREKSI UTAMA SESUAI SCREENSHOT: Menggunakan setMaxWidth() karena properti .maxWidth adalah Read-Only (val)
+                holder.textView.setMaxWidth(maxChatWidth)
             }
         }
 
@@ -91,9 +92,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             }
             holder.textView.setTextColor(Color.parseColor("#1E293B"))
         }
-        
-        // 🔥 FIX UTAMA: Menggunakan setLayoutParams() untuk menghindari eror 'val cannot be reassigned'
-        holder.textView.setLayoutParams(params)
+        holder.textView.layoutParams = params
     }
 
     override fun getItemCount(): Int = messages.size
