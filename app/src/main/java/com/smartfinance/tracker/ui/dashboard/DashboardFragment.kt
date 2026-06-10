@@ -34,7 +34,7 @@ class DashboardFragment : Fragment() {
 
     private lateinit var chartContainer: LinearLayout
     private lateinit var topExpenseContainer: LinearLayout
-    private lateinit var recentTxContainer: LinearLayout
+    private lateinit var recentTxContainer: LinearLayout // ✅ KONSISTEN: Tetap gunakan nama asli properti kelas
     
     private lateinit var tvBalance: TextView
     private lateinit var tvIncomeSummary: TextView
@@ -209,11 +209,12 @@ class DashboardFragment : Fragment() {
         }
         mainLayout.addView(headerRecentRow)
 
-        listContainer = LinearLayout(context).apply { 
+        // ✅ FIX 212 & 216: Menggunakan referensi properti kelas yang benar
+        recentTxContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        mainLayout.addView(listContainer)
+        mainLayout.addView(recentTxContainer)
 
         nsv.addView(mainLayout)
         root.addView(nsv)
@@ -307,7 +308,6 @@ class DashboardFragment : Fragment() {
                     val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                     val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
 
-                    // 🔒 SINKRONISASI MUTLAK: Hitung penyeimbang kas persis seperti alur laporan utama
                     if (typeRaw == "INCOME" || typeRaw == "DEBT") {
                         balanceTotal += amount
                         if (isThisMonth) incomeThisMonth += amount
@@ -357,7 +357,7 @@ class DashboardFragment : Fragment() {
                 })
                 chartContainer.addView(summaryLayout)
 
-                // 3. RESTRUKTURISASI KARTU PENGELUARAN TERATAS REAL-TIME
+                // 3. PENGELUARAN TERATAS
                 topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
                 val filteredExpenses = allTxList.filter { item -> 
@@ -391,7 +391,6 @@ class DashboardFragment : Fragment() {
                             ((totalAmount / totalFilteredExpenseAmount) * 100).toInt()
                         } else 0
 
-                        // ✨ PREMIUM: Setiap baris kategori dibalut MaterialCardView tipis melengkung ultra-bersih
                         val rowCard = MaterialCardView(context).apply {
                             radius = 12 * density; cardElevation = 1 * density; strokeWidth = 0
                             setCardBackgroundColor(Color.parseColor("#F8FAFC"))
@@ -432,13 +431,14 @@ class DashboardFragment : Fragment() {
                     }
                 }
 
-                // 4. RESTRUKTURISASI MUTASI TERKINI GAYA PREMIUM CARD VIEW
-                listContainer.removeAllViews()
+                // 4. TRANSAKSI TERKINI
+                // ✅ FIX 436, 441, & 493: Menembak target properti container yang sah
+                recentTxContainer.removeAllViews()
                 val recentTxList = allTxList.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }.take(4)
                 
                 if (recentTxList.isEmpty()) {
                     for (i in 1..3) {
-                        listContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
+                        recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
                     }
                 } else {
                     recentTxList.forEach { item ->
@@ -447,7 +447,6 @@ class DashboardFragment : Fragment() {
                         val amount = (item["amount"] as? Double) ?: 0.0
                         val currentTypeUpper = ((item["type"] as? String) ?: "EXPENSE").trim().uppercase(Locale.ROOT)
 
-                        // ✨ PREMIUM: Row mutasi dibungkus MaterialCardView melengkung elegant
                         val mutasiCard = MaterialCardView(context).apply {
                             radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
                             setCardBackgroundColor(Color.WHITE)
@@ -490,7 +489,7 @@ class DashboardFragment : Fragment() {
                         })
 
                         mutasiCard.addView(rowLayout)
-                        listContainer.addView(mutasiCard)
+                        recentTxContainer.addView(mutasiCard)
                     }
                 }
             }
