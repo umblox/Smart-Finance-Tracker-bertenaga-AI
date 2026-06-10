@@ -39,14 +39,13 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
-        
-        // 🔥 AMAN 100%: Set text dilakukan satu arah berdasarkan evaluasi kondisi fungsional
+
+        // 🔥 STRATEGI SATU ARAH: Langsung set teks ke textview tanpa bikin variabel baru di baris 32
         if (!message.isUser && (message.text.contains("**") || message.text.contains("\n"))) {
-            val formattedHtml = message.text
+            val htmlString = message.text
                 .replace("\n", "<br/>")
                 .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
-            
-            holder.textView.text = Html.fromHtml(formattedHtml, Html.FROM_HTML_MODE_LEGACY)
+            holder.textView.text = Html.fromHtml(htmlString, Html.FROM_HTML_MODE_LEGACY)
         } else {
             holder.textView.text = message.text
         }
