@@ -1,68 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#F7FAFC">
+    android:padding="20dp"
+    android:background="#F8FAFC">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Pencatatan Hutang &amp; Piutang"
+        android:text="Buku Catatan Hutang Piutang"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
+        android:textColor="#1E293B"
+        android:layout_marginBottom="20dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSelectContact"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="👥 Pilih Kontak dari HP"
-        android:backgroundTint="#4A5568"
+        android:layout_height="52dp"
+        android:text="👥   Pilih Kontak dari HP"
+        android:textSize="14sp"
         android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        app:backgroundTint="#475569"
+        app:cornerRadius="12dp"
         android:layout_marginBottom="16dp"/>
 
     <RadioGroup
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
         <RadioButton
             android:id="@+id/rbIsHutang"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Saya Berhutang"
+            android:textColor="#1E293B"
+            android:textSize="14sp"
             android:checked="true"/>
         <RadioButton
             android:id="@+id/rbIsPiutang"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Orang Lain Berhutang"
-            android:layout_marginStart="16dp"/>
+            android:textColor="#1E293B"
+            android:textSize="14sp"
+            android:layout_marginStart="24dp"/>
     </RadioGroup>
 
-    <EditText
-        android:id="@+id/etDebtAmount"
+    <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Nominal (Rp)"
-        android:inputType="numberDecimal"
-        android:layout_marginBottom="16dp"/>
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeColor="#0D9488"
+        android:layout_marginBottom="16dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etDebtAmount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nominal Transaksi (Rp)"
+            android:textColor="#1E293B"
+            android:inputType="numberDecimal"/>
+    </com.google.android.material.textfield.TextInputLayout>
 
-    <EditText
-        android:id="@+id/etDebtNote"
+    <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Catatan Keterangan"
-        android:inputType="text"
-        android:layout_marginBottom="24dp"/>
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeColor="#0D9488"
+        android:layout_marginBottom="24dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etDebtNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Catatan Keterangan"
+            android:textColor="#1E293B"
+            android:inputType="text"/>
+    </com.google.android.material.textfield.TextInputLayout>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSaveDebt"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Simpan Catatan"
-        android:backgroundTint="#008080"
-        android:textColor="#FFFFFF"/>
+        android:layout_height="52dp"
+        android:text="Simpan Ke Cloud"
+        android:textSize="15sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        app:backgroundTint="#0D9488"
+        app:cornerRadius="12dp"
+        app:elevation="4dp"/>
 </LinearLayout>
