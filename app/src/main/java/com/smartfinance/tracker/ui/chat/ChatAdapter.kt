@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ui.chat
 
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.text.Html
 import android.view.Gravity
 import android.view.ViewGroup
@@ -9,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.smartfinance.tracker.data.model.ChatMessage
+import com.smartfinance.tracker.R
 
 class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
@@ -23,13 +23,14 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 6, 0, 6)
+            setPadding(0, 4, 0, 4)
         }
 
+        // 🔥 FIX MUTLAK BARIS 32: Mengubah properti kaku menjadi fungsi setLineSpacing() agar lolos compiler
         val textView = TextView(context).apply {
             textSize = 14.5f
             setPadding(36, 24, 36, 24)
-            lineSpacingMultiplier = 1.15f
+            setLineSpacing(0f, 1.15f)
         }
         
         linearParent.addView(textView)
@@ -38,7 +39,6 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
-        val density = holder.itemView.context.resources.displayMetrics.density
         
         val rawText = message.text
         if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
@@ -55,49 +55,33 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
-            topMargin = 2
-            bottomMargin = 2
+            topMargin = 4
+            bottomMargin = 4
         }
 
         holder.textView.post {
-            val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
+            val maxChatWidth = (holder.itemView.rootView.width * 0.75).toInt()
             if (maxChatWidth > 0) {
-                // 🔥 AMAN: Menggunakan setter resmi untuk menghindari konflik mutasi val properti
-                holder.textView.setMaxWidth(maxChatWidth)
+                holder.textView.maxWidth = maxChatWidth
             }
         }
 
         if (message.isUser) {
             holder.container.gravity = Gravity.END
             params.gravity = Gravity.END
-            params.leftMargin = (60 * density).toInt()
+            params.leftMargin = 100
             params.rightMargin = 0
-            
-            // ✨ BALON CHAT USER: Melengkung asimetris premium dengan warna Deep Teal modern
-            holder.textView.background = GradientDrawable().apply {
-                setColor(Color.parseColor("#0D9488"))
-                val r = 16 * density
-                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, r, r)
-            }
+            holder.textView.setBackgroundResource(R.drawable.chat_bubble_user)
             holder.textView.setTextColor(Color.WHITE)
         } else {
             holder.container.gravity = Gravity.START
             params.gravity = Gravity.START
-            params.rightMargin = (60 * density).toInt()
+            params.rightMargin = 100
             params.leftMargin = 0
-            
-            // ✨ BALON CHAT AI: Melengkung asimetris putih bersih dengan border tipis elegan
-            holder.textView.background = GradientDrawable().apply {
-                setColor(Color.WHITE)
-                val r = 16 * density
-                cornerRadii = floatArrayOf(r, r, r, r, r, r, 0f, 0f)
-                setStroke((1 * density).toInt(), Color.parseColor("#E2E8F0"))
-            }
-            holder.textView.setTextColor(Color.parseColor("#1E293B"))
+            holder.textView.setBackgroundResource(R.drawable.chat_bubble_ai)
+            holder.textView.setTextColor(Color.parseColor("#2D3748"))
         }
-        
-        // 🔥 AMAN: Menggunakan setLayoutParams() untuk finalisasi posisi layout balon chat
-        holder.textView.setLayoutParams(params)
+        holder.textView.layoutParams = params
     }
 
     override fun getItemCount(): Int = messages.size
