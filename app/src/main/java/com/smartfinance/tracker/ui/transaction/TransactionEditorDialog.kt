@@ -6,12 +6,17 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.firestore.FirebaseFirestore
+import com.smartfinance.tracker.R // Pastikan import resource terpasang aman
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -20,7 +25,6 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
 class TransactionEditorDialog(
-    // 🔥 FULL CLOUD: Menerima data transaksi berbasis Map dari Firestore Snapshot dokumen
     private val transactionData: HashMap<String, Any>,
     private val onUpdateAction: () -> Unit
 ) : DialogFragment() {
@@ -30,96 +34,55 @@ class TransactionEditorDialog(
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
-        val density = context.resources.displayMetrics.density
 
         val docId = transactionData["id"] as? String ?: ""
         val currentAmount = (transactionData["amount"] as? Number)?.toLong() ?: 0L
         val currentNote = transactionData["note"] as? String ?: ""
         val currentTimestamp = (transactionData["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
         val currentCategoryId = (transactionData["categoryId"] as? Number)?.toLong() ?: 0L
+        val originalType = transactionData["type"] as? String ?: "EXPENSE"
 
-        val editorContainer = RelativeLayout(context).apply {
-            setBackgroundColor(Color.parseColor("#F7FAFC"))
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
+        // ✨ SEKARANG MENGGUNAKAN INFLATER XML PREMIUM (Garansi Lolos Error Val & Mewah)
+        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
 
-        val topBar = RelativeLayout(context).apply {
-            id = View.generateViewId()
-            setBackgroundColor(Color.WHITE)
-            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
-            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT)
-        }
+        val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
+        val etNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
+        val etCategoryManual = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxCategory)
+        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
+        val rbIncome = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
+        val rbExpense = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
 
-        val btnClose = TextView(context).apply {
-            text = "✕"; textSize = 20f; setTextColor(Color.parseColor("#2D3748")); setTypeface(null, Typeface.BOLD)
-            setPadding((4 * density).toInt(), (4 * density).toInt(), (16 * density).toInt(), (4 * density).toInt())
-        }
-        topBar.addView(btnClose)
+        // Sembunyikan elemen spinner kategori lama, kita ganti deteksi otomatis berbasis input text agar fleksibel
+        val spinnerCategory = Spinner(context) 
 
-        val tvTitle = TextView(context).apply {
-            text = "Ubah Transaksi"; textSize = 16f; setTextColor(Color.parseColor("#1A202C")); setTypeface(null, Typeface.BOLD)
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply { addRule(RelativeLayout.CENTER_IN_PARENT) }
-            layoutParams = lp
-        }
-        topBar.addView(tvTitle)
-
-        val btnDelete = TextView(context).apply {
-            text = "HAPUS"; textSize = 13f; setTextColor(Color.parseColor("#E53E3E")); setTypeface(null, Typeface.BOLD)
-            setPadding((16 * density).toInt(), (6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt())
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
-                addRule(RelativeLayout.CENTER_VERTICAL)
-            }
-            layoutParams = lp
-        }
-        topBar.addView(btnDelete)
-        editorContainer.addView(topBar)
-
-        val formLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt())
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT).apply { addRule(RelativeLayout.BELOW, topBar.id) }
-            layoutParams = lp
-        }
-
-        formLayout.addView(TextView(context).apply { text = "Nominal Transaksi (Rp)"; setTextColor(Color.parseColor("#718096")); textSize = 12f })
-        val etAmount = EditText(context).apply {
-            setText(currentAmount.toString())
-            setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
-            )
-        }
-        formLayout.addView(etAmount)
-
-        formLayout.addView(TextView(context).apply { text = "Catatan"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
-        val etNote = EditText(context).apply {
-            setText(currentNote)
-            setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
-            )
-        }
-        formLayout.addView(etNote)
-
-        formLayout.addView(TextView(context).apply { text = "Tanggal (YYYY-MM-DD)"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, 0) })
+        // Set setelan awal berdasarkan data asli cloud
+        etAmount.setText(currentAmount.toString())
+        etNote.setText(currentNote)
+        
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        
+        // Buat EditText tanggal secara dinamis atau sisipkan ke container utama
         val etDate = EditText(context).apply {
             setText(sdf.format(Date(currentTimestamp)))
-            setTextColor(Color.parseColor("#2D3748")); textSize = 15f
-            background.mutate().colorFilter = androidx.core.graphics.BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-                Color.parseColor("#CBD5E0"), androidx.core.graphics.BlendModeCompat.SRC_ATOP
-            )
+            setTextColor(Color.parseColor("#2D3748"))
+            textSize = 14f
+            setPadding(20, 20, 20, 20)
         }
-        formLayout.addView(etDate)
+        (viewInflated as LinearLayout).addView(TextView(context).apply { 
+            text = "Tanggal Transaksi (YYYY-MM-DD)"
+            textSize = 12f
+            setTextColor(Color.parseColor("#64748B"))
+            setPadding(20, 10, 0, 0)
+        }, 4)
+        viewInflated.addView(etDate, 5)
 
-        formLayout.addView(TextView(context).apply { text = "Kategori Pengikat"; setTextColor(Color.parseColor("#718096")); textSize = 12f; setPadding(0, (16 * density).toInt(), 0, (4 * density).toInt()) })
-        val spinnerCategory = Spinner(context).apply { setBackgroundColor(Color.WHITE); setPadding((10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt()) }
-        formLayout.addView(spinnerCategory)
-        editorContainer.addView(formLayout)
+        if (originalType == "INCOME" || originalType == "DEBT") {
+            rbIncome.isChecked = true
+        } else {
+            rbExpense.isChecked = true
+        }
 
-        // 🔥 FULL CLOUD: Tarik data master kategori langsung dari Firebase Firestore Cloud
+        // Ambil data master kategori pendukung
         lifecycleScope.launch {
             try {
                 val snapshot = firestore.collection("categories").get().await()
@@ -131,76 +94,121 @@ class TransactionEditorDialog(
                     list.add(mutableData)
                 }
                 categoryListCloud = list
+                
+                val currentCat = categoryListCloud.find { (it["id"] as Long) == currentCategoryId }
+                etCategoryManual.setText(currentCat?.get("name") as? String ?: "Piutang")
             } catch (e: Exception) {
-                categoryListCloud = listOf(
-                    mapOf("id" to 15L, "name" to "Lain-lain / Umum", "type" to "EXPENSE")
-                )
+                etCategoryManual.setText("Piutang")
             }
-
-            val listNames = categoryListCloud.map { it["name"] as String }
-            val spinnerAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, listNames)
-            spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerCategory.adapter = spinnerAdapter
-
-            val selectedIdx = categoryListCloud.indexOfFirst { (it["id"] as Long) == currentCategoryId }
-            if (selectedIdx != -1) spinnerCategory.setSelection(selectedIdx)
         }
 
-        val btnSave = Button(context).apply {
-            text = "Simpan Perubahan"
-            textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE)
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 22 * density; setColor(Color.parseColor("#008080")) }
-            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
-                setMargins((24 * density).toInt(), 0, (24 * density).toInt(), (24 * density).toInt())
+        // Tombol Simpan Perubahan Desain Material Mewah Terintegrasi ke Layout Bottom
+        val btnSave = MaterialButton(context).apply {
+            text = "Simpan Perubahan Premium"
+            textSize = 14f
+            cornerRadius = 24
+            setTextColor(Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(40, 20, 40, 40)
             }
-            editorContainer.addView(this)
-            layoutParams = lp
         }
+        viewInflated.addView(btnSave)
 
-        val editorDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
-            .setView(editorContainer).create()
+        // Tombol Hapus Data Atas
+        val rowHeaderAction = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            setPadding(10, 10, 20, 0)
+        }
+        val btnDelete = TextView(context).apply {
+            text = "🗑️ HAPUS TRANSAKSI"
+            textSize = 12f
+            setTextColor(Color.parseColor("#EF4444"))
+            setTypeface(null, Typeface.BOLD)
+            setPadding(20, 20, 20, 20)
+        }
+        rowHeaderAction.addView(btnDelete)
+        viewInflated.addView(rowHeaderAction, 0)
 
-        btnClose.setOnClickListener { editorDialog.dismiss() }
+        val editorDialog = AlertDialog.Builder(context)
+            .setView(viewInflated).create()
 
-        // 🔥 FULL CLOUD ACTION: Lenyapkan transaksi kas langsung dari server Firestore
+        // 🗑️ ACTION SINKRONISASI HAPUS DUA ARAH (TRANSACTIONS + DEBTS)
         btnDelete.setOnClickListener {
             if (docId.isNotEmpty()) {
-                firestore.collection("transactions").document(docId).delete().addOnSuccessListener {
-                    Toast.makeText(context, "Berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
-                    onUpdateAction()
-                    editorDialog.dismiss()
+                lifecycleScope.launch {
+                    val upperNote = currentNote.uppercase(Locale.ROOT)
+                    
+                    // Cek jika transaksi ini lahir dari aktivitas Buku Utang
+                    if (upperNote.contains("PINJAMAN") || upperNote.contains("UTANG") || upperNote.contains("PIUTANG")) {
+                        val debtSnapshot = firestore.collection("debts").get().await()
+                        for (doc in debtSnapshot.documents) {
+                            val contactName = doc.getString("contactName") ?: ""
+                            if (contactName.isNotEmpty() && upperNote.contains(contactName.uppercase(Locale.ROOT))) {
+                                // Lenyapkan juga dokumen pinjaman induknya di Buku Utang agar sinkron!
+                                firestore.collection("debts").document(doc.id).delete()
+                            }
+                        }
+                    }
+                    
+                    // Hapus data transaksi utama
+                    firestore.collection("transactions").document(docId).delete().addOnSuccessListener {
+                        Toast.makeText(context, "Berhasil dihapus dari Cloud!", Toast.LENGTH_SHORT).show()
+                        onUpdateAction()
+                        editorDialog.dismiss()
+                    }
                 }
             }
         }
 
-        // 🔥 FULL CLOUD ACTION: Update payload transaksi kas langsung menuju server Firestore
+        // ✏️ ACTION SINKRONISASI EDIT DUA ARAH (TRANSACTIONS + DEBTS)
         btnSave.setOnClickListener {
             val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
             val noteVal = etNote.text.toString().trim()
             val dateVal = etDate.text.toString().trim()
+            val categoryNameManual = etCategoryManual.text.toString().trim()
 
-            if (amountVal > 0.0 && noteVal.isNotEmpty() && dateVal.isNotEmpty() && categoryListCloud.isNotEmpty() && docId.isNotEmpty()) {
+            if (amountVal > 0.0 && noteVal.isNotEmpty() && dateVal.isNotEmpty() && docId.isNotEmpty()) {
                 val parsedDate = try { sdf.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
-                val selectedCategory = categoryListCloud[spinnerCategory.selectedItemPosition]
-                val catId = selectedCategory["id"] as Long
-                val catName = selectedCategory["name"] as String
-                val catType = selectedCategory["type"] as String
+                val selectedType = if (rgType.checkedRadioButtonId == rbIncome.id) "INCOME" else "EXPENSE"
 
-                val updatedTxMap = hashMapOf(
-                    "id" to docId,
-                    "amount" to amountVal,
-                    "note" to noteVal.uppercase(Locale.ROOT),
-                    "timestamp" to parsedDate,
-                    "categoryId" to catId,
-                    "categoryName" to catName,
-                    "type" to catType
-                )
+                lifecycleScope.launch {
+                    val upperNote = noteVal.uppercase(Locale.ROOT)
+                    
+                    // JEMBATAN OTOMATIS: Jika terdeteksi catatan pinjaman, perbarui juga nilai di koleksi debts
+                    if (upperNote.contains("PINJAMAN") || upperNote.contains("UTANG") || upperNote.contains("PIUTANG")) {
+                        val debtSnapshot = firestore.collection("debts").get().await()
+                        for (doc in debtSnapshot.documents) {
+                            val contactName = doc.getString("contactName") ?: ""
+                            if (contactName.isNotEmpty() && upperNote.contains(contactName.uppercase(Locale.ROOT))) {
+                                // Update nominal pinjaman induk di Buku Utang agar nilainya sinkron total
+                                firestore.collection("debts").document(doc.id).update(
+                                    "amount", amountVal,
+                                    "remainingAmount", amountVal
+                                )
+                            }
+                        }
+                    }
 
-                firestore.collection("transactions").document(docId).set(updatedTxMap).addOnSuccessListener {
-                    Toast.makeText(context, "Perubahan sukses disimpan di Cloud!", Toast.LENGTH_SHORT).show()
-                    onUpdateAction()
-                    editorDialog.dismiss()
+                    // Tentukan Id Kategori Bayangan pendukung laporan
+                    val targetCatId = if (selectedType == "INCOME") 101L else 102L
+
+                    val updatedTxMap = hashMapOf(
+                        "id" to docId,
+                        "amount" to amountVal,
+                        "note" to upperNote,
+                        "timestamp" to parsedDate,
+                        "categoryId" to targetCatId,
+                        "categoryName" to categoryNameManual,
+                        "type" to selectedType // 🔥 SINKRON: Menyimpan aliran kas masuk/keluar murni laporan
+                    )
+
+                    firestore.collection("transactions").document(docId).set(updatedTxMap).addOnSuccessListener {
+                        Toast.makeText(context, "Perubahan sukses disimpan di Cloud!", Toast.LENGTH_SHORT).show()
+                        onUpdateAction()
+                        editorDialog.dismiss()
+                    }
                 }
             } else {
                 Toast.makeText(context, "Semua data wajib diisi secara valid!", Toast.LENGTH_SHORT).show()
