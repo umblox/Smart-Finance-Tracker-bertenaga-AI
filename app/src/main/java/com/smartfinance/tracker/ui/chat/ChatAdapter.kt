@@ -10,13 +10,15 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.smartfinance.tracker.data.model.ChatMessage
 
-class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
+class ChatAdapter(private val messages: List<ChatMessage>) : 
+    RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
-    class ChatViewHolder(val container: LinearLayout, val textView: TextView) : RecyclerView.ViewHolder(container)
+    class ChatViewHolder(val container: LinearLayout, val textView: TextView) : 
+        RecyclerView.ViewHolder(container)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val context = parent.context
-        
+
         val linearParent = LinearLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -31,7 +33,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             setPadding(36, 24, 36, 24)
             lineSpacingMultiplier = 1.15f
         }
-        
+
         linearParent.addView(textView)
         return ChatViewHolder(linearParent, textView)
     }
@@ -39,7 +41,8 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
-        
+
+        // Text formatting
         val rawText = message.text
         if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
             val formattedHtml = rawText
@@ -51,16 +54,19 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             holder.textView.text = rawText
         }
 
-        // Ambil atau buat LayoutParams baru untuk TextView
-        val params = holder.textView.layoutParams as? LinearLayout.LayoutParams 
+        // 🔥 FIX UTAMA: Ambil existing params atau buat baru (paling aman)
+        val params = (holder.textView.layoutParams as? LinearLayout.LayoutParams)
             ?: LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
 
-        params.topMargin = (2 * density).toInt()
-        params.bottomMargin = (2 * density).toInt()
+        params.apply {
+            topMargin = (2 * density).toInt()
+            bottomMargin = (2 * density).toInt()
+        }
 
+        // Set max width
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
@@ -73,7 +79,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             params.gravity = Gravity.END
             params.leftMargin = (60 * density).toInt()
             params.rightMargin = 0
-            
+
             holder.textView.background = GradientDrawable().apply {
                 setColor(Color.parseColor("#0D9488"))
                 val r = 16 * density
@@ -85,7 +91,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             params.gravity = Gravity.START
             params.rightMargin = (60 * density).toInt()
             params.leftMargin = 0
-            
+
             holder.textView.background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 val r = 16 * density
@@ -94,7 +100,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             }
             holder.textView.setTextColor(Color.parseColor("#1E293B"))
         }
-        
+
         holder.textView.layoutParams = params
     }
 
