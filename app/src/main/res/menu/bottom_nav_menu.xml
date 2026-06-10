@@ -2,8 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/menu_dashboard"
-        android:icon="@android:drawable/ic_menu_manage"
-        android:title="Ringkasan" />
+        android:icon="@android:drawable/ic_menu_home"
+        android:title="Beranda" />
     <item
         android:id="@+id/menu_chat"
         android:icon="@android:drawable/ic_menu_send"
