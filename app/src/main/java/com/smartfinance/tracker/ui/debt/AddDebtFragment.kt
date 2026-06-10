@@ -164,20 +164,20 @@ class AddDebtFragment : Fragment() {
         root.addView(scrollView)
 
         btnAddManual.setOnClickListener {
-            showAddDebtManualDialog(listContainer, cardDebt, cardReceivable)
+            showAddDebtManualDialog()
         }
 
-        setPremiumTabStyles(context, btnTabDebt, btnTabReceivable)
+        setPremiumTabStyles(btnTabDebt, btnTabReceivable)
 
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
-            setPremiumTabStyles(context, btnTabDebt, btnTabReceivable)
+            setPremiumTabStyles(btnTabDebt, btnTabReceivable)
             refreshDebtListLive(listContainer, cardDebt, cardReceivable)
         }
 
         btnTabReceivable.setOnClickListener {
             currentTab = "RECEIVABLE"
-            setPremiumTabStyles(context, btnTabReceivable, btnTabDebt)
+            setPremiumTabStyles(btnTabReceivable, btnTabDebt)
             refreshDebtListLive(listContainer, cardDebt, cardReceivable)
         }
 
@@ -208,7 +208,7 @@ class AddDebtFragment : Fragment() {
         }
     }
 
-    private fun setPremiumTabStyles(ctx: Context, active: MaterialButton, inactive: MaterialButton) {
+    private fun setPremiumTabStyles(active: MaterialButton, inactive: MaterialButton) {
         active.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
         active.setTextColor(Color.WHITE)
         active.setTypeface(null, Typeface.BOLD)
@@ -231,7 +231,8 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    private fun showAddDebtManualDialog(listContainer: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
+    // ✅ CLEAN UP: Parameter tak terpakai dibuang bersih dari deklarasi fungsi induk
+    private fun showAddDebtManualDialog() {
         val context = requireContext()
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
 
@@ -281,7 +282,7 @@ class AddDebtFragment : Fragment() {
                         "categoryName" to catName,
                         "note" to "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN",
                         "timestamp" to System.currentTimeMillis(),
-                        "debtId" to debtId // 🔥 JEMBATAN EMAS: Menyuntikkan KTP debtId ke dokumen transaksi penyeimbang
+                        "debtId" to debtId
                     )
                     firestore.collection("transactions").document(txId).set(txMap)
                     Toast.makeText(context, "Pinjaman Berhasil Tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
@@ -356,7 +357,6 @@ class AddDebtFragment : Fragment() {
                         }
                         
                         val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
-                        val amountOriginal = (debtItem["amount"] as? Number)?.toDouble() ?: 0.0
                         val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
                         val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
                         val docId = (debtItem["id"] as? String) ?: ""
@@ -369,14 +369,14 @@ class AddDebtFragment : Fragment() {
                         cardInsideLayout.addView(leftInfo)
 
                         val tvOriginalAmount = TextView(requireContext()).apply {
-                            text = formatRupiah.format(amountOriginal); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
+                            text = formatRupiah.format((debtItem["amount"] as? Number)?.toDouble() ?: 0.0); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
                             setTextColor(if (currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7")); gravity = Gravity.END
                         }
                         cardInsideLayout.addView(tvOriginalAmount)
                         
                         itemCard.addView(cardInsideLayout)
                         itemCard.setOnClickListener { 
-                            showDebtActionOptionsCloud(docId, contactName, amountOriginal, remainingAmount, isPaid, debtType)
+                            showDebtActionOptionsCloud(docId, contactName, remainingAmount, isPaid, debtType)
                         }
                         container.addView(itemCard)
                     }
@@ -384,7 +384,8 @@ class AddDebtFragment : Fragment() {
             }
     }
 
-    private fun showDebtActionOptionsCloud(docId: String, contactName: String, originalAmount: Double, remainingAmount: Double, isPaid: Boolean, debtType: String) {
+    // ✅ CLEAN UP: Memotong parameter 'originalAmount' yang mengotori logs warning
+    private fun showDebtActionOptionsCloud(docId: String, contactName: String, remainingAmount: Double, isPaid: Boolean, debtType: String) {
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
         
         AlertDialog.Builder(requireContext()).apply {
@@ -397,7 +398,9 @@ class AddDebtFragment : Fragment() {
                     }
                     
                     val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
-                    val tilPay = viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
+                    
+                    // ✅ CLEAN UP: Hilangkan penampung variabel tilPay yang sia-sia
+                    viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
                     val etPay = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
                     
                     viewInflated.findViewById<MaterialButton>(R.id.btnPremiumPickContact).visibility = View.GONE
