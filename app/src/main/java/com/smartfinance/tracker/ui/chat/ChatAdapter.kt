@@ -51,19 +51,20 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             holder.textView.text = rawText
         }
 
-        val params = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            topMargin = 2
-            bottomMargin = 2
-        }
+        // Ambil atau buat LayoutParams baru untuk TextView
+        val params = holder.textView.layoutParams as? LinearLayout.LayoutParams 
+            ?: LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+        params.topMargin = (2 * density).toInt()
+        params.bottomMargin = (2 * density).toInt()
 
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
-                // 🔥 FIX MUTLAK: Menggunakan method setMaxWidth() agar lolos kompilasi Gradle
-                holder.textView.setMaxWidth(maxChatWidth)
+                holder.textView.maxWidth = maxChatWidth
             }
         }
 
@@ -93,6 +94,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
             }
             holder.textView.setTextColor(Color.parseColor("#1E293B"))
         }
+        
         holder.textView.layoutParams = params
     }
 
