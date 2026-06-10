@@ -94,7 +94,7 @@ class AddDebtFragment : Fragment() {
             text = "➕ PINJAMAN"
             textSize = 12f
             cornerRadius = (10 * density).toInt()
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488")) // Premium Teal
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
             setTextColor(Color.WHITE)
             insetTop = 0
             insetBottom = 0
@@ -103,7 +103,7 @@ class AddDebtFragment : Fragment() {
         headerLayout.addView(btnAddManual)
         root.addView(headerLayout)
 
-        // 2. SUMMARY CARDS (MELENGKUNG HALUS ELEGAN)
+        // 2. SUMMARY CARDS
         val summaryLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
@@ -117,7 +117,7 @@ class AddDebtFragment : Fragment() {
         summaryLayout.addView(cardReceivable)
         root.addView(summaryLayout)
 
-        // 3. TABS CONTROL SLIM PREMIUM STYLE
+        // 3. TABS CONTROL
         val tabOuterContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
@@ -132,14 +132,15 @@ class AddDebtFragment : Fragment() {
             }
         }
 
-        val btnTabDebt = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonStyleByTone).apply {
+        // 🔥 FIX: Menggunakan constructor standar tanpa style bertone yang bikin unresolved reference
+        val btnTabDebt = MaterialButton(context).apply {
             text = "Hutang Saya"
             textSize = 13f
             cornerRadius = (10 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             insetTop = 0; insetBottom = 0
         }
-        val btnTabReceivable = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonStyleByTone).apply {
+        val btnTabReceivable = MaterialButton(context).apply {
             text = "Piutang / Tagihan"
             textSize = 13f
             cornerRadius = (10 * density).toInt()
@@ -198,8 +199,9 @@ class AddDebtFragment : Fragment() {
                 orientation = LinearLayout.VERTICAL
                 setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
             }
-            val tvTitle = TextView(ctx).apply { text = title; textColor = Color.parseColor("#64748B"); textSize = 12f }
-            val tvValue = TextView(ctx).apply { text = "Rp 0"; textColor = Color.parseColor(valueColorHex); textSize = 16f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
+            // 🔥 FIX: Menggunakan setTextColor() untuk membenahi error unresolved reference properti kaku
+            val tvTitle = TextView(ctx).apply { text = title; setTextColor(Color.parseColor("#64748B")); textSize = 12f }
+            val tvValue = TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 16f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
             
             layout.addView(tvTitle)
             layout.addView(tvValue)
@@ -208,7 +210,6 @@ class AddDebtFragment : Fragment() {
     }
 
     private fun setPremiumTabStyles(ctx: Context, active: MaterialButton, inactive: MaterialButton) {
-        val density = ctx.resources.displayMetrics.density
         active.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
         active.setTextColor(Color.WHITE)
         active.setTypeface(null, Typeface.BOLD)
@@ -231,7 +232,6 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    // ➕ DIALOG FORMULIR MEMBUAT TRANSAKSI BARU JADI SUPER MEWAH
     private fun showAddDebtManualDialog(listContainer: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -241,17 +241,19 @@ class AddDebtFragment : Fragment() {
             setPadding((20 * density).toInt(), (16 * density).toInt(), (20 * density).toInt(), (10 * density).toInt())
         }
 
-        // Wrapper Input Nama + Button Kontak
         val rowContact = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        val tilName = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
+        // 🔥 FIX: Menggunakan constructor standar TextInputLayout dan fungsi setBoxCornerRadii() untuk melengkungkan sudut
+        val tilName = TextInputLayout(context).apply {
             hint = "Nama Kontak Orang"
-            boxCornerRadiusTopStart = 12 * density; boxCornerRadiusTopEnd = 12 * density
-            boxCornerRadiusBottomStart = 12 * density; boxCornerRadiusBottomEnd = 12 * density
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
+            setBoxStrokeColor(Color.parseColor("#0D9488"))
+            val r = 12 * density
+            setBoxCornerRadii(r, r, r, r)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (10 * density).toInt() }
         }
         val etName = TextInputEditText(context).apply { setTextColor(Color.parseColor("#1E293B")) }
@@ -272,11 +274,13 @@ class AddDebtFragment : Fragment() {
         rowContact.addView(btnPickContact)
         formLayout.addView(rowContact)
 
-        // Wrapper Input Nominal Outlined Box Mutiara
-        val tilAmount = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
+        // 🔥 FIX: Menggunakan Outlined Box Murni fungsional standar agar aman dari Unresolved Reference Style
+        val tilAmount = TextInputLayout(context).apply {
             hint = "Nominal Transaksi (Rp)"
-            boxCornerRadiusTopStart = 12 * density; boxCornerRadiusTopEnd = 12 * density
-            boxCornerRadiusBottomStart = 12 * density; boxCornerRadiusBottomEnd = 12 * density
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
+            setBoxStrokeColor(Color.parseColor("#0D9488"))
+            val r = 12 * density
+            setBoxCornerRadii(r, r, r, r)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (14 * density).toInt() }
         }
         val etAmount = TextInputEditText(context).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setTextColor(Color.parseColor("#1E293B")) }
@@ -301,7 +305,7 @@ class AddDebtFragment : Fragment() {
         rgType.addView(rbReceivable)
         formLayout.addView(rgType)
 
-        AlertDialog.Builder(context, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_MaterialAlertDialog).apply {
+        AlertDialog.Builder(context).apply {
             setTitle("📝 Tambah Catatan Baru")
             setView(formLayout)
             setPositiveButton("Simpan Ke Cloud") { _, _ ->
@@ -393,7 +397,6 @@ class AddDebtFragment : Fragment() {
                     container.addView(tvEmpty)
                 } else {
                     filteredList.forEach { debtItem ->
-                        // ✨ LIST ITEM ROW: Rombak total memakai MaterialCardView melengkung asimetris yang mewah
                         val itemCard = MaterialCardView(requireContext()).apply {
                             radius = 14 * density
                             cardElevation = 2 * density
@@ -445,7 +448,7 @@ class AddDebtFragment : Fragment() {
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
         val density = requireContext().resources.displayMetrics.density
         
-        AlertDialog.Builder(requireContext(), com.google.android.material.R.style.ThemeOverlay_MaterialComponents_MaterialAlertDialog).apply {
+        AlertDialog.Builder(requireContext()).apply {
             setTitle("Aksi Kontak: $contactName")
             setItems(options) { _, which ->
                 if (which == 0) {
@@ -458,16 +461,20 @@ class AddDebtFragment : Fragment() {
                         orientation = LinearLayout.VERTICAL
                         setPadding((20 * density).toInt(), (14 * density).toInt(), (20 * density).toInt(), 0)
                     }
-                    val tilPay = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
+                    
+                    // 🔥 FIX: Menggunakan Outlined Box Murni standar bawaan tanpa style bertone yang bikin amukan compiler
+                    val tilPay = TextInputLayout(context).apply {
                         hint = "Masukkan Jumlah Pembayaran (Rp)"
-                        boxCornerRadiusTopStart = 12 * density; boxCornerRadiusTopEnd = 12 * density
-                        boxCornerRadiusBottomStart = 12 * density; boxCornerRadiusBottomEnd = 12 * density
+                        boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
+                        setBoxStrokeColor(Color.parseColor("#0D9488"))
+                        val r = 12 * density
+                        setBoxCornerRadii(r, r, r, r)
                     }
                     val etPay = TextInputEditText(context).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setTextColor(Color.parseColor("#1E293B")) }
                     tilPay.addView(etPay)
                     wrapperLayout.addView(tilPay)
 
-                    AlertDialog.Builder(context, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_MaterialAlertDialog).apply {
+                    AlertDialog.Builder(context).apply {
                         setTitle("Bayar / Cicil Pinjaman")
                         setMessage("Sisa tanggungan saat ini: ${formatRupiah.format(remainingAmount)}")
                         setView(wrapperLayout)
@@ -503,7 +510,7 @@ class AddDebtFragment : Fragment() {
                         show()
                     }
                 } else if (which == 1) {
-                    AlertDialog.Builder(context, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_MaterialAlertDialog).apply {
+                    AlertDialog.Builder(context).apply {
                         setTitle("Hapus Data")
                         setMessage("Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari $contactName?")
                         setPositiveButton("Hapus") { _, _ ->
