@@ -40,17 +40,15 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
         
-        val rawText = message.text
-
-        // 🔥 FIX MUTLAK: Menggunakan penampung fungsional independen tanpa menimpa variabel awal
-        if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
-            val formattedHtml = rawText
+        // 🔥 AMAN 100%: Set text dilakukan satu arah berdasarkan evaluasi kondisi fungsional
+        if (!message.isUser && (message.text.contains("**") || message.text.contains("\n"))) {
+            val formattedHtml = message.text
                 .replace("\n", "<br/>")
                 .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
             
             holder.textView.text = Html.fromHtml(formattedHtml, Html.FROM_HTML_MODE_LEGACY)
         } else {
-            holder.textView.text = rawText
+            holder.textView.text = message.text
         }
 
         val params = LinearLayout.LayoutParams(
