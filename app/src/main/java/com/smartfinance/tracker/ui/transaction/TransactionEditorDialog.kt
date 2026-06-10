@@ -44,6 +44,9 @@ class TransactionEditorDialog(
     
     private lateinit var spinnerCategory: Spinner
     private lateinit var etContact: TextInputEditText
+    private lateinit var rgType: RadioGroup
+    private lateinit var rbLeft: RadioButton
+    private lateinit var rbRight: RadioButton
     private var isDebtTransaction = false
 
     private val contactPickerLauncher = registerForActivityResult(
@@ -80,13 +83,13 @@ class TransactionEditorDialog(
         val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
         val etNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
         spinnerCategory = viewInflated.findViewById(R.id.spinnerPremiumTxCategory)
-        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
-        val rbLeft = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
-        val rbRight = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
+        rgType = viewInflated.findViewById(R.id.rgPremiumTxType)
+        rbLeft = viewInflated.findViewById(R.id.rbPremiumTxExpense)
+        rbRight = viewInflated.findViewById(R.id.rbPremiumTxIncome)
 
         etAmount.setText(currentAmount.toString())
 
-        // 🌟 RE-STRUKTUR FORM UTANG PIUTANG ADAPTIF CERDAS
+        // 🌟 SINKRONISASI ARSITEKTUR FORM UTANG PIUTANG ADAPTIF (ANTI ERROR .SP & INDEKS SISIP)
         if (isDebtTransaction) {
             rbLeft.text = "Saya Berhutang (Hutang)"
             rbRight.text = "Orang Lain Berhutang (Piutang)"
@@ -103,7 +106,9 @@ class TransactionEditorDialog(
 
             val contactLabel = TextView(context).apply {
                 text = "Nama Kontak Terkait:"
-                textSize = 12sp; setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.BOLD)
+                textSize = 12f // ✅ FIX MUTLAK: Menggunakan Float murni, bukan akhiran kaku .sp
+                setTextColor(Color.parseColor("#64748B"))
+                setTypeface(null, Typeface.BOLD)
                 setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
             }
             innerLayout.addView(contactLabel)
@@ -115,10 +120,14 @@ class TransactionEditorDialog(
             }
             
             val tilContact = TextInputLayout(context, null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox).apply {
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 boxStrokeColor = Color.parseColor("#0D9488")
-                setBoxCornerRadius(12 * density, 12 * density, 12 * density, 12 * density)
+                // ✅ FIX MUTLAK: Menggunakan fungsi sah setBoxCornerRadii untuk kelengkungan ujung box
+                setBoxCornerRadii(12 * density, 12 * density, 12 * density, 12 * density)
             }
+            
+            val tilLayoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            tilContact.layoutParams = tilLayoutParams
+
             etContact = TextInputEditText(context).apply {
                 setText(extractedName)
                 setTextColor(Color.parseColor("#1E293B"))
@@ -127,15 +136,18 @@ class TransactionEditorDialog(
             
             val btnPick = MaterialButton(context).apply {
                 text = "👥 HUBUNG"
-                textSize = 11sp
+                textSize = 11f // ✅ FIX MUTLAK: Ukuran float murni aman
                 cornerRadius = (10 * density).toInt()
                 backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#475569"))
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (54 * density).toInt()).apply { leftMargin = (10 * density).toInt() }
                 setOnClickListener {
                     val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
                     contactPickerLauncher.launch(intent)
                 }
             }
+            
+            val btnLayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (54 * density).toInt()).apply { leftMargin = (10 * density).toInt() }
+            btnPick.layoutParams = btnLayoutParams
+            
             contactRow.addView(tilContact)
             contactRow.addView(btnPick)
             innerLayout.addView(contactRow)
@@ -147,7 +159,7 @@ class TransactionEditorDialog(
             if (currentType == "INCOME") rbRight.isChecked = true else rbLeft.isChecked = true
         }
 
-        // Tampilkan input Tanggal secara berurutan natural tanpa hardcoded index rapuh
+        // Tampilkan urutan input tanggal secara linier lurus tanpa manipulasi indeks sisip rapuh
         innerLayout.addView(TextView(context).apply { 
             text = "Tanggal Transaksi (YYYY-MM-DD)"
             textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
@@ -203,21 +215,20 @@ class TransactionEditorDialog(
             text = "Batal"
             textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
         }
         
         val btnSave = MaterialButton(context).apply {
             text = "Simpan"
             textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         
         actionButtonsRow.addView(btnCancel)
         actionButtonsRow.addView(btnSave)
         innerLayout.addView(actionButtonsRow)
 
-        // Tombol Hapus ditaruh di bawah baris aksi utama secara simetris, aman & elegan
         val btnDelete = MaterialButton(context).apply {
             text = "🗑️ HAPUS TRANSAKSI PERMANEN"
             textSize = 12f; cornerRadius = 24; setTextColor(Color.parseColor("#EF4444"))
@@ -230,7 +241,7 @@ class TransactionEditorDialog(
 
         val editorDialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
-        // ✅ FIX LIFECYCLE: Click listener dipasang aman DI BAWAH setelah editorDialog resmi terlahir
+        // ✅ FIX MUTLAK LIFECYCLE: Listener dipasang setelah editorDialog resmi dideklarasikan sempurna
         btnCancel.setOnClickListener { editorDialog.dismiss() }
 
         btnDelete.setOnClickListener {
