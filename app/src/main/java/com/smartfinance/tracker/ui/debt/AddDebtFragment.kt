@@ -245,9 +245,11 @@ class AddDebtFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        // 🔥 FIX MUTLAK: Menggunakan style constructor XML asli bawaan untuk mengunci rupa Outlined Box premium
-        val tilName = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
+        // 🔥 FIX MUTLAK: Menggunakan constructor standar tanpa parameter style kaku R.attr pembawa masalah
+        val tilName = TextInputLayout(context).apply {
             hint = "Nama Kontak Orang"
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
+            boxBackgroundColor = Color.WHITE
             setBoxStrokeColor(Color.parseColor("#0D9488"))
             val r = 12 * density
             setBoxCornerRadii(r, r, r, r)
@@ -271,9 +273,11 @@ class AddDebtFragment : Fragment() {
         rowContact.addView(btnPickContact)
         formLayout.addView(rowContact)
 
-        // 🔥 FIX MUTLAK: Menggunakan Outlined Style bawaan Google yang sah
-        val tilAmount = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
+        // 🔥 FIX MUTLAK: Constructor murni standar ramah compiler universal
+        val tilAmount = TextInputLayout(context).apply {
             hint = "Nominal Transaksi (Rp)"
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
+            boxBackgroundColor = Color.WHITE
             setBoxStrokeColor(Color.parseColor("#0D9488"))
             val r = 12 * density
             setBoxCornerRadii(r, r, r, r)
@@ -458,9 +462,11 @@ class AddDebtFragment : Fragment() {
                         setPadding((20 * density).toInt(), (14 * density).toInt(), (20 * density).toInt(), 0)
                     }
                     
-                    // 🔥 FIX MUTLAK: Menggunakan Outlined Style bawaan Google yang sah
-                    val tilPay = TextInputLayout(context, null, com.google.android.material.R.attr.textInputLayoutOutlinedStyle).apply {
+                    // 🔥 FIX MUTLAK: Constructor standar ramah compiler universal
+                    val tilPay = TextInputLayout(context).apply {
                         hint = "Masukkan Jumlah Pembayaran (Rp)"
+                        boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
+                        boxBackgroundColor = Color.WHITE
                         setBoxStrokeColor(Color.parseColor("#0D9488"))
                         val r = 12 * density
                         setBoxCornerRadii(r, r, r, r)
