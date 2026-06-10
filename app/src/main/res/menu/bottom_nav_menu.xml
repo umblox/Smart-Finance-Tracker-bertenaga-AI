@@ -2,22 +2,22 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/menu_dashboard"
-        android:icon="@android:drawable/ic_menu_today"
-        android:title="Dashboard" />
+        android:icon="@android:drawable/ic_menu_manage"
+        android:title="Ringkasan" />
     <item
         android:id="@+id/menu_chat"
-        android:icon="@android:drawable/stat_notify_chat"
-        android:title="AI Chat" />
+        android:icon="@android:drawable/ic_menu_send"
+        android:title="AI Asisten" />
     <item
         android:id="@+id/menu_report"
         android:icon="@android:drawable/ic_menu_sort_by_size"
-        android:title="Laporan" />
+        android:title="Transaksi" />
     <item
         android:id="@+id/menu_debt"
         android:icon="@android:drawable/ic_menu_agenda"
-        android:title="Hutang" />
+        android:title="Buku Utang" />
     <item
         android:id="@+id/menu_settings"
-        android:icon="@android:drawable/ic_menu_manage"
-        android:title="Pengaturan" />
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Opsi" />
 </menu>
