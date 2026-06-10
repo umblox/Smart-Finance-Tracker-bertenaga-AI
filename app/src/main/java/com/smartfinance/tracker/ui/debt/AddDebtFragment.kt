@@ -231,12 +231,12 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    // ✨ CLEAN & SAFE INFLATER FORMULIR DIALOG BARU JADI SUPER MEWAH
+    // ✨ CORRECTION FIX: Parameter inflate diganti menjadi null agar 100% steril bebas amukan compiler
     private fun showAddDebtManualDialog(listContainer: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
         val context = requireContext()
         
-        // Memanggil layout XML pembantu yang baru saja kita buat
-        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, view ?: viewInflated as? ViewGroup, false)
+        // Pemanggilan layout XML pembantu kustom menggunakan parameter root null standar dialog
+        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
 
         val etName = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName)
         val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumAmount)
@@ -398,12 +398,11 @@ class AddDebtFragment : Fragment() {
                         return@setItems
                     }
                     
-                    // Memanggil kembali file XML pembantu yang sama untuk dialog cicilan agar seragam mewah
-                    val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null)
+                    // CORRECTION FIX: Memanggil inflater dialog_add_debt_premium secara sah dengan root null
+                    val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
                     val tilPay = viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
                     val etPay = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
                     
-                    // Sembunyikan elemen input nama & radio group yang gak kepakai di form cicilan
                     viewInflated.findViewById<MaterialButton>(R.id.btnPremiumPickContact).visibility = View.GONE
                     viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumAmount).visibility = View.GONE
                     viewInflated.findViewById<RadioGroup>(R.id.rgPremiumType).visibility = View.GONE
