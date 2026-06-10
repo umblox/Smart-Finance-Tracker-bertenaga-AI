@@ -39,15 +39,16 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
-
-        // 🔥 STRATEGI SATU ARAH: Langsung set teks ke textview tanpa bikin variabel baru di baris 32
-        if (!message.isUser && (message.text.contains("**") || message.text.contains("\n"))) {
-            val htmlString = message.text
+        
+        val rawText = message.text
+        if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
+            val formattedHtml = rawText
                 .replace("\n", "<br/>")
                 .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
-            holder.textView.text = Html.fromHtml(htmlString, Html.FROM_HTML_MODE_LEGACY)
+            
+            holder.textView.text = Html.fromHtml(formattedHtml, Html.FROM_HTML_MODE_LEGACY)
         } else {
-            holder.textView.text = message.text
+            holder.textView.text = rawText
         }
 
         val params = LinearLayout.LayoutParams(
@@ -61,7 +62,8 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
-                holder.textView.maxWidth = maxChatWidth
+                // 🔥 FIX MUTLAK: Menggunakan method setMaxWidth() agar lolos kompilasi Gradle
+                holder.textView.setMaxWidth(maxChatWidth)
             }
         }
 
