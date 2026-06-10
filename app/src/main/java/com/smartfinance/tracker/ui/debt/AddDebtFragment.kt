@@ -25,6 +25,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.smartfinance.tracker.R
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -230,84 +231,25 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
+    // ✨ CLEAN & SAFE INFLATER FORMULIR DIALOG BARU JADI SUPER MEWAH
     private fun showAddDebtManualDialog(listContainer: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
         val context = requireContext()
-        val density = context.resources.displayMetrics.density
         
-        val formLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((20 * density).toInt(), (16 * density).toInt(), (20 * density).toInt(), (10 * density).toInt())
-        }
+        // Memanggil layout XML pembantu yang baru saja kita buat
+        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, view ?: viewInflated as? ViewGroup, false)
 
-        val rowContact = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
+        val etName = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName)
+        val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumAmount)
+        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumType)
+        val rbDebt = viewInflated.findViewById<RadioButton>(R.id.rbPremiumDebt)
+        val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnPremiumPickContact)
 
-        // 🔥 FIX MUTLAK: Menggunakan constructor standar tanpa parameter style kaku R.attr pembawa masalah
-        val tilName = TextInputLayout(context).apply {
-            hint = "Nama Kontak Orang"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
-            boxBackgroundColor = Color.WHITE
-            setBoxStrokeColor(Color.parseColor("#0D9488"))
-            val r = 12 * density
-            setBoxCornerRadii(r, r, r, r)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (10 * density).toInt() }
-        }
-        val etName = TextInputEditText(context).apply { setTextColor(Color.parseColor("#1E293B")) }
-        tilName.addView(etName)
         activeContactEditText = etName
-
-        val btnPickContact = MaterialButton(context).apply {
-            text = "👥 HUBUNG"
-            textSize = 11f
-            cornerRadius = (10 * density).toInt()
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#475569"))
-            setTextColor(Color.WHITE)
-            setOnClickListener { checkContactPermissionAndLaunch() }
-            insetTop = 0; insetBottom = 0
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (50 * density).toInt())
-        }
-        rowContact.addView(tilName)
-        rowContact.addView(btnPickContact)
-        formLayout.addView(rowContact)
-
-        // 🔥 FIX MUTLAK: Constructor murni standar ramah compiler universal
-        val tilAmount = TextInputLayout(context).apply {
-            hint = "Nominal Transaksi (Rp)"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
-            boxBackgroundColor = Color.WHITE
-            setBoxStrokeColor(Color.parseColor("#0D9488"))
-            val r = 12 * density
-            setBoxCornerRadii(r, r, r, r)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (14 * density).toInt() }
-        }
-        val etAmount = TextInputEditText(context).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setTextColor(Color.parseColor("#1E293B")) }
-        tilAmount.addView(etAmount)
-        formLayout.addView(tilAmount)
-
-        formLayout.addView(TextView(context).apply { 
-            text = "Jenis Pencatatan Pinjaman:"
-            textSize = 12f
-            setTextColor(Color.parseColor("#64748B"))
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, (16 * density).toInt(), 0, (6 * density).toInt()) 
-        })
-        
-        val rgType = RadioGroup(context).apply {
-            orientation = RadioGroup.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (10 * density).toInt() }
-        }
-        val rbDebt = RadioButton(context).apply { text = "Saya Berhutang"; id = View.generateViewId(); textSize = 13.5f; setTextColor(Color.parseColor("#1E293B")); isChecked = true }
-        val rbReceivable = RadioButton(context).apply { text = "Orang Lain Berhutang"; id = View.generateViewId(); textSize = 13.5f; setTextColor(Color.parseColor("#1E293B")); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = (16 * density).toInt() } }
-        rgType.addView(rbDebt)
-        rgType.addView(rbReceivable)
-        formLayout.addView(rgType)
+        btnPickContact.setOnClickListener { checkContactPermissionAndLaunch() }
 
         AlertDialog.Builder(context).apply {
             setTitle("📝 Tambah Catatan Baru")
-            setView(formLayout)
+            setView(viewInflated)
             setPositiveButton("Simpan Ke Cloud") { _, _ ->
                 val name = etName.text.toString().trim().uppercase(Locale.ROOT)
                 val amountValue = etAmount.text.toString().toDoubleOrNull() ?: 0.0
@@ -446,7 +388,6 @@ class AddDebtFragment : Fragment() {
 
     private fun showDebtActionOptionsCloud(docId: String, contactName: String, originalAmount: Double, remainingAmount: Double, isPaid: Boolean, debtType: String) {
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
-        val density = requireContext().resources.displayMetrics.density
         
         AlertDialog.Builder(requireContext()).apply {
             setTitle("Aksi Kontak: $contactName")
@@ -457,28 +398,20 @@ class AddDebtFragment : Fragment() {
                         return@setItems
                     }
                     
-                    val wrapperLayout = LinearLayout(context).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding((20 * density).toInt(), (14 * density).toInt(), (20 * density).toInt(), 0)
-                    }
+                    // Memanggil kembali file XML pembantu yang sama untuk dialog cicilan agar seragam mewah
+                    val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null)
+                    val tilPay = viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
+                    val etPay = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
                     
-                    // 🔥 FIX MUTLAK: Constructor standar ramah compiler universal
-                    val tilPay = TextInputLayout(context).apply {
-                        hint = "Masukkan Jumlah Pembayaran (Rp)"
-                        boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINED
-                        boxBackgroundColor = Color.WHITE
-                        setBoxStrokeColor(Color.parseColor("#0D9488"))
-                        val r = 12 * density
-                        setBoxCornerRadii(r, r, r, r)
-                    }
-                    val etPay = TextInputEditText(context).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setTextColor(Color.parseColor("#1E293B")) }
-                    tilPay.addView(etPay)
-                    wrapperLayout.addView(tilPay)
+                    // Sembunyikan elemen input nama & radio group yang gak kepakai di form cicilan
+                    viewInflated.findViewById<MaterialButton>(R.id.btnPremiumPickContact).visibility = View.GONE
+                    viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumAmount).visibility = View.GONE
+                    viewInflated.findViewById<RadioGroup>(R.id.rgPremiumType).visibility = View.GONE
 
                     AlertDialog.Builder(context).apply {
                         setTitle("Bayar / Cicil Pinjaman")
                         setMessage("Sisa tanggungan saat ini: ${formatRupiah.format(remainingAmount)}")
-                        setView(wrapperLayout)
+                        setView(viewInflated)
                         setPositiveButton("Proses") { _, _ ->
                             val payValue = etPay.text.toString().toDoubleOrNull() ?: 0.0
                             if (payValue > 0.0) {
