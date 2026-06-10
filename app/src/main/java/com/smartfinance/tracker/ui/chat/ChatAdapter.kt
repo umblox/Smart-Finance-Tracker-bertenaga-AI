@@ -40,16 +40,17 @@ class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapte
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
         
-        // 🔥 FIX ABSOLUTE: Menggunakan variabel baru 'processedText' untuk menampung hasil format HTML
-        val originalText = message.text
-        if (!message.isUser && (originalText.contains("**") || originalText.contains("\n"))) {
-            val formattedHtml = originalText
+        val rawText = message.text
+
+        // 🔥 FIX MUTLAK: Menggunakan penampung fungsional independen tanpa menimpa variabel awal
+        if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
+            val formattedHtml = rawText
                 .replace("\n", "<br/>")
                 .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
             
             holder.textView.text = Html.fromHtml(formattedHtml, Html.FROM_HTML_MODE_LEGACY)
         } else {
-            holder.textView.text = originalText
+            holder.textView.text = rawText
         }
 
         val params = LinearLayout.LayoutParams(
