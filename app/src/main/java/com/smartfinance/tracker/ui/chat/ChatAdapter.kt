@@ -10,15 +10,13 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.smartfinance.tracker.data.model.ChatMessage
 
-class ChatAdapter(private val messages: List<ChatMessage>) : 
-    RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
+class ChatAdapter(private val messages: List<ChatMessage>) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
 
-    class ChatViewHolder(val container: LinearLayout, val textView: TextView) : 
-        RecyclerView.ViewHolder(container)
+    class ChatViewHolder(val container: LinearLayout, val textView: TextView) : RecyclerView.ViewHolder(container)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val context = parent.context
-
+        
         val linearParent = LinearLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -33,7 +31,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
             setPadding(36, 24, 36, 24)
             lineSpacingMultiplier = 1.15f
         }
-
+        
         linearParent.addView(textView)
         return ChatViewHolder(linearParent, textView)
     }
@@ -41,29 +39,25 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val message = messages[position]
         val density = holder.itemView.context.resources.displayMetrics.density
-
-        // Text formatting
-        val rawText = message.text
-        if (!message.isUser && (rawText.contains("**") || rawText.contains("\n"))) {
-            val formattedHtml = rawText
+        
+        if (!message.isUser && (message.text.contains("**") || message.text.contains("\n"))) {
+            val formattedHtml = message.text
                 .replace("\n", "<br/>")
                 .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
             
             holder.textView.text = Html.fromHtml(formattedHtml, Html.FROM_HTML_MODE_LEGACY)
         } else {
-            holder.textView.text = rawText
+            holder.textView.text = message.text
         }
 
-        // Buat LayoutParams BARU setiap bind (paling aman)
         val params = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        )
+        ).apply {
+            topMargin = 2
+            bottomMargin = 2
+        }
 
-        params.topMargin = (2 * density).toInt()
-        params.bottomMargin = (2 * density).toInt()
-
-        // Max width
         holder.textView.post {
             val maxChatWidth = (holder.itemView.rootView.width * 0.78).toInt()
             if (maxChatWidth > 0) {
@@ -76,7 +70,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
             params.gravity = Gravity.END
             params.leftMargin = (60 * density).toInt()
             params.rightMargin = 0
-
+            
             holder.textView.background = GradientDrawable().apply {
                 setColor(Color.parseColor("#0D9488"))
                 val r = 16 * density
@@ -88,7 +82,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
             params.gravity = Gravity.START
             params.rightMargin = (60 * density).toInt()
             params.leftMargin = 0
-
+            
             holder.textView.background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 val r = 16 * density
@@ -97,8 +91,9 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
             }
             holder.textView.setTextColor(Color.parseColor("#1E293B"))
         }
-
-        holder.textView.layoutParams = params
+        
+        // 🔥 FIX UTAMA: Menggunakan setLayoutParams() untuk menghindari eror 'val cannot be reassigned'
+        holder.textView.setLayoutParams(params)
     }
 
     override fun getItemCount(): Int = messages.size
