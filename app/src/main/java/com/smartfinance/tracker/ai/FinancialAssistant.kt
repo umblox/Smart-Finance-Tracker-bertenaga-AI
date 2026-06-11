@@ -24,7 +24,7 @@ class FinancialAssistant(private val context: Context) {
         try {
             val json = JSONObject(cleanJsonStr)
             val actionType = json.optString("action_type", "TRANSACTION").trim().uppercase(Locale.ROOT)
-            val aiResponse = json.optString("ai_response", "").trim()
+            var aiResponse = json.optString("ai_response", "").trim()
 
             if (actionType == "CHAT_ONLY") {
                 return aiResponse.ifEmpty { "Ada yang bisa saya bantu lagi, Mam?" }
@@ -61,7 +61,8 @@ class FinancialAssistant(private val context: Context) {
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
                         "DEBT_PAYMENT" -> {
-                            executeDirectDebtPayment(contactNameRaw, finalAmount, cleanAiResponseUpper, targetTimestamp)
+                            // ✅ SINKRONISASI JAWABAN: Ambil teks balasan baru yang sisa hutangnya dihitung jujur dari database riil
+                            aiResponse = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp)
                         }
                     }
                 }
@@ -108,7 +109,7 @@ class FinancialAssistant(private val context: Context) {
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
-    private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, aiResponseUpper: String, targetTimestamp: Long) {
+    private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, originalAiResponse: String, targetTimestamp: Long): String {
         val snapshot = firestore.collection("debts").get().await()
         
         var matchDocId: String? = null
@@ -117,6 +118,7 @@ class FinancialAssistant(private val context: Context) {
         var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
 
         val inputTokens = contactNameRaw.uppercase(Locale.ROOT).split(" ").filter { it.length > 2 }
+        val aiResponseUpper = originalAiResponse.uppercase(Locale.ROOT)
 
         for (doc in snapshot.documents) {
             val isPaid = doc.getBoolean("isPaid") ?: false
@@ -168,37 +170,36 @@ class FinancialAssistant(private val context: Context) {
                 "debtId" to matchDocId
             )
             firestore.collection("transactions").document(txId).set(payTxMap).await()
+
+            // 🔥 FIX AKURASI CHAT: Rekonstruksi kalimat jawaban AI agar sisa hutangnya 100% akurat sesuai hitungan database riil!
+            val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA 🎉" else formatRupiah.format(nextRemaining)
+            return "✅ **Transaksi Cicilan Berhasil Diproses!**\n\n" +
+                   "* **Kontak Terkait:** $matchContactName\n" +
+                   "* **Pembayaran:** ${formatRupiah.format(targetPayAmount)}\n" +
+                   "* **Sisa Hutang Riil di Database:** $statusLunasText\n\n" +
+                   "Catatan mutasi penyeimbang kas dashboard Anda telah berhasil disinkronkan."
         }
+        
+        return originalAiResponse
     }
 
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
         val cleanNote = item.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
         
-        // 🔒 FIX PARSING AMAN: Dahulukan membaca keputusan analisis tipe dari JSON Llama murni ("INCOME" / "EXPENSE")
-        var type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
-        
-        // 🛡️ BARIKADE BERLAPIS: Jika analisis teks catatan mengandung indikasi mutasi kas masuk, paksa kunci ke INCOME!
-        val isIncomePhrase = cleanNote.contains("GAJI") || 
-                             cleanNote.contains("PAYDAY") || 
-                             cleanNote.contains("PEMASUKAN") ||
-                             cleanNote.contains("SUMBANGAN") || 
-                             cleanNote.contains("DANA") || 
-                             cleanNote.contains("HIBAH") || 
-                             cleanNote.contains("HADIAH") || 
-                             cleanNote.contains("BONUS") || 
-                             cleanNote.contains("DITERIMA")
+        // 🔥 FIX MUTLAK ANTI-TIMPA: Percayakan 100% tipe transaksi ("INCOME" / "EXPENSE") dari hasil analisis pintar Groq SPOK!
+        val type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
 
-        if (isIncomePhrase || type == "INCOME") { 
-            type = "INCOME" 
-        }
-
+        // 🔥 FIX KATEGORI DINAMIS: Ambil kategori murni pilihan Groq, jangan ditimpa paksa ke Gaji jika jenisnya pengeluaran donasi!
+        var catName = item.optString("category_name", "").trim()
         var catId = item.optLong("category_id", 15L)
-        var catName = item.optString("category_name", "Lain-lain / Umum").trim()
-        
-        if (type == "INCOME") { 
-            if (catId == 15L) {
+
+        if (catName.isEmpty() || catName == "Lain-lain / Umum") {
+            if (type == "INCOME") {
                 catId = 1L
                 catName = "Gaji & Pendapatan"
+            } else {
+                catId = 15L
+                catName = "Lain-lain / Umum"
             }
         }
 
