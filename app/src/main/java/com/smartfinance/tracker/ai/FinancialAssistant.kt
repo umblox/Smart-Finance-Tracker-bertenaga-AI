@@ -286,7 +286,17 @@ class FinancialAssistant(private val context: Context) {
             "CUSTOM_DATE" -> "Pada Tanggal $targetDateStr"
             else -> "Bulan Ini"
         }
-        
+        // Di dalam executePureTransaction milik FinancialAssistant.kt:
+val isNewCategory = item.optBoolean("is_new_category", false)
+if (isNewCategory && catId > 200L) {
+    val newCatMap = hashMapOf(
+        "id" to catId,
+        "name" to catName,
+        "type" to type
+    )
+    // Otomatis daftarkan kategori baru bikinan Groq ke database master menu kategori lu!
+    firestore.collection("categories").document("cat_$catId").set(newCatMap)
+}
         val kategoriLabel = if (targetCategory.isNotEmpty()) " Kategori [$targetCategory]" else ""
         val subKategoriLabel = if (targetKeyword.isNotEmpty()) " Spesifik Barang [$targetKeyword]" else ""
 
