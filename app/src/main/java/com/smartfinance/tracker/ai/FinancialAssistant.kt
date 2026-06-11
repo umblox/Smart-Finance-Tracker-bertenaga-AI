@@ -15,8 +15,6 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
-        
-        // Zack: Menggunakan Raw String murni ("""...""") agar karakter backslash Regex aman total dan lolos compiler
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""^
 ```\s*"""), "")
@@ -118,19 +116,27 @@ class FinancialAssistant(private val context: Context) {
         var matchType = "DEBT"
         var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
 
-        val cleanedInputName = contactNameRaw.uppercase(Locale.ROOT).trim()
+        // Bersihkan dan pecah token kata kunci nama input (contoh: "ZAKIA" atau "ZAKIA GHAISANI")
+        val inputTokens = contactNameRaw.uppercase(Locale.ROOT).split(" ").filter { it.length > 2 }
 
         for (doc in snapshot.documents) {
+            // 🔒 KUNCI UTAMANYA DI SINI: Hanya cari dokumen induk utang yang AKTIF / BELUM LUNAS!
             val isPaid = doc.getBoolean("isPaid") ?: false
             if (!isPaid) {
                 val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT).trim()
                 val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
                 
-                val isNameMatch = dbName.contains(cleanedInputName) || 
-                                  cleanedInputName.contains(dbName) || 
-                                  aiResponseUpper.contains(dbName)
+                // Cek apakah ada token kata yang beririsan kuat di dalam nama database (Fuzzy Token Matching)
+                var isTokenMatch = false
+                for (token in inputTokens) {
+                    if (dbName.contains(token)) {
+                        isTokenMatch = true
+                        break
+                    }
+                }
 
-                if (isNameMatch || finalAmount == remainingAmount) {
+                // Pengaman tambahan jika token gagal, pakai fallback contains dasar
+                if (isTokenMatch || dbName.contains(contactNameRaw.uppercase(Locale.ROOT)) || contactNameRaw.uppercase(Locale.ROOT).contains(dbName)) {
                     matchDocId = doc.id
                     matchAmount = remainingAmount
                     matchType = doc.getString("type") ?: "DEBT"
@@ -140,11 +146,13 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
+        // 🔥 JIKA DITEMUKAN: Lakukan pemotongan saldo riil pada dokumen yang tepat!
         if (matchDocId != null) {
-            val isPelunasan = aiResponseUpper.contains("MELUNASI") || aiResponseUpper.contains("LUNAS")
+            val isPelunasan = aiResponseUpper.contains("MELUNASI") || aiResponseUpper.contains("LUNAS") || finalAmount >= matchAmount
             val targetPayAmount = if (isPelunasan) matchAmount else finalAmount
             val nextRemaining = (matchAmount - targetPayAmount).coerceAtLeast(0.0)
 
+            // Update langsung dokumen berjalan yang ada, tidak membuat dokumen utang baru!
             firestore.collection("debts").document(matchDocId).update(
                 "remainingAmount", nextRemaining,
                 "isPaid", nextRemaining <= 0.0
