@@ -78,7 +78,6 @@ class AddDebtFragment : Fragment() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. HEADER VISUAL MODERN
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (14 * density).toInt())
@@ -104,7 +103,6 @@ class AddDebtFragment : Fragment() {
         headerLayout.addView(btnAddManual)
         root.addView(headerLayout)
 
-        // 2. SUMMARY CARDS
         val summaryLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
@@ -118,7 +116,6 @@ class AddDebtFragment : Fragment() {
         summaryLayout.addView(cardReceivable)
         root.addView(summaryLayout)
 
-        // 3. TABS CONTROL
         val tabOuterContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
@@ -151,7 +148,6 @@ class AddDebtFragment : Fragment() {
         tabOuterContainer.addView(btnTabReceivable)
         root.addView(tabOuterContainer)
 
-        // 4. DATA SCROLL CONTAINER
         val scrollView = ScrollView(context).apply {
             isFillViewport = true
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -231,7 +227,6 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    // ✅ CLEAN UP: Parameter tak terpakai dibuang bersih dari deklarasi fungsi induk
     private fun showAddDebtManualDialog() {
         val context = requireContext()
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
@@ -384,7 +379,6 @@ class AddDebtFragment : Fragment() {
             }
     }
 
-    // ✅ CLEAN UP: Memotong parameter 'originalAmount' yang mengotori logs warning
     private fun showDebtActionOptionsCloud(docId: String, contactName: String, remainingAmount: Double, isPaid: Boolean, debtType: String) {
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
         
@@ -399,7 +393,6 @@ class AddDebtFragment : Fragment() {
                     
                     val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
                     
-                    // ✅ CLEAN UP: Hilangkan penampung variabel tilPay yang sia-sia
                     viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
                     val etPay = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
                     
@@ -433,7 +426,8 @@ class AddDebtFragment : Fragment() {
                                     "categoryId" to targetCatId,
                                     "categoryName" to targetCatName,
                                     "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL CLOUD",
-                                    "timestamp" to System.currentTimeMillis()
+                                    "timestamp" to System.currentTimeMillis(),
+                                    "debtId" to docId // 🔥 AMAN TOTAL: Sekarang cicilan manual dipasangi debtId pengikat akurat!
                                 )
                                 firestore.collection("transactions").document(txId).set(payTransactionMap)
                                 Toast.makeText(context, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
