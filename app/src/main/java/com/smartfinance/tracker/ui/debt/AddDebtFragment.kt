@@ -27,7 +27,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.R
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -237,7 +236,6 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
-    // 🌟 SINKRONISASI UI TOTAL: Menggunakan layout dialog_transaction_premium milik Editor Dialog!
     private fun showAddDebtManualDialog() {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -252,19 +250,15 @@ class AddDebtFragment : Fragment() {
         val rbDebt = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
         val rbReceivable = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
 
-        // Cari textview label kategori pendukung secara aman untuk disembunyikan
         val tvCategoryLabel = viewInflated.findViewWithTag<TextView>("tvCategoryLabel") ?: (spinnerCategory.parent as ViewGroup).getChildAt((spinnerCategory.parent as ViewGroup).indexOfChild(spinnerCategory) - 1) as? TextView
 
-        // 1. Hilangkan total kolom kategori umum sisa warisan kemarin
         spinnerCategory.visibility = View.GONE
         tvCategoryLabel?.visibility = View.GONE
 
-        // 2. Sesuaikan label Dot Radio Group agar identik dengan form utang
         rbDebt.text = "Saya Berhutang (Hutang)"
         rbReceivable.text = "Orang Lain Berhutang (Piutang)"
         if (currentTab == "DEBT") rbDebt.isChecked = true else rbReceivable.isChecked = true
 
-        // 3. Sisipkan kolom Nama Kontak kustom horizontal secara programmatik lurus
         val contactLabel = TextView(context).apply {
             text = "Nama Kontak Terkait:"
             textSize = 12f; setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.BOLD)
@@ -283,7 +277,8 @@ class AddDebtFragment : Fragment() {
         }
         tilContact.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 
-        etContact = TextInputEditText(context).apply {
+        // ✅ FIX MUTLAK: Menggunakan 'val' agar terdefinisi dengan benar secara lokal di fungsi
+        val etContact = TextInputEditText(context).apply {
             hint = "Contoh: JOKO atau AGUS"
             setTextColor(Color.parseColor("#1E293B"))
         }
@@ -300,7 +295,6 @@ class AddDebtFragment : Fragment() {
         contactRow.addView(tilContact); contactRow.addView(btnPick)
         innerLayout.addView(contactRow, 3)
 
-        // 4. Tambahkan form input Waktu / Tanggal dinamis premium yang lu inginkan!
         innerLayout.addView(TextView(context).apply { 
             text = "Tanggal Transaksi (YYYY-MM-DD)"
             textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
@@ -313,7 +307,6 @@ class AddDebtFragment : Fragment() {
         }
         innerLayout.addView(etDate)
 
-        // 5. Rakit tombol aksi bawah (Batal + Simpan Ke Cloud) horizontal seimbang
         val actionButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL; weightSum = 2f
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
@@ -357,7 +350,7 @@ class AddDebtFragment : Fragment() {
                     "remainingAmount" to amountValue,
                     "type" to selectedType,
                     "note" to noteText.ifEmpty { "Input Manual Premium Cloud" },
-                    "timestamp" to targetTimestamp, // Menggunakan tanggal dinamis kustom pilihan user
+                    "timestamp" to targetTimestamp,
                     "isPaid" to false
                 )
                 firestore.collection("debts").document(debtId).set(debtMap)
@@ -374,7 +367,7 @@ class AddDebtFragment : Fragment() {
                     "categoryId" to catId,
                     "categoryName" to catName,
                     "note" to "[$catName] $name - ${noteText.ifEmpty { "INPUT MANUAL PINJAMAN" }.uppercase(Locale.ROOT)}",
-                    "timestamp" to targetTimestamp, // Sinkronisasi tanggal transaksi laporan keuangan
+                    "timestamp" to targetTimestamp,
                     "debtId" to debtId
                 )
                 firestore.collection("transactions").document(txId).set(txMap)
@@ -459,7 +452,6 @@ class AddDebtFragment : Fragment() {
 
                         leftInfo.addView(TextView(requireContext()).apply { text = contactName; textSize = 15.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
                         
-                        // 🟢 TAMPILKAN TANGGAL: Menyertakan baris label waktu dinamis murni di list beranda Buku Utang (Request!)
                         val dateAndStatusLabel = "📅 ${sdfDisplay.format(Date(debtTime))} • Sisa: ${formatRupiah.format(remainingAmount)}"
                         val statusLabel = if (isPaid) "LUNAS ✅" else dateAndStatusLabel
                         leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 11.5f; setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B")); setPadding(0, (4 * density).toInt(), 0, 0) })
@@ -511,7 +503,6 @@ class AddDebtFragment : Fragment() {
                     etPayAmount.setHint("Masukkan Nominal Pembayaran (Rp)")
                     etPayNote.setHint("Keterangan cicilan (Boleh kosong)")
 
-                    // Sisipkan kolom tanggal cicilan kustom dinamis premium
                     innerLayout.addView(TextView(context).apply { 
                         text = "Tanggal Pembayaran (YYYY-MM-DD)"
                         textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
@@ -574,7 +565,7 @@ class AddDebtFragment : Fragment() {
                                 "categoryId" to targetCatId,
                                 "categoryName" to targetCatName,
                                 "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL CLOUD" }.uppercase(Locale.ROOT)}",
-                                "timestamp" to payTimestamp, // Simpan tanggal kustom cicilan secara dinamis!
+                                "timestamp" to payTimestamp,
                                 "debtId" to docId
                             )
                             firestore.collection("transactions").document(txId).set(payTransactionMap)
