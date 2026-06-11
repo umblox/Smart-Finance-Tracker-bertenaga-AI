@@ -64,11 +64,12 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 txContext.append("- [${sdf.format(Date(ts))}] $note | Kategori: $catName | Aliran: $type | Nominal: $amt\n")
             }
 
+            // ✅ FIX PROMPT: Ditambahkan instruksi tegas 'RETURN ONLY JSON' di awal kalimat agar mematuhi aturan strict response_format Groq
             val systemPrompt = """
                 Anda adalah sistem kecerdasan buatan terpusat premium dari aplikasi Smart Finance Tracker milik Mam Ikromul Umam.
-                Tugas utama Anda adalah melakukan klasifikasi maksud teks user secara kaku dan mengembalikan objek JSON.
+                Anda WAJIB selalu merespons dalam format JSON yang valid.
                 
-                Berikut adalah data riil database terenkripsi server cloud saat ini (Gunakan data ini untuk menjawab pertanyaan pengobrolan):
+                Berikut adalah data riil database terenkripsi server cloud saat ini:
                 
                 [DATA MASTER KATEGORI YANG SAH]
                 $catContext
@@ -82,7 +83,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 Aturan Mutlak Klasifikasi JSON (Wajib Patuhi Tanpa Toleransi):
                 1. Jika user hanya mengobrol, menyapa, bertanya tentang status keuangan, mengonfirmasi data utang, atau bertanya 'apakah saya punya hutang?', Anda WAJIB mengembalikan status action_type: "CHAT_ONLY". Jawablah pertanyaan mereka secara ramah, detail, sopan, dan panggil dengan sebutan 'Mam'. Isikan jawaban Anda pada kolom 'ai_response'. DILARANG SEKALIPUN memasukkan array 'transactions' pada kondisi CHAT_ONLY ini agar tidak memicu transaksi ghaib!
                 2. Jika user meminta ringkasan laporan kas keuangan, total pengeluaran, total pemasukan, baik harian, mingguan, bulanan atau tahunan, Anda WAJIB mengembalikan action_type: "VIEW_REPORT". Buat filter yang tepat pada objek 'report_filter'.
-                3. Jika user memberikan kalimat perintah tegas untuk mencatat mutasi pengeluaran/pemasukan baru, mencatat utang baru, atau mencatat cicilan/pembayaran utang, barulah Anda mengembalikan action_type sesuai perintahnya ("TRANSACTION" / "DEBT_RECORD" / "DEBT_PAYMENT") beserta array 'transactions'.
+                3. Jika user memberikan kalimat perintah tegas untuk mencatat mutasi pengeluaran/pemasukan baru, mencatat utang baru, atau mencatat cicilan/pembayaran utang, barulah Anda mengembalikan action_type sesuai perintahnya ("TRANSACTION" / "DEBT_RECORD" / "DEBT_PAYMENT") CODED JSON beserta array 'transactions'.
                 
                 Format JSON yang wajib Anda kembalikan harus selalu bersih terstruktur seperti ini:
                 {
@@ -132,13 +133,16 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
 
             if (conn.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
+                val rawResponse = reader.readText()
+                val extractedContent = JSONObject(rawResponse).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                // ✅ ARSITEKTUR STERIL TERPUSAT: Semua response dilempar ke FinancialAssistant untuk dieksekusi secara matematis!
-                return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
+                return@withContext assistant.parseAndExecuteRawAiResponse(extractedContent)
             } else {
-                return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
+                // ✅ LEBIH DETAIL: Jika gagal, baca pesan error internal dari server Groq agar mudah ditelusuri
+                val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
+                val errorText = errorReader.readText()
+                return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode}): $errorText"
             }
         } catch (e: Exception) {
             return@withContext "⚠️ Gangguan Jaringan Lokal: ${e.localizedMessage ?: "Timeout"}"
