@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.debt
 
+import android.content.Context // ✅ FIX MUTLAK: Import Context ditanam agar terbebas dari unresolved reference
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -57,7 +58,7 @@ class AddDebtFragment : Fragment() {
 
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (14 * density).toInt())
+            setPadding((20f * density).toInt(), (24f * density).toInt(), (20f * density).toInt(), (14f * density).toInt())
             gravity = Gravity.CENTER_VERTICAL
         }
         val tvTitle = TextView(context).apply {
@@ -73,7 +74,7 @@ class AddDebtFragment : Fragment() {
         val navMonthRow = LinearLayout(context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (14 * density).toInt()) 
+            setPadding((16f * density).toInt(), 0, (16f * density).toInt(), (14f * density).toInt()) 
         }
         val btnPrev = MaterialButton(context).apply { 
             text = "◀"; cornerRadius = 10
@@ -106,26 +107,26 @@ class AddDebtFragment : Fragment() {
 
         val summaryLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
+            setPadding((16f * density).toInt(), 0, (16f * density).toInt(), (16f * density).toInt())
             weightSum = 2f
         }
         cardDebt = createPremiumSummaryCard(context, "Hutang Aktif Saya", "#D97706")
         cardReceivable = createPremiumSummaryCard(context, "Piutang Aktif (Di Orang)", "#0284C7")
         summaryLayout.addView(cardDebt)
-        summaryLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams((12 * density).toInt(), 1) })
+        summaryLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams((12f * density).toInt(), 1) })
         summaryLayout.addView(cardReceivable)
         mainContent.addView(summaryLayout)
 
         val tabOuterContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
-                leftMargin = (16 * density).toInt(); rightMargin = (16 * density).toInt(); bottomMargin = (16 * density).toInt()
+            setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (44f * density).toInt()).apply {
+                leftMargin = (16f * density).toInt(); rightMargin = (16f * density).toInt(); bottomMargin = (16f * density).toInt()
             }
-            background = GradientDrawable().apply { cornerRadius = 12 * density; setColor(Color.parseColor("#E2E8F0")) }
+            background = GradientDrawable().apply { cornerRadius = 12f * density; setColor(Color.parseColor("#E2E8F0")) }
         }
-        val btnTabDebt = MaterialButton(context).apply { text = "Hutang Saya"; textSize = 13f; cornerRadius = (10 * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        val btnTabReceivable = MaterialButton(context).apply { text = "Piutang / Tagihan"; textSize = 13f; cornerRadius = (10 * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabDebt = MaterialButton(context).apply { text = "Hutang Saya"; textSize = 13f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabReceivable = MaterialButton(context).apply { text = "Piutang / Tagihan"; textSize = 13f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
         tabOuterContainer.addView(btnTabDebt)
         tabOuterContainer.addView(btnTabReceivable)
         mainContent.addView(tabOuterContainer)
@@ -133,7 +134,7 @@ class AddDebtFragment : Fragment() {
         val scrollView = ScrollView(context).apply { isFillViewport = true }
         listContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (24 * density).toInt())
+            setPadding((16f * density).toInt(), 0, (16f * density).toInt(), (24f * density).toInt())
         }
         scrollView.addView(listContainer)
         mainContent.addView(scrollView)
@@ -144,7 +145,7 @@ class AddDebtFragment : Fragment() {
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.BOTTOM or Gravity.END
-                setMargins(0, 0, (24 * density).toInt(), (24 * density).toInt())
+                setMargins(0, 0, (24f * density).toInt(), (24f * density).toInt())
             }
             setOnClickListener {
                 DebtManualDialog(currentTab) { refreshDebtListLive() }.show(parentFragmentManager, "DebtManualDialog")
@@ -168,25 +169,25 @@ class AddDebtFragment : Fragment() {
         return root
     }
 
+    // ✅ FIX PERKALIAN AMBIGU: Semua dimensi diubah murni ke format Float 'f' agar lolos kompilasi kaku Gradle
     private fun createPremiumSummaryCard(ctx: Context, title: String, valueColorHex: String): MaterialCardView {
         val density = ctx.resources.displayMetrics.density
         return MaterialCardView(ctx).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
+            radius = 14f * density; cardElevation = 2f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 
             val layout = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
+                setPadding((14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt())
             }
             layout.addView(TextView(ctx).apply { text = title; setTextColor(Color.parseColor("#64748B")); textSize = 11.5f })
-            layout.addView(TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 15.5f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) })
+            layout.addView(TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 15.5f; setTypeface(null, Typeface.BOLD); setPadding(0, (4f * density).toInt(), 0, 0) })
             addView(layout)
         }
     }
 
     private fun setPremiumTabStyles(active: MaterialButton, inactive: MaterialButton) {
-        val density = requireContext().resources.displayMetrics.density
         active.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
         active.setTextColor(Color.WHITE); active.setTypeface(null, Typeface.BOLD)
         inactive.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
@@ -233,7 +234,6 @@ class AddDebtFragment : Fragment() {
                     }
                 }
 
-                // ✅ FIX MODE: Ganti Context.MODE_PRIVATE dengan integer konstan kaku 0 bawaan Android
                 val prefs = context.getSharedPreferences("smart_finance_prefs", 0)
                 prefs.edit().putLong("active_report_time", currentCalendar.timeInMillis).apply()
 
@@ -251,21 +251,18 @@ class AddDebtFragment : Fragment() {
                     return@addSnapshotListener
                 }
 
-                // ✅ FIX URUTAN: Mengganti operator kaku Mutable List dengan operator sorted murni
                 val sortedList = activeTabFiltered.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }
 
                 sortedList.forEach { debtItem ->
                     val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
                     val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
                     val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
-                    val docId = (debtItem["id"] as? String) ?: ""
-                    val debtType = (debtItem["type"] as? String) ?: "DEBT"
                     val debtTime = (debtItem["timestamp"] as? Long) ?: System.currentTimeMillis()
 
                     val itemCard = MaterialCardView(context).apply {
-                        radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
+                        radius = 14f * density; cardElevation = 1.5f * density; strokeWidth = 0
                         setCardBackgroundColor(Color.WHITE)
-                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10 * density).toInt() }
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() }
                         
                         setOnClickListener { 
                             val passMap = HashMap(debtItem)
@@ -275,7 +272,7 @@ class AddDebtFragment : Fragment() {
 
                     val rowLayout = LinearLayout(context).apply {
                         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                        setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+                        setPadding((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt())
                     }
 
                     val leftLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
@@ -287,7 +284,7 @@ class AddDebtFragment : Fragment() {
                     leftLayout.addView(TextView(context).apply { 
                         text = statusLabel; textSize = 11.5f
                         setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B"))
-                        setPadding(0, (4 * density).toInt(), 0, 0) 
+                        setPadding(0, (4f * density).toInt(), 0, 0) 
                     })
                     rowLayout.addView(leftLayout)
 
