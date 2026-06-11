@@ -1,10 +1,7 @@
 package com.smartfinance.tracker.ui.dashboard
 
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -47,7 +44,6 @@ class DashboardFragment : Fragment() {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private var selectedTopFilter = "BULAN INI"
     
-    // Format Waktu dan Tanggal Premium Sesuai Request Mutlak
     private val sdfPremiumDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     override fun onCreateView(
@@ -137,6 +133,9 @@ class DashboardFragment : Fragment() {
             radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
+            setOnClickListener {
+                (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
+            }
         }
         
         val chartInsideVerticalLayout = LinearLayout(context).apply {
@@ -152,7 +151,6 @@ class DashboardFragment : Fragment() {
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // 🔥 REDIREKSI PREMIUM: Tombol "Lihat Analisis" sekarang menembak menu detail tersembunyi kita yang baru!
         val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran Teratas", "Lihat Analisis") {
             (activity as? MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
         }
@@ -278,12 +276,10 @@ class DashboardFragment : Fragment() {
         val density = context.resources.displayMetrics.density
 
         transactionsListenerRegistration?.remove()
-
         transactionsListenerRegistration = firestore.collection("transactions")
             .addSnapshotListener { snapshots, e ->
                 if (e != null || snapshots == null) return@addSnapshotListener
 
-                // Baca referensi waktu aktif dari SharedPreferences agar sinkron dua arah
                 val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                 val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
 
@@ -339,8 +335,11 @@ class DashboardFragment : Fragment() {
                 tvExpenseSummary.text = formatRupiah.format(expenseThisMonth)
                 tvIncomeSummary.text = formatRupiah.format(incomeThisMonth)
 
+                // ✅ FIX INTEGRASI: Menggunakan berkas view custom grafik eksternal independen
                 chartContainer.removeAllViews()
-                val barView = QuadVerticalBarChartView(context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat())
+                val barView = com.smartfinance.tracker.ui.report.QuadVerticalBarChartView(
+                    context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat()
+                )
                 chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
                 val summaryLayout = LinearLayout(context).apply {
@@ -367,7 +366,6 @@ class DashboardFragment : Fragment() {
                 })
                 chartContainer.addView(summaryLayout)
 
-                // PENGELUARAN TERATAS
                 topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
                 val filteredExpenses = allTxList.filter { item -> 
@@ -440,7 +438,6 @@ class DashboardFragment : Fragment() {
                     }
                 }
 
-                // TRANSAKSI TERKINI DENGAN FORMAT PREMIUM JAM MENIT
                 recentTxContainer.removeAllViews()
                 val recentTxList = allTxList.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }.take(4)
                 
@@ -484,8 +481,6 @@ class DashboardFragment : Fragment() {
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
                         centerInfo.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#1E293B")); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
-                        
-                        // 🔥 TAMPILAN FORMAT JAM MENIT PREMIUM
                         centerInfo.addView(TextView(context).apply { text = sdfPremiumDateTime.format(Date(timestamp)); setTextColor(Color.parseColor("#94A3B8")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
                         rowLayout.addView(centerInfo)
 
@@ -524,71 +519,5 @@ class DashboardFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         transactionsListenerRegistration?.remove()
-    }
-
-    private class QuadVerticalBarChartView(
-        ctx: Context,
-        private val incLast: Float,
-        private val incThis: Float,
-        private val expLast: Float,
-        private val expThis: Float
-    ) : View(ctx) {
-        
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { 
-            color = Color.parseColor("#64748B")
-            textSize = 24f
-            textAlign = Paint.Align.CENTER
-        }
-        private val rectF = RectF()
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            val maxVal = Math.max(Math.max(incLast, incThis), Math.max(expLast, expThis))
-            
-            val canvasWidth = width.toFloat()
-            val canvasHeight = height.toFloat()
-            val usableHeight = canvasHeight - 50f 
-
-            val barWidth = canvasWidth / 6.5f
-            val spacing = barWidth / 2.5f
-
-            if (maxVal == 0f) {
-                paint.color = Color.parseColor("#F1F5F9")
-                canvas.drawLine(0f, usableHeight, canvasWidth, usableHeight, paint)
-                canvas.drawText("Belum ada data bulan lalu & ini", canvasWidth / 2, usableHeight / 2, textPaint)
-                return
-            }
-
-            val r = 12f
-
-            val xIncLast = spacing
-            val hIncLast = (incLast / maxVal) * usableHeight
-            paint.color = Color.parseColor("#38BDF8")
-            rectF.set(xIncLast, usableHeight - hIncLast, xIncLast + barWidth, usableHeight)
-            canvas.drawRoundRect(rectF, r, r, paint)
-
-            val xIncThis = xIncLast + barWidth + (spacing / 2)
-            val hIncThis = (incThis / maxVal) * usableHeight
-            paint.color = Color.parseColor("#0284C7")
-            rectF.set(xIncThis, usableHeight - hIncThis, xIncThis + barWidth, usableHeight)
-            canvas.drawRoundRect(rectF, r, r, paint)
-            
-            canvas.drawText("Pemasukan", (xIncLast + xIncThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
-
-            val xExpLast = xIncThis + barWidth + (spacing * 2.2f)
-            val hExpLast = (expLast / maxVal) * usableHeight
-            paint.color = Color.parseColor("#FDA4AF")
-            rectF.set(xExpLast, usableHeight - hExpLast, xExpLast + barWidth, usableHeight)
-            canvas.drawRoundRect(rectF, r, r, paint)
-
-            val xExpThis = xExpLast + barWidth + (spacing / 2)
-            val hExpThis = (expThis / maxVal) * usableHeight
-            paint.color = Color.parseColor("#F43F5E")
-            rectF.set(xExpThis, usableHeight - hExpThis, xExpThis + barWidth, usableHeight)
-            canvas.drawRoundRect(rectF, r, r, paint)
-
-            canvas.drawText("Pengeluaran", (xExpLast + xExpThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
-        }
     }
 }
