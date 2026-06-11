@@ -22,13 +22,15 @@ class FinancialAssistant(private val context: Context) {
 
         try {
             val json = JSONObject(cleanJsonStr)
-            val actionType = json.optString("action_type", "TRANSACTION").trim().uppercase(Locale.ROOT)
-            var aiResponse = json.optString("ai_response", "").trim()
+            val actionType = json.optString("action_type", "CHAT_ONLY").trim().uppercase(Locale.ROOT)
+            val aiResponse = json.optString("ai_response", "").trim()
 
+            // 🔒 BLOKIR TOTAL AKSES: Jika murni obrolan pertanyaan data, langsung muntahkan jawabannya ke UI
             if (actionType == "CHAT_ONLY") {
                 return aiResponse.ifEmpty { "Ada yang bisa saya bantu lagi, Mam?" }
             }
 
+            // 🔒 HAK VETO MATEMATIKA KOTLIN: Jika minta laporan, panggil kompilasi database riil Kotlin secara kaku!
             if (actionType == "VIEW_REPORT") {
                 return compileAiReport(cleanJsonStr)
             }
@@ -37,7 +39,6 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
-                    // Mengunci waktu eksekusi riil saat ini (Termasuk Jam dan Menit riil)
                     val targetTimestamp = System.currentTimeMillis()
                     val finalAmount = parseAmount(item)
 
@@ -58,7 +59,7 @@ class FinancialAssistant(private val context: Context) {
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
                         "DEBT_PAYMENT" -> {
-                            aiResponse = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp)
+                            return executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp)
                         }
                     }
                 }
@@ -202,7 +203,7 @@ class FinancialAssistant(private val context: Context) {
                 "name" to catName,
                 "type" to type,
                 "iconName" to "ic_custom",
-                "parentCategoryId" to null,
+                "parentCategoryId" -> null,
                 "isLocked" to false
             )
             firestore.collection("categories").document("cat_$catId").set(newCatMap).await()
@@ -234,7 +235,7 @@ class FinancialAssistant(private val context: Context) {
         var incSum = 0.0
         var expSum = 0.0
         val calToday = Calendar.getInstance()
-        val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")) // ✅ FORMAT SINKRON SPREAD
+        val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
 
         for (doc in snapshot.documents) {
             val amt = doc.getDouble("amount") ?: 0.0
