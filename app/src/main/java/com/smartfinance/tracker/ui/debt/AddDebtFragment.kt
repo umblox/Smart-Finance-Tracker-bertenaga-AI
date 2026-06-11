@@ -27,12 +27,18 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.R
 import java.text.NumberFormat
-import java.util.Locale
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class AddDebtFragment : Fragment() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    private val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val sdfDisplay = SimpleDateFormat("d MMM yyyy", Locale("id", "ID"))
+    
     private var currentTab = "DEBT"
     private var activeContactEditText: EditText? = null
     private var debtListenerRegistration: ListenerRegistration? = null
@@ -78,6 +84,7 @@ class AddDebtFragment : Fragment() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
+        // 1. HEADER VISUAL MODERN
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (14 * density).toInt())
@@ -103,6 +110,7 @@ class AddDebtFragment : Fragment() {
         headerLayout.addView(btnAddManual)
         root.addView(headerLayout)
 
+        // 2. SUMMARY CARDS
         val summaryLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
@@ -116,6 +124,7 @@ class AddDebtFragment : Fragment() {
         summaryLayout.addView(cardReceivable)
         root.addView(summaryLayout)
 
+        // 3. TABS CONTROL
         val tabOuterContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
@@ -148,6 +157,7 @@ class AddDebtFragment : Fragment() {
         tabOuterContainer.addView(btnTabReceivable)
         root.addView(tabOuterContainer)
 
+        // 4. DATA SCROLL CONTAINER
         val scrollView = ScrollView(context).apply {
             isFillViewport = true
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -163,7 +173,7 @@ class AddDebtFragment : Fragment() {
             showAddDebtManualDialog()
         }
 
-        setPremiumTabStyles(btnTabDebt, btnTabReceivable)
+        setPremiumTabStyles(btnTabDebt, btnTabDebt)
 
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
@@ -227,65 +237,154 @@ class AddDebtFragment : Fragment() {
         contactPickerLauncher.launch(intent)
     }
 
+    // 🌟 SINKRONISASI UI TOTAL: Menggunakan layout dialog_transaction_premium milik Editor Dialog!
     private fun showAddDebtManualDialog() {
         val context = requireContext()
-        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
+        val density = context.resources.displayMetrics.density
+        
+        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
+        val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
 
-        val etName = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName)
-        val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumAmount)
-        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumType)
-        val rbDebt = viewInflated.findViewById<RadioButton>(R.id.rbPremiumDebt)
-        val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnPremiumPickContact)
+        val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
+        val etNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
+        val spinnerCategory = viewInflated.findViewById<Spinner>(R.id.spinnerPremiumTxCategory)
+        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
+        val rbDebt = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
+        val rbReceivable = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
 
-        activeContactEditText = etName
-        btnPickContact.setOnClickListener { checkContactPermissionAndLaunch() }
+        // Cari textview label kategori pendukung secara aman untuk disembunyikan
+        val tvCategoryLabel = viewInflated.findViewWithTag<TextView>("tvCategoryLabel") ?: (spinnerCategory.parent as ViewGroup).getChildAt((spinnerCategory.parent as ViewGroup).indexOfChild(spinnerCategory) - 1) as? TextView
 
-        AlertDialog.Builder(context).apply {
-            setTitle("📝 Tambah Catatan Baru")
-            setView(viewInflated)
-            setPositiveButton("Simpan Ke Cloud") { _, _ ->
-                val name = etName.text.toString().trim().uppercase(Locale.ROOT)
-                val amountValue = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-                val selectedType = if (rgType.checkedRadioButtonId == rbDebt.id) "DEBT" else "RECEIVABLE"
+        // 1. Hilangkan total kolom kategori umum sisa warisan kemarin
+        spinnerCategory.visibility = View.GONE
+        tvCategoryLabel?.visibility = View.GONE
 
-                if (name.isNotEmpty() && amountValue > 0.0) {
-                    val debtId = "debt_${System.currentTimeMillis()}"
-                    val debtMap = hashMapOf(
-                        "id" to debtId,
-                        "contactName" to name,
-                        "contactPhoneNumber" to "0812",
-                        "amount" to amountValue,
-                        "remainingAmount" to amountValue,
-                        "type" to selectedType,
-                        "note" to "Input Manual Premium Cloud",
-                        "timestamp" to System.currentTimeMillis(),
-                        "isPaid" to false
-                    )
+        // 2. Sesuaikan label Dot Radio Group agar identik dengan form utang
+        rbDebt.text = "Saya Berhutang (Hutang)"
+        rbReceivable.text = "Orang Lain Berhutang (Piutang)"
+        if (currentTab == "DEBT") rbDebt.isChecked = true else rbReceivable.isChecked = true
 
-                    firestore.collection("debts").document(debtId).set(debtMap)
-
-                    val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
-                    val catId = if (selectedType == "RECEIVABLE") 104L else 101L
-                    val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
-                    val txId = "tx_${System.currentTimeMillis()}"
-                    
-                    val txMap = hashMapOf(
-                        "id" to txId,
-                        "amount" to amountValue,
-                        "type" to flowType,
-                        "categoryId" to catId,
-                        "categoryName" to catName,
-                        "note" to "[${catName.uppercase(Locale.ROOT)}] $name - INPUT MANUAL PINJAMAN",
-                        "timestamp" to System.currentTimeMillis(),
-                        "debtId" to debtId
-                    )
-                    firestore.collection("transactions").document(txId).set(txMap)
-                    Toast.makeText(context, "Pinjaman Berhasil Tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
-                }
-            }
-            setNegativeButton("Batal", null)
-            show()
+        // 3. Sisipkan kolom Nama Kontak kustom horizontal secara programmatik lurus
+        val contactLabel = TextView(context).apply {
+            text = "Nama Kontak Terkait:"
+            textSize = 12f; setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.BOLD)
+            setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
         }
+        innerLayout.addView(contactLabel, 2)
+
+        val contactRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding((20 * density).toInt(), 0, (20 * density).toInt(), 0)
+        }
+        
+        val tilContact = TextInputLayout(context, null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox).apply {
+            boxStrokeColor = Color.parseColor("#0D9488")
+            setBoxCornerRadii(12 * density, 12 * density, 12 * density, 12 * density)
+        }
+        tilContact.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+
+        etContact = TextInputEditText(context).apply {
+            hint = "Contoh: JOKO atau AGUS"
+            setTextColor(Color.parseColor("#1E293B"))
+        }
+        activeContactEditText = etContact
+        tilContact.addView(etContact)
+        
+        val btnPick = MaterialButton(context).apply {
+            text = "👥 HUBUNG"; textSize = 11f; cornerRadius = (10 * density).toInt()
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#475569"))
+            setOnClickListener { checkContactPermissionAndLaunch() }
+        }
+        btnPick.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (54 * density).toInt()).apply { leftMargin = (10 * density).toInt() }
+        
+        contactRow.addView(tilContact); contactRow.addView(btnPick)
+        innerLayout.addView(contactRow, 3)
+
+        // 4. Tambahkan form input Waktu / Tanggal dinamis premium yang lu inginkan!
+        innerLayout.addView(TextView(context).apply { 
+            text = "Tanggal Transaksi (YYYY-MM-DD)"
+            textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
+        })
+        
+        val etDate = EditText(context).apply {
+            setText(sdfDate.format(Date()))
+            setTextColor(Color.parseColor("#2D3748")); textSize = 14.5f
+            setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (12 * density).toInt())
+        }
+        innerLayout.addView(etDate)
+
+        // 5. Rakit tombol aksi bawah (Batal + Simpan Ke Cloud) horizontal seimbang
+        val actionButtonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL; weightSum = 2f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
+                setMargins((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (20 * density).toInt()) 
+            }
+        }
+
+        val btnCancel = MaterialButton(context).apply {
+            text = "Batal"; textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
+        }
+        
+        val btnSave = MaterialButton(context).apply {
+            text = "Simpan Ke Cloud"; textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        actionButtonsRow.addView(btnCancel); actionButtonsRow.addView(btnSave)
+        innerLayout.addView(actionButtonsRow)
+
+        val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnSave.setOnClickListener {
+            val name = etContact.text.toString().trim().uppercase(Locale.ROOT)
+            val amountValue = etAmount.text.toString().toDoubleOrNull() ?: 0.0
+            val noteText = etNote.text.toString().trim()
+            val dateVal = etDate.text.toString().trim()
+            val selectedType = if (rgType.checkedRadioButtonId == rbDebt.id) "DEBT" else "RECEIVABLE"
+
+            if (name.isNotEmpty() && amountValue > 0.0 && dateVal.isNotEmpty()) {
+                val targetTimestamp = try { sdfDate.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                val debtId = "debt_${System.currentTimeMillis()}"
+                
+                val debtMap = hashMapOf(
+                    "id" to debtId,
+                    "contactName" to name,
+                    "contactPhoneNumber" to "0812",
+                    "amount" to amountValue,
+                    "remainingAmount" to amountValue,
+                    "type" to selectedType,
+                    "note" to noteText.ifEmpty { "Input Manual Premium Cloud" },
+                    "timestamp" to targetTimestamp, // Menggunakan tanggal dinamis kustom pilihan user
+                    "isPaid" to false
+                )
+                firestore.collection("debts").document(debtId).set(debtMap)
+
+                val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
+                val catId = if (selectedType == "RECEIVABLE") 104L else 101L
+                val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
+                val txId = "tx_${System.currentTimeMillis()}"
+                
+                val txMap = hashMapOf(
+                    "id" to txId,
+                    "amount" to amountValue,
+                    "type" to flowType,
+                    "categoryId" to catId,
+                    "categoryName" to catName,
+                    "note" to "[$catName] $name - ${noteText.ifEmpty { "INPUT MANUAL PINJAMAN" }.uppercase(Locale.ROOT)}",
+                    "timestamp" to targetTimestamp, // Sinkronisasi tanggal transaksi laporan keuangan
+                    "debtId" to debtId
+                )
+                firestore.collection("transactions").document(txId).set(txMap)
+                Toast.makeText(context, "Pinjaman Berhasil Tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            } else {
+                Toast.makeText(context, "Mohon lengkapi nominal dan nama kontak!", Toast.LENGTH_SHORT).show()
+            }
+        }
+        dialog.show()
     }
 
     private fun refreshDebtListLive(container: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
@@ -307,6 +406,7 @@ class AddDebtFragment : Fragment() {
                     val isPaid = data["isPaid"] as? Boolean ?: false
                     val type = data["type"] as? String ?: "DEBT"
                     val remainingAmount = (data["remainingAmount"] as? Number)?.toDouble() ?: 0.0
+                    val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
 
                     if (!isPaid) {
                         if (type == "DEBT") totalDebtSum += remainingAmount else totalReceivableSum += remainingAmount
@@ -314,10 +414,11 @@ class AddDebtFragment : Fragment() {
                     
                     val itemMap = HashMap(data)
                     itemMap["id"] = doc.id
+                    itemMap["timestamp"] = timestamp
                     allDebtsList.add(itemMap)
                 }
 
-                allDebtsList.sortByDescending { (it["timestamp"] as? Number)?.toLong() ?: 0L }
+                allDebtsList.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
 
                 (((cardDebt.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalDebtSum)
                 (((cardReceivable.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalReceivableSum)
@@ -334,9 +435,7 @@ class AddDebtFragment : Fragment() {
                 } else {
                     filteredList.forEach { debtItem ->
                         val itemCard = MaterialCardView(requireContext()).apply {
-                            radius = 14 * density
-                            cardElevation = 2 * density
-                            strokeWidth = 0
+                            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
                             setCardBackgroundColor(Color.WHITE)
                             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10 * density).toInt() }
                         }
@@ -356,11 +455,14 @@ class AddDebtFragment : Fragment() {
                         val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
                         val docId = (debtItem["id"] as? String) ?: ""
                         val debtType = (debtItem["type"] as? String) ?: "DEBT"
+                        val debtTime = (debtItem["timestamp"] as? Long) ?: System.currentTimeMillis()
 
                         leftInfo.addView(TextView(requireContext()).apply { text = contactName; textSize = 15.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
                         
-                        val statusLabel = if (isPaid) "LUNAS ✅" else "Sisa tagihan: ${formatRupiah.format(remainingAmount)}"
-                        leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 12f; setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B")); setPadding(0, (2 * density).toInt(), 0, 0) })
+                        // 🟢 TAMPILKAN TANGGAL: Menyertakan baris label waktu dinamis murni di list beranda Buku Utang (Request!)
+                        val dateAndStatusLabel = "📅 ${sdfDisplay.format(Date(debtTime))} • Sisa: ${formatRupiah.format(remainingAmount)}"
+                        val statusLabel = if (isPaid) "LUNAS ✅" else dateAndStatusLabel
+                        leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 11.5f; setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B")); setPadding(0, (4 * density).toInt(), 0, 0) })
                         cardInsideLayout.addView(leftInfo)
 
                         val tvOriginalAmount = TextView(requireContext()).apply {
@@ -381,6 +483,7 @@ class AddDebtFragment : Fragment() {
 
     private fun showDebtActionOptionsCloud(docId: String, contactName: String, remainingAmount: Double, isPaid: Boolean, debtType: String) {
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
+        val density = requireContext().resources.displayMetrics.density
         
         AlertDialog.Builder(requireContext()).apply {
             setTitle("Aksi Kontak: $contactName")
@@ -391,51 +494,97 @@ class AddDebtFragment : Fragment() {
                         return@setItems
                     }
                     
-                    val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_add_debt_premium, null, false)
+                    val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
+                    val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
                     
-                    viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumName).apply { hint = "Masukkan Jumlah Pembayaran (Rp)" }
-                    val etPay = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumName).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+                    val etPayAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
+                    val etPayNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
+                    val spinnerCategory = viewInflated.findViewById<Spinner>(R.id.spinnerPremiumTxCategory)
+                    val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
                     
-                    viewInflated.findViewById<MaterialButton>(R.id.btnPremiumPickContact).visibility = View.GONE
-                    viewInflated.findViewById<TextInputLayout>(R.id.tilPremiumAmount).visibility = View.GONE
-                    viewInflated.findViewById<RadioGroup>(R.id.rgPremiumType).visibility = View.GONE
+                    val tvCategoryLabel = viewInflated.findViewWithTag<TextView>("tvCategoryLabel") ?: (spinnerCategory.parent as ViewGroup).getChildAt((spinnerCategory.parent as ViewGroup).indexOfChild(spinnerCategory) - 1) as? TextView
 
-                    AlertDialog.Builder(context).apply {
-                        setTitle("Bayar / Cicil Pinjaman")
-                        setMessage("Sisa tanggungan saat ini: ${formatRupiah.format(remainingAmount)}")
-                        setView(viewInflated)
-                        setPositiveButton("Proses") { _, _ ->
-                            val payValue = etPay.text.toString().toDoubleOrNull() ?: 0.0
-                            if (payValue > 0.0) {
-                                val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
-                                
-                                firestore.collection("debts").document(docId).update(
-                                    "remainingAmount", newRemaining,
-                                    "isPaid", newRemaining <= 0.0
-                                )
+                    spinnerCategory.visibility = View.GONE
+                    tvCategoryLabel?.visibility = View.GONE
+                    rgType.visibility = View.GONE
 
-                                val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
-                                val targetCatId = if (debtType == "DEBT") 102L else 103L
-                                val targetCatName = if (debtType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
-                                val txId = "tx_${System.currentTimeMillis()}"
+                    etPayAmount.setHint("Masukkan Nominal Pembayaran (Rp)")
+                    etPayNote.setHint("Keterangan cicilan (Boleh kosong)")
 
-                                val payTransactionMap = hashMapOf(
-                                    "id" to txId,
-                                    "amount" to payValue,
-                                    "type" to flowType,
-                                    "categoryId" to targetCatId,
-                                    "categoryName" to targetCatName,
-                                    "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - CICILAN MANUAL CLOUD",
-                                    "timestamp" to System.currentTimeMillis(),
-                                    "debtId" to docId // 🔥 AMAN TOTAL: Sekarang cicilan manual dipasangi debtId pengikat akurat!
-                                )
-                                firestore.collection("transactions").document(txId).set(payTransactionMap)
-                                Toast.makeText(context, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        setNegativeButton("Batal", null)
-                        show()
+                    // Sisipkan kolom tanggal cicilan kustom dinamis premium
+                    innerLayout.addView(TextView(context).apply { 
+                        text = "Tanggal Pembayaran (YYYY-MM-DD)"
+                        textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
+                    })
+                    
+                    val etPayDate = EditText(context).apply {
+                        setText(sdfDate.format(Date()))
+                        setTextColor(Color.parseColor("#2D3748")); textSize = 14.5f
+                        setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (12 * density).toInt())
                     }
+                    innerLayout.addView(etPayDate)
+
+                    val actionButtonsRow = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL; weightSum = 2f
+                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
+                            setMargins((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (20 * density).toInt()) 
+                        }
+                    }
+
+                    val btnCancelPay = MaterialButton(context).apply {
+                        text = "Batal"; textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
+                        backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
+                    }
+                    
+                    val btnSavePay = MaterialButton(context).apply {
+                        text = "Proses Pembayaran"; textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
+                        backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    actionButtonsRow.addView(btnCancelPay); actionButtonsRow.addView(btnSavePay)
+                    innerLayout.addView(actionButtonsRow)
+
+                    val payDialog = AlertDialog.Builder(context).setView(viewInflated).create()
+                    btnCancelPay.setOnClickListener { payDialog.dismiss() }
+
+                    btnSavePay.setOnClickListener {
+                        val payValue = etPayAmount.text.toString().toDoubleOrNull() ?: 0.0
+                        val userPayNote = etPayNote.text.toString().trim()
+                        val payDateVal = etPayDate.text.toString().trim()
+
+                        if (payValue > 0.0 && payDateVal.isNotEmpty()) {
+                            val payTimestamp = try { sdfDate.parse(payDateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                            val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
+                            
+                            firestore.collection("debts").document(docId).update(
+                                "remainingAmount", newRemaining,
+                                "isPaid", newRemaining <= 0.0
+                            )
+
+                            val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
+                            val targetCatId = if (debtType == "DEBT") 102L else 103L
+                            val targetCatName = if (debtType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+                            val txId = "tx_${System.currentTimeMillis()}"
+
+                            val payTransactionMap = hashMapOf(
+                                "id" to txId,
+                                "amount" to payValue,
+                                "type" to flowType,
+                                "categoryId" to targetCatId,
+                                "categoryName" to targetCatName,
+                                "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL CLOUD" }.uppercase(Locale.ROOT)}",
+                                "timestamp" to payTimestamp, // Simpan tanggal kustom cicilan secara dinamis!
+                                "debtId" to docId
+                            )
+                            firestore.collection("transactions").document(txId).set(payTransactionMap)
+                            Toast.makeText(context, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
+                            payDialog.dismiss()
+                        } else {
+                            Toast.makeText(context, "Mohon masukkan nominal cicilan valid!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    payDialog.show()
                 } else if (which == 1) {
                     AlertDialog.Builder(context).apply {
                         setTitle("Hapus Data")
