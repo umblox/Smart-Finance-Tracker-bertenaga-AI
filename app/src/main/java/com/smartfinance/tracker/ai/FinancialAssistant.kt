@@ -25,12 +25,10 @@ class FinancialAssistant(private val context: Context) {
             val actionType = json.optString("action_type", "CHAT_ONLY").trim().uppercase(Locale.ROOT)
             val aiResponse = json.optString("ai_response", "").trim()
 
-            // 🔒 BLOKIR TOTAL AKSES: Jika murni obrolan pertanyaan data, langsung muntahkan jawabannya ke UI
             if (actionType == "CHAT_ONLY") {
                 return aiResponse.ifEmpty { "Ada yang bisa saya bantu lagi, Mam?" }
             }
 
-            // 🔒 HAK VETO MATEMATIKA KOTLIN: Jika minta laporan, panggil kompilasi database riil Kotlin secara kaku!
             if (actionType == "VIEW_REPORT") {
                 return compileAiReport(cleanJsonStr)
             }
@@ -198,12 +196,13 @@ class FinancialAssistant(private val context: Context) {
 
         val isNewCategory = item.optBoolean("is_new_category", false)
         if (isNewCategory && catId > 200L) {
+            // ✅ FIX MUTLAK: Mengubah tanda panah '->' menjadi sintaks pemetaan 'to' bawaan Kotlin yang sah
             val newCatMap = hashMapOf(
                 "id" to catId,
                 "name" to catName,
                 "type" to type,
                 "iconName" to "ic_custom",
-                "parentCategoryId" -> null,
+                "parentCategoryId" to null,
                 "isLocked" to false
             )
             firestore.collection("categories").document("cat_$catId").set(newCatMap).await()
