@@ -27,7 +27,6 @@ class AddDebtFragment : Fragment() {
     private val firestore = FirebaseFirestore.getInstance()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     
-    // ✅ FORMAT PREMIUM TERPADU: Format penanggalan luxury untuk tampilan Buku Utang
     private val sdfDisplayPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
     private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
     
@@ -56,7 +55,6 @@ class AddDebtFragment : Fragment() {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. HEADER BAR VISUAL LUXURY
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (14 * density).toInt())
@@ -72,7 +70,6 @@ class AddDebtFragment : Fragment() {
         headerLayout.addView(tvTitle)
         mainContent.addView(headerLayout)
 
-        // 2. TIMELINE NAVIGASI BULANAN PREMIUM
         val navMonthRow = LinearLayout(context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -107,7 +104,6 @@ class AddDebtFragment : Fragment() {
         navMonthRow.addView(btnNext)
         mainContent.addView(navMonthRow)
 
-        // 3. CARDS RINGKASAN SALDO BERJALAN
         val summaryLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
@@ -120,7 +116,6 @@ class AddDebtFragment : Fragment() {
         summaryLayout.addView(cardReceivable)
         mainContent.addView(summaryLayout)
 
-        // 4. KONTROL TAB LAYOUT
         val tabOuterContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
@@ -135,7 +130,6 @@ class AddDebtFragment : Fragment() {
         tabOuterContainer.addView(btnTabReceivable)
         mainContent.addView(tabOuterContainer)
 
-        // 5. SCROLL VIEW DATA MUTASI
         val scrollView = ScrollView(context).apply { isFillViewport = true }
         listContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -145,7 +139,6 @@ class AddDebtFragment : Fragment() {
         mainContent.addView(scrollView)
         root.addView(mainContent)
 
-        // FAB UNTUK MEMICU DIALOG INPUT MANUAL BARU
         val fab = FloatingActionButton(context).apply {
             setImageResource(android.R.drawable.ic_input_add)
             backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
@@ -193,6 +186,7 @@ class AddDebtFragment : Fragment() {
     }
 
     private fun setPremiumTabStyles(active: MaterialButton, inactive: MaterialButton) {
+        val density = requireContext().resources.displayMetrics.density
         active.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
         active.setTextColor(Color.WHITE); active.setTypeface(null, Typeface.BOLD)
         inactive.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
@@ -239,7 +233,10 @@ class AddDebtFragment : Fragment() {
                     }
                 }
 
-                // Inject data live ke Summary Card Atas
+                // ✅ FIX MODE: Ganti Context.MODE_PRIVATE dengan integer konstan kaku 0 bawaan Android
+                val prefs = context.getSharedPreferences("smart_finance_prefs", 0)
+                prefs.edit().putLong("active_report_time", currentCalendar.timeInMillis).apply()
+
                 (((cardDebt.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalDebtSum)
                 (((cardReceivable.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalReceivableSum)
 
@@ -254,9 +251,10 @@ class AddDebtFragment : Fragment() {
                     return@addSnapshotListener
                 }
 
-                activeTabFiltered.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
+                // ✅ FIX URUTAN: Mengganti operator kaku Mutable List dengan operator sorted murni
+                val sortedList = activeTabFiltered.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }
 
-                activeTabFiltered.forEach { debtItem ->
+                sortedList.forEach { debtItem ->
                     val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
                     val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
                     val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
@@ -270,7 +268,6 @@ class AddDebtFragment : Fragment() {
                         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10 * density).toInt() }
                         
                         setOnClickListener { 
-                            // Melempar data komplit reaktif ke komponen Editor Dialog khusus kita
                             val passMap = HashMap(debtItem)
                             DebtEditorDialog(passMap) { refreshDebtListLive() }.show(parentFragmentManager, "DebtEditorDialog")
                         }
