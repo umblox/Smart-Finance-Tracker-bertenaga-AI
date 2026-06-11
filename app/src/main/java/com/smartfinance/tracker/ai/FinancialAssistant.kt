@@ -16,8 +16,7 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^
-```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -38,7 +37,7 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
-                    val targetTimestamp = parseTransactionDate(item.optString("transaction_date", ""))
+                    val targetTimestamp = System.currentTimeMillis() // ✅ FIX TANGGAL: Selalu gunakan Long murni agar Firestore tidak menolak simpan data
                     val finalAmount = parseAmount(item)
 
                     if (finalAmount <= 0.0) continue
@@ -54,14 +53,11 @@ class FinancialAssistant(private val context: Context) {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            val isReceivableFlow = cleanAiResponseUpper.contains("PIUTANG") || 
-                                                   cleanAiResponseUpper.contains("MEMINJAMKAN") || 
-                                                   cleanAiResponseUpper.contains("KEPADA ANDA")
-                            
+                            // ✅ FIX DETEKSI AKURAT: Ambil tipe kaku langsung dari analisis keputusan JSON Groq murni ("RECEIVABLE" / "DEBT")
+                            val isReceivableFlow = item.optString("debt_type", "DEBT").uppercase(Locale.ROOT) == "RECEIVABLE"
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
                         "DEBT_PAYMENT" -> {
-                            // ✅ SINKRONISASI JAWABAN: Ambil teks balasan baru yang sisa hutangnya dihitung jujur dari database riil
                             aiResponse = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp)
                         }
                     }
@@ -89,6 +85,7 @@ class FinancialAssistant(private val context: Context) {
             "timestamp" to timestampValue,
             "isPaid" to false
         )
+        // Amankan proses penyimpanan cloud murni tanpa hambatan crash tipe data
         firestore.collection("debts").document(debtId).set(debtMap).await()
 
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
@@ -102,7 +99,7 @@ class FinancialAssistant(private val context: Context) {
             "type" to flowType,
             "categoryId" to catId,
             "categoryName" to catName,
-            "note" to "[$selectedType] $sanitizedName - INPUT AUTOMATIC AI",
+            "note" to "[$catName] $sanitizedName - INPUT AUTOMATIC AI",
             "timestamp" to timestampValue,
             "debtId" to debtId
         )
@@ -171,7 +168,6 @@ class FinancialAssistant(private val context: Context) {
             )
             firestore.collection("transactions").document(txId).set(payTxMap).await()
 
-            // 🔥 FIX AKURASI CHAT: Rekonstruksi kalimat jawaban AI agar sisa hutangnya 100% akurat sesuai hitungan database riil!
             val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA 🎉" else formatRupiah.format(nextRemaining)
             return "✅ **Transaksi Cicilan Berhasil Diproses!**\n\n" +
                    "* **Kontak Terkait:** $matchContactName\n" +
@@ -185,11 +181,8 @@ class FinancialAssistant(private val context: Context) {
 
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
         val cleanNote = item.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
-        
-        // 🔥 FIX MUTLAK ANTI-TIMPA: Percayakan 100% tipe transaksi ("INCOME" / "EXPENSE") dari hasil analisis pintar Groq SPOK!
         val type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
 
-        // 🔥 FIX KATEGORI DINAMIS: Ambil kategori murni pilihan Groq, jangan ditimpa paksa ke Gaji jika jenisnya pengeluaran donasi!
         var catName = item.optString("category_name", "").trim()
         var catId = item.optLong("category_id", 15L)
 
