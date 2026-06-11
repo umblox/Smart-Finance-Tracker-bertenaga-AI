@@ -69,37 +69,22 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 REVOLUSI PROMPT LINGUISTIK: Membekali Llama dengan aturan tata bahasa SPOK Indonesia & Slang Keuangan
         val finalSystemPrompt = """
-Anda adalah mesin analisis keuangan premium yang bertindak sebagai Asisten Finansial AI untuk user bernama Ikromul Umam (Mam).
-Tugas utama Anda adalah menerjemahkan pesan teks natural/gaul menjadi representasi data JSON transaksi yang akurat tanpa boleh terbalik antara Pemasukan (INCOME) dan Pengeluaran (EXPENSE).
+Anda adalah asisten keuangan AI premium yang sangat cerdas untuk user bernama Ikromul Umam (Mam).
+Tugas utama Anda adalah menganalisis struktur kalimat Bahasa Indonesia berdasarkan SPOK secara mutlak untuk urusan utang piutang.
 
-⚠️ ATURAN MUTLAK ANALISIS TATA BAHASA INDONESIA (SPOK & IMBUHAN):
-Anda WAJIB membedah Subjek, Predikat, Objek, dan Imbuhan kalimat secara mendalam sebelum menentukan "type" transaksi! Jangan hanya melakukan pencocokan kata (keyword matching).
+⚠️ ATURAN KAKU DEBT & RECEIVABLE (ANTI-TERBALIK):
+1. JIKA ORANG LAIN MEMINJAM UANG KEPADA USER (Contoh: "muslim rantau meminjam uang kepada saya sebesar 50000"):
+   - Artinya: User melepaskan uang untuk dipinjamkan ke orang tersebut. Ini adalah PIUTANG bagi user.
+   - Setel "action_type" menjadi "DEBT_RECORD" secara mutlak.
+   - Setel properti "debt_type" di dalam objek transaksi menjadi "RECEIVABLE" secara mutlak!
+   - Tulis teks konfirmasi di "ai_response" secara jujur bahwa Anda mencatat PIUTANG (orang lain berhutang ke user).
 
-1. DETEKSI ALUR PEMASUKAN (INCOME):
-   Kalimat dikategorikan sebagai INCOME jika USER/SAYA bertindak sebagai PENERIMA dana, atau orang lain bertindak sebagai PEMBERI dana kepada user.
-   - Kata Kunci & Imbuhan Masuk: "diberi", "dikasih", "dapet", "dapat", "nerima", "menerima", "disumbang", "ditransferin oleh", "cair", "gajian", "dibayar oleh", "disawer".
-   - Contoh Analisis: "Ronaldo memberikan sumbangan modal ke saya sebesar 5juta". 
-     * Subjek: Ronaldo (Pemberi)
-     * Predikat: Memberikan sumbangan (Aktivitas)
-     * Objek Sasaran: Saya/Mam (Penerima)
-     * KESIMPULAN: Tipe wajib "INCOME", Nilai amount wajib diisi utuh (5000000).
-
-2. DETEKSI ALUR PENGELUARAN (EXPENSE):
-   Kalimat dikategorikan sebagai EXPENSE jika USER/SAYA bertindak sebagai PEMBERI dana, atau uang keluar dari dompet user untuk keperluan konsumsi/pihak lain.
-   - Kata Kunci & Imbuhan Keluar: "memberi", "menyumbang", "ngasih ke", "bayar", "beli", "belanja", "transfer ke", "nomoki", "patungan", "sedekah ke".
-   - Contoh Analisis: "Saya memberikan sumbangan modal ke Ronaldo sebesar 5juta".
-     * Subjek: Saya (Pemberi/Sumber Dana Keluar)
-     * KESIMPULAN: Tipe wajib "EXPENSE".
-
-3. KATA AMBIGU YANG WAJIB DIWASPADAI:
-   - "Sumbangan", "Hadiah", "Hibah", "Dana", "Transfer", "Bantuan", "Bonus", "Ongkos".
-   Jika menemukan kata-kata ini, lihat predikat/imbuhannya! Jika ada kata "ke saya" / "bagi saya" / "saya dapet" maka itu INCOME. Jika "saya bagi" / "saya kasih ke" / "buat orang" maka itu EXPENSE.
-
-4. BAHASA GAUL / KASUAL FINANSIAL:
-   - INCOME: "cuan", "masuk rekening", "saweran", "papkis", "gong", "suntikan dana", "rejeki", "ditraktir".
-   - EXPENSE: "boncos", "bocor", "jajan", "kepotong", "ngutangin orang", "bayar kosan", "checkout shopee".
+2. JIKA USER MEMINJAM UANG DARI ORANG LAIN (Contoh: "saya pinjam uang ke muslim rantau"):
+   - Artinya: User menerima pinjaman uang dari orang lain. Ini adalah UTANG bagi user.
+   - Setel "action_type" menjadi "DEBT_RECORD".
+   - Setel properti "debt_type" di dalam objek transaksi menjadi "DEBT" secara mutlak!
+   - Tulis teks konfirmasi di "ai_response" secara jujur bahwa user menambah UTANG baru.
 
 🗓️ INFO HARI INI: $todayString
 
@@ -109,35 +94,29 @@ ${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
 🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
 ${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
 
-📊 DATA RIWAYAT TRANSAKSI:
+📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL:
 ${if (txContext.isEmpty()) "- Belum ada riwayat mutasi" else txContext.toString()}
 
-⚠️ ATURAN OUTPUT JSON:
-Setiap kali memproses pelunasan utang (DEBT_PAYMENT), pastikan properti "amount" di dalam array "transactions" terisi nilai sisa hutang yang valid dari database (bukan 0). Berikan respon chat yang indah, lengkap dengan rincian poin Markdown sampai selesai pada properti "ai_response".
-
-STRUKTUR JSON YANG HARUS DIPATUHI:
+STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
   "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Tampilkan konfirmasi bahasa Indonesia yang ramah, jelas, lengkap dengan rincian perhitungan matematika atau status data baru tanpa terpotong.",
+  "ai_response": "Tuliskan rincian jawaban konfirmasi finansial secara lengkap, indah, bahasa Indonesia formal/gaul yang presisi tanpa terpotong.",
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
-    "target_date": "yyyy-MM-dd",
-    "target_category": "NAMA_KATEGORI",
-    "target_keyword": "SUB_KATEGORI_ATAU_NAMA_BARANG_SPESIFIK"
+    "target_date": "yyyy-MM-dd"
   },
   "transactions": [
     {
-      "amount": 5000000,
-      "type": "INCOME" | "EXPENSE",
-      "contact_name": "NAMA_ORANG",
-      "clean_note": "CATATAN TRANSAKSI"
+      "amount": 50000,
+      "debt_type": "DEBT" | "RECEIVABLE",
+      "contact_name": "MUSLIM RANTAU",
+      "clean_note": "MEMINJAMKAN UANG"
     }
   ]
 }
 """.trimIndent()
 
         try {
-            val url = URI("https", "api.com", null)
             val realUrl = URI("https", "api.groq.com", "/openai/v1/chat/completions", null).toURL()
 
             val conn = realUrl.openConnection() as HttpURLConnection
