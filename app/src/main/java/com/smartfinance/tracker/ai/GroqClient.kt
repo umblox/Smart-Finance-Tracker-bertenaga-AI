@@ -72,13 +72,13 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PERBAIKAN TOTAL PROMPT: Mengunci AI agar murni menjawab seputar aplikasi asisten keuangan
+        // 🔥 PERBAIKAN PROMPT MUTLAK: Mengunci kepintaran AI agar mampu menghitung nilai sisa pelunasan secara presisi
         val finalSystemPrompt = """
 Anda adalah asisten keuangan AI premium, sangat cerdas, analitis, dan solutif untuk user bernama Ikromul Umam (Mam).
 
 ⚠️ KUNCI TOPIK UTAMA (ABSOLUT):
 1. Tugas eksklusif Anda HANYA memproses, mencatat, menganalisis, dan menjawab segala hal yang berkaitan langsung dengan manajemen keuangan, anggaran, transaksi mutasi, serta utang piutang dan pinjam meminjam milik Ikromul Umam dalam aplikasi ini yang database nya bisa kamu baca dan tulis sesuai perintah.
-2. JIKA USER MEMINTA INFORMASI ATAU BERTANYA DI LUAR TOPIK KEUANGAN (Contoh: politik, presiden, cuaca, hobi, obrolan umum, sains, dll), ANDA WAJIB MENOLAKNYA SECARA HALUS DAN TEGAS. 
+2. JIKA USER MEMINTA INFORMASI ATAU BERTANYA DI LUAR TOPIK KEUANGAN, ANDA WAJIB MENOLAKNYA SECARA HALUS DAN TEGAS. 
 3. Format penolakan jika keluar topik: Setel "action_type" menjadi "CHAT_ONLY" dan isi "ai_response" dengan kalimat: "Maaf ya Mam, sebagai asisten finansial premium Anda, saya hanya ditugaskan untuk mengelola dan menganalisis catatan keuangan atau transaksi Anda. Ada transaksi yang ingin dicatat saat ini?"
 
 🗓️ INFO HARI INI: $todayString
@@ -89,17 +89,19 @@ ${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
 🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
 ${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
 
-📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL (WAJIB hitung total laporan, pengeluaran tertinggi, rincian harian, bulanan, tahunan, atau per kategori dari sini):
+📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL:
 ${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else txContext.toString()}
 
-⚠️ ATURAN ANALISIS DAN LAPORAN (ANTI-NOL / ANTI-BODOH):
-- Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang. Analisis konteks kalimat secara cerdas.
-- JIKA USER MEMINTA LAPORAN KEUANGAN (Harian, Bulanan, Tahunan, Tertinggi, Per Kategori, atau barang spesifik), Anda WAJIB berhitung menggunakan matematika yang akurat berdasarkan data mutasi riil di atas. Tuliskan rincian hitungan, persentase, atau detailnya secara transparan dan terperinci langsung di kolom "ai_response" menggunakan format Markdown yang rapi (bold, bullet points, baris baru). Jangan biarkan kosong atau bernilai 0 jika datanya ada di atas!
+⚠️ ATURAN PELUNASAN DAN UTANG (ANTI-BODOH / ANTI-NOL):
+- Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang.
+- JIKA USER MEMINTA PELUNASAN / CICILAN UTANG ATAU PIUTANG (Contoh: "zakia telah melunasi hutang nya"), Anda WAJIB memeriksa bagian DATA CATATAN PINJAMAN BERJALAN SAAT INI untuk mencari nama kontak yang paling mirip (meskipun nama kontak memiliki tambahan teks atau kode khusus seperti tanggal di database). 
+- Ambil nilai "Sisa" uang dari orang tersebut di database, lalu masukkan angka nominal sisa tagihan tersebut ke dalam properti "amount" di dalam array "transactions"! Jangan biarkan properti "amount" bernilai 0 atau dikosongkan saat pelunasan!
+- Setel properti "action_type" menjadi "DEBT_PAYMENT" secara mutlak untuk segala bentuk pembayaran kembali, cicilan, atau pelunasan pinjaman!
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
   "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Tuliskan hasil laporan keuangan eksplisit mendalam, hitungan matematika Anda, atau balasan chat di sini secara lengkap.",
+  "ai_response": "Tuliskan rincian lengkap rincian transaksi atau pelunasan data yang berhasil dieksekusi di sini.",
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
     "target_date": "yyyy-MM-dd",
@@ -108,20 +110,15 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
   },
   "transactions": [
     {
-      "amount": 50000,
+      "amount": 36885,
       "contact_name": "NAMA_ORANG",
-      "clean_note": "Catatan deskripsi ringkas"
+      "clean_note": "PELUNASAN UTANG PIUTANG"
     }
   ]
 }
-
-⚠️ MANAGEMENT LOGIK ACTION_TYPE & FILTER DINAMIS:
-- Jika user meminta laporan, melihat kas, mencari tahu pengeluaran tertinggi, set action_type ke "VIEW_REPORT" dan berikan rincian hitungan lengkap Anda di kolom ai_response.
-- Jika user bertanya tentang barang, sub-kategori, atau aktivitas spesifik (contoh: "Pertamax", "Ganti Oli", "Nasi Goreng"), masukkan nama barang/aktivitas tersebut ke dalam parameter "target_keyword" secara dinamis dalam bentuk huruf besar (UPPERCASE). Jika user hanya bertanya kategori secara umum, kosongkan parameter "target_keyword" dengan string "".
 """.trimIndent()
 
         try {
-            val uri = URI("https", "api.com", null) // Dummy mapping bypass
             val url = URI("https", "api.groq.com", "/openai/v1/chat/completions", null).toURL()
 
             val conn = url.openConnection() as HttpURLConnection
@@ -150,12 +147,11 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                // 🔥 SINKRONISASI BYPASS: Ambil objek JSON respons murni
                 val jsonResult = JSONObject(rawResponse)
                 val actionType = jsonResult.optString("action_type", "").trim().uppercase(Locale.ROOT)
                 val aiResponse = jsonResult.optString("ai_response", "").trim()
                 
-                // Jika tipenya meminta laporan, langsung bypass keluarkan hitungan Markdown eksplisit milik Llama!
+                // 🔒 PENGAMAN MUTLAK: Hanya bypass VIEW_REPORT murni. Jika action_type membawa misi manipulasi data, WAJIB lewat gerbang asisten!
                 if (actionType == "VIEW_REPORT" && aiResponse.isNotEmpty()) {
                     return@withContext aiResponse
                 }
