@@ -49,7 +49,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     private lateinit var rbIncome: RadioButton
     private lateinit var rbDebt: RadioButton
 
-    // ✅ PREMIUM FORMAT: Format tanggal & jam seragam di seluruh aspek input manual aplikasi
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     private val contactPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -89,7 +88,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgManualPremiumType)
         val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnManualPremiumPick)
 
-        // Set default text box otomatis merekam hari ini lengkap dengan Jam dan Menit riil
         etDate.setText(sdfPremium.format(Date()))
 
         val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
@@ -167,7 +165,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
             if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty()) {
                 lifecycleScope.launch {
-                    // ✅ PARSING AMAN: Memakai format penanggalan premium terpadu milidetik Long murni
                     val targetTime = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
                     val selectedCat = filteredCategoriesCloud[spinnerCategory.selectedItemPosition]
                     val catId = selectedCat["id"] as Long
@@ -196,7 +193,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         "categoryName" to catName,
                         "note" to finalNote,
                         "timestamp" to targetTime,
-                        "debtId" to generatedDebtId // ✅ SINKRON: Sekarang field debtId resmi tertanam di riwayat transaksi manual!
+                        "debtId" to generatedDebtId
                     )
                     
                     firestore.collection("transactions").document(txId).set(txMap).await()
@@ -204,12 +201,13 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     if (rbDebt.isChecked && generatedDebtId != null) {
                         val selectedDebtType = if (catId == 104L) "RECEIVABLE" else "DEBT"
                         
+                        // ✅ FIX SINKRONISASI VARIABEL: Mengubah amountValue menjadi nominal input manual amountVal yang sah
                         val debtMap = hashMapOf(
                             "id" to generatedDebtId,
                             "contactName" to contactVal.uppercase(Locale.ROOT),
                             "contactPhoneNumber" to "0812",
-                            "amount" to amountValue,
-                            "remainingAmount" to amountValue,
+                            "amount" to amountVal,
+                            "remainingAmount" to amountVal,
                             "type" to selectedDebtType,
                             "note" to "Input Manual Form Cloud",
                             "timestamp" to targetTime,
