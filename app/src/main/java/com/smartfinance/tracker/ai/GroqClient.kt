@@ -6,6 +6,7 @@ import com.smartfinance.tracker.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -31,119 +32,97 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val txContext = java.lang.StringBuilder()
 
         try {
-            // 1. Ambil Data Master Kategori Terdaftar
             val categorySnapshot = firestore.collection("categories").get().await()
             for (doc in categorySnapshot.documents) {
                 val id = doc.getLong("id") ?: 0L
                 val name = doc.getString("name") ?: "Tanpa Nama"
                 val type = doc.getString("type") ?: "EXPENSE"
-                catContext.append("- ID: $id, Nama: $name, Tipe: $type\n")
+                catContext.append("- ID: $id, Nama: $name, Tipe Aliran: $type\n")
             }
 
-            // 2. Ambil Data Catatan Pinjaman Berjalan Aktif
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
+                val contactName = doc.getString("contactName") ?: "TEMAN"
+                val amount = doc.getDouble("amount") ?: 0.0
+                val remaining = doc.getDouble("remainingAmount") ?: 0.0
+                val type = doc.getString("type") ?: "DEBT"
                 val isPaid = doc.getBoolean("isPaid") ?: false
                 if (!isPaid) {
-                    val contactName = doc.getString("contactName") ?: "TEMAN"
-                    val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
-                    val type = doc.getString("type") ?: "DEBT"
-                    debtContext.append("- Kontak: $contactName, Sisa: Rp $remainingAmount, Tipe: $type\n")
+                    debtContext.append("- Kontak: $contactName, Total Hutang Awal: $amount, Sisa Riil Terutang: $remaining, Jenis: $type\n")
                 }
             }
 
-            // 3. Tarik Seluruh Riwayat Transaksi Riil untuk Analisis Matematika Laporan
             val txSnapshot = firestore.collection("transactions").get().await()
-            val sdfTx = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            for (doc in txSnapshot.documents) {
-                val amount = doc.getDouble("amount") ?: 0.0
+            val sortedDocs = txSnapshot.documents.sortedByDescending { doc -> doc.getLong("timestamp") ?: 0L }.take(15)
+            val sdf = SimpleDateFormat("dd-MM-yyyy • HH:mm", Locale("id", "ID"))
+            for (doc in sortedDocs) {
+                val amt = doc.getDouble("amount") ?: 0.0
                 val type = doc.getString("type") ?: "EXPENSE"
-                val categoryName = doc.getString("categoryName") ?: "Umum"
-                val note = doc.getString("note") ?: ""
-                val timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
-                val dateStr = sdfTx.format(Date(timestamp))
-                txContext.append("- [$dateStr] Kategori: $categoryName, Tipe: $type, Jumlah: Rp $amount, Catatan: $note\n")
+                val catName = doc.getString("categoryName") ?: "Umum"
+                val note = doc.getString("note") ?: "Transaksi AI"
+                val ts = doc.getLong("timestamp") ?: System.currentTimeMillis()
+                txContext.append("- [${sdf.format(Date(ts))}] $note | Kategori: $catName | Aliran: $type | Nominal: $amt\n")
             }
 
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+            val systemPrompt = """
+                Anda adalah sistem kecerdasan buatan terpusat premium dari aplikasi Smart Finance Tracker milik Mam Ikromul Umam.
+                Tugas utama Anda adalah melakukan klasifikasi maksud teks user secara kaku dan mengembalikan objek JSON.
+                
+                Berikut adalah data riil database terenkripsi server cloud saat ini (Gunakan data ini untuk menjawab pertanyaan pengobrolan):
+                
+                [DATA MASTER KATEGORI YANG SAH]
+                $catContext
+                
+                [DATA BUKU UTANG PIUTANG AKTIF]
+                $debtContext
+                
+                [15 TRANSAKASI MUTASI KAS TERKINI]
+                $txContext
+                
+                Aturan Mutlak Klasifikasi JSON (Wajib Patuhi Tanpa Toleransi):
+                1. Jika user hanya mengobrol, menyapa, bertanya tentang status keuangan, mengonfirmasi data utang, atau bertanya 'apakah saya punya hutang?', Anda WAJIB mengembalikan status action_type: "CHAT_ONLY". Jawablah pertanyaan mereka secara ramah, detail, sopan, dan panggil dengan sebutan 'Mam'. Isikan jawaban Anda pada kolom 'ai_response'. DILARANG SEKALIPUN memasukkan array 'transactions' pada kondisi CHAT_ONLY ini agar tidak memicu transaksi ghaib!
+                2. Jika user meminta ringkasan laporan kas keuangan, total pengeluaran, total pemasukan, baik harian, mingguan, bulanan atau tahunan, Anda WAJIB mengembalikan action_type: "VIEW_REPORT". Buat filter yang tepat pada objek 'report_filter'.
+                3. Jika user memberikan kalimat perintah tegas untuk mencatat mutasi pengeluaran/pemasukan baru, mencatat utang baru, atau mencatat cicilan/pembayaran utang, barulah Anda mengembalikan action_type sesuai perintahnya ("TRANSACTION" / "DEBT_RECORD" / "DEBT_PAYMENT") beserta array 'transactions'.
+                
+                Format JSON yang wajib Anda kembalikan harus selalu bersih terstruktur seperti ini:
+                {
+                  "action_type": "CHAT_ONLY" atau "TRANSACTION" atau "DEBT_RECORD" atau "DEBT_PAYMENT" atau "VIEW_REPORT",
+                  "ai_response": "Teks balasan obrolan biasa atau teks konfirmasi di sini",
+                  "report_filter": {
+                     "time_range": "TODAY" atau "WEEKLY" atau "MONTHLY" or "YEARLY" atau "CUSTOM_DATE" atau "ALL",
+                     "target_date": "yyyy-MM-dd" (diisi hanya jika memakai CUSTOM_DATE),
+                     "target_category": "Nama kategori spesifik jika ada filter",
+                     "target_keyword": "Kata kunci barang spesifik jika ada filter"
+                  },
+                  "transactions": [
+                     {
+                       "amount": 15000,
+                       "type": "EXPENSE" atau "INCOME",
+                       "category_id": 15,
+                       "category_name": "Nama Kategori",
+                       "clean_note": "Catatan ringkas",
+                       "contact_name": "Nama orang jika berhubungan dengan utang",
+                       "debt_type": "DEBT" atau "RECEIVABLE",
+                       "is_new_category": false
+                     }
+                  ]
+                }
+            """.trimIndent()
 
-        val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
-        val todayString = sdfToday.format(Date())
-
-        // 🔥 MASTA PROMPT REVOLUSI: Menggabungkan Kecerdasan Analisis Laporan Finansial + SPOK Indonesia Berlapis
-        val finalSystemPrompt = """
-Anda adalah asisten keuangan AI premium, sangat cerdas, analitis, dan solutif untuk user bernama Ikromul Umam (Mam).
-Tugas utama Anda adalah mengelola data keuangan, membuat laporan mendalam, dan memetakan teks transaksi ke JSON secara akurat tanpa terbalik.
-
-🗓️ INFO HARI INI: $todayString
-
-🗂️ DATA MASTER KATEGORI REGISTERED:
-${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
-
-🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
-${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
-
-📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL (Wajib hitung laporan harian, mingguan, bulanan, tahunan dari sini):
-${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else txContext.toString()}
-
-⚠️ ATURAN LAPORAN FINANSIAL:
-- Jika user meminta laporan (Harian, Mingguan, Bulanan, Tahunan, atau per kategori/keyword barang spesifik), Anda WAJIB menjumlahkan data mutasi di atas secara matematis dan akurat, lalu tulis rincian kalkulasinya di "ai_response" menggunakan Markdown yang rapi. Setel "action_type": "VIEW_REPORT".
-
-⚠️ ATURAN TATA BAHASA UTANG PIUTANG (SPOK INDONESIA):
-- KALIMAT PIUTANG (RECEIVABLE): Jika orang lain meminjam uang ke user (Contoh: "muslim rantau meminjam uang kepada saya"). Setel "action_type": "DEBT_RECORD", dan setel "debt_type": "RECEIVABLE".
-- KALIMAT UTANG (DEBT): Jika user meminjam uang dari orang lain. Setel "action_type": "DEBT_RECORD", dan setel "debt_type": "DEBT".
-
-⚠️ ATURAN KHUSUS KATEGORI & SUB-KATEGORI BARU (ANTI-BENTROK):
-1. Cari kategori terdekat dari DATA MASTER KATEGORI REGISTERED di atas. Jika ada yang mendekati, WAJIB gunakan ID dan Nama dari master tersebut!
-2. JIKALAU TRANSAKSI USER BENAR-BENAR BARU DAN TIDAK ADA KATEGORI YANG MENDEKATI:
-   - Buatkan Nama Kategori Baru yang relevan (Gunakan format HURUF BESAR di awal).
-   - Berikan "category_id" acak baru di atas angka 200 (Contoh: 205, 210) agar tidak bentrok dengan ID master.
-   - WAJIB setel properti "is_new_category" menjadi true! (Jika menggunakan kategori master lama, setel menjadi false).
-
-STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
-{
-  "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Tuliskan hasil laporan finansial mendalam atau teks konfirmasi transaksi yang lengkap dan indah tanpa terpotong.",
-  "report_filter": {
-    "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
-    "target_date": "yyyy-MM-dd",
-    "target_category": "NAMA_KATEGORI",
-    "target_keyword": "SUB_KATEGORI_ATAU_NAMA_BARANG_SPESIFIK"
-  },
-  "transactions": [
-    {
-      "amount": 50000,
-      "type": "INCOME" | "EXPENSE",
-      "debt_type": "DEBT" | "RECEIVABLE",
-      "category_id": 15,
-      "category_name": "Nama Kategori",
-      "is_new_category": false,
-      "contact_name": "NAMA_ORANG",
-      "clean_note": "Catatan deskripsi ringkas"
-    }
-  ]
-}
-""".trimIndent()
-
-        try {
-            val realUrl = URI("https", "api.groq.com", "/openai/v1/chat/completions", null).toURL()
-
-            val conn = realUrl.openConnection() as HttpURLConnection
+            val url = URI("https://api.groq.com/openai/v1/chat/completions").toURL()
+            val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
             conn.doOutput = true
 
+            val messagesArray = JSONArray().apply {
+                put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+                put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
+            }
+
             val jsonBody = JSONObject().apply {
-                put("model", "llama-3.1-8b-instant")
-                val messagesArray = org.json.JSONArray().apply {
-                    put(JSONObject().apply { put("role", "system"); put("content", finalSystemPrompt) })
-                    put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
-                }
+                put("model", "llama3-70b-8192")
                 put("messages", messagesArray)
                 put("temperature", 0.1)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
@@ -156,15 +135,7 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
                 val rawResponse = JSONObject(reader.readText()).getJSONArray("choices")
                     .getJSONObject(0).getJSONObject("message").getString("content").trim()
                 
-                val jsonResult = JSONObject(rawResponse)
-                val actionType = jsonResult.optString("action_type", "").trim().uppercase(Locale.ROOT)
-                val aiResponse = jsonResult.optString("ai_response", "").trim()
-                
-                // 🔒 BYPASS GERBANG UTAMA: Jika murni VIEW_REPORT, biarkan kepintaran matematika Llama langsung menyembur ke UI chat!
-                if (actionType == "VIEW_REPORT" && aiResponse.isNotEmpty()) {
-                    return@withContext aiResponse
-                }
-                
+                // ✅ ARSITEKTUR STERIL TERPUSAT: Semua response dilempar ke FinancialAssistant untuk dieksekusi secara matematis!
                 return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             } else {
                 return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode})"
