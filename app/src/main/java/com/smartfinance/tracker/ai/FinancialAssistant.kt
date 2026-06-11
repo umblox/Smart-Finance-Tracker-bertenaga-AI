@@ -116,17 +116,14 @@ class FinancialAssistant(private val context: Context) {
         var matchType = "DEBT"
         var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
 
-        // Bersihkan dan pecah token kata kunci nama input (contoh: "ZAKIA" atau "ZAKIA GHAISANI")
         val inputTokens = contactNameRaw.uppercase(Locale.ROOT).split(" ").filter { it.length > 2 }
 
         for (doc in snapshot.documents) {
-            // 🔒 KUNCI UTAMANYA DI SINI: Hanya cari dokumen induk utang yang AKTIF / BELUM LUNAS!
             val isPaid = doc.getBoolean("isPaid") ?: false
             if (!isPaid) {
                 val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT).trim()
                 val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
                 
-                // Cek apakah ada token kata yang beririsan kuat di dalam nama database (Fuzzy Token Matching)
                 var isTokenMatch = false
                 for (token in inputTokens) {
                     if (dbName.contains(token)) {
@@ -135,7 +132,6 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
 
-                // Pengaman tambahan jika token gagal, pakai fallback contains dasar
                 if (isTokenMatch || dbName.contains(contactNameRaw.uppercase(Locale.ROOT)) || contactNameRaw.uppercase(Locale.ROOT).contains(dbName)) {
                     matchDocId = doc.id
                     matchAmount = remainingAmount
@@ -146,13 +142,11 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
-        // 🔥 JIKA DITEMUKAN: Lakukan pemotongan saldo riil pada dokumen yang tepat!
         if (matchDocId != null) {
             val isPelunasan = aiResponseUpper.contains("MELUNASI") || aiResponseUpper.contains("LUNAS") || finalAmount >= matchAmount
             val targetPayAmount = if (isPelunasan) matchAmount else finalAmount
             val nextRemaining = (matchAmount - targetPayAmount).coerceAtLeast(0.0)
 
-            // Update langsung dokumen berjalan yang ada, tidak membuat dokumen utang baru!
             firestore.collection("debts").document(matchDocId).update(
                 "remainingAmount", nextRemaining,
                 "isPaid", nextRemaining <= 0.0
@@ -179,11 +173,34 @@ class FinancialAssistant(private val context: Context) {
 
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
         val cleanNote = item.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
+        
+        // 🔒 FIX PARSING AMAN: Dahulukan membaca keputusan analisis tipe dari JSON Llama murni ("INCOME" / "EXPENSE")
         var type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
-        if (cleanNote.contains("GAJI") || cleanNote.contains("PAYDAY") || cleanNote.contains("PEMASUKAN")) { type = "INCOME" }
+        
+        // 🛡️ BARIKADE BERLAPIS: Jika analisis teks catatan mengandung indikasi mutasi kas masuk, paksa kunci ke INCOME!
+        val isIncomePhrase = cleanNote.contains("GAJI") || 
+                             cleanNote.contains("PAYDAY") || 
+                             cleanNote.contains("PEMASUKAN") ||
+                             cleanNote.contains("SUMBANGAN") || 
+                             cleanNote.contains("DANA") || 
+                             cleanNote.contains("HIBAH") || 
+                             cleanNote.contains("HADIAH") || 
+                             cleanNote.contains("BONUS") || 
+                             cleanNote.contains("DITERIMA")
+
+        if (isIncomePhrase || type == "INCOME") { 
+            type = "INCOME" 
+        }
+
         var catId = item.optLong("category_id", 15L)
         var catName = item.optString("category_name", "Lain-lain / Umum").trim()
-        if (type == "INCOME") { catId = 1L; catName = "Gaji & Pendapatan" }
+        
+        if (type == "INCOME") { 
+            if (catId == 15L) {
+                catId = 1L
+                catName = "Gaji & Pendapatan"
+            }
+        }
 
         val txId = "tx_${System.currentTimeMillis()}"
         val txMap = hashMapOf(
