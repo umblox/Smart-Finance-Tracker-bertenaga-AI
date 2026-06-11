@@ -15,10 +15,12 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
-        cleanJsonStr = cleanJsonStr.replace(Regex("^```json\\s*"), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("^
-```\\s*"), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("\\s*```$"), "")
+        
+        // Zack: Menggunakan Raw String murni ("""...""") agar karakter backslash Regex aman total dan lolos compiler
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^
+```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
         try {
@@ -124,7 +126,6 @@ class FinancialAssistant(private val context: Context) {
                 val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT).trim()
                 val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
                 
-                // 🔥 FIX SINKRONISASI COCOK MASSAL: Menggunakan pendeteksian dua arah (.contains) agar 'ZAKIA GHAISANI ANNA REJOSO 01/03' lolos terdeteksi kata 'ZAKIA'
                 val isNameMatch = dbName.contains(cleanedInputName) || 
                                   cleanedInputName.contains(dbName) || 
                                   aiResponseUpper.contains(dbName)
@@ -149,7 +150,6 @@ class FinancialAssistant(private val context: Context) {
                 "isPaid", nextRemaining <= 0.0
             ).await()
 
-            // Penyeimbang rumus kas dashboard keuangan utama Anda
             val txType = if (matchType == "DEBT") "EXPENSE" else "INCOME"
             val catId = if (matchType == "DEBT") 102L else 103L
             val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
