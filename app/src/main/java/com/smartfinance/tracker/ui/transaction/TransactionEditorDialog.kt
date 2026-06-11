@@ -49,6 +49,9 @@ class TransactionEditorDialog(
     private lateinit var rbRight: RadioButton
     private var isDebtTransaction = false
 
+    // ✅ PREMIUM FORMAT SINKRON: Format penanggalan terpadu lengkap dengan Jam dan Menit WIB
+    private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
+
     private val contactPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -89,7 +92,6 @@ class TransactionEditorDialog(
 
         etAmount.setText(currentAmount.toString())
 
-        // 🌟 SINKRONISASI ARSITEKTUR FORM UTANG PIUTANG ADAPTIF (ANTI ERROR .SP & INDEKS SISIP)
         if (isDebtTransaction) {
             rbLeft.text = "Saya Berhutang (Hutang)"
             rbRight.text = "Orang Lain Berhutang (Piutang)"
@@ -106,7 +108,7 @@ class TransactionEditorDialog(
 
             val contactLabel = TextView(context).apply {
                 text = "Nama Kontak Terkait:"
-                textSize = 12f // ✅ FIX MUTLAK: Menggunakan Float murni, bukan akhiran kaku .sp
+                textSize = 12f 
                 setTextColor(Color.parseColor("#64748B"))
                 setTypeface(null, Typeface.BOLD)
                 setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
@@ -121,7 +123,6 @@ class TransactionEditorDialog(
             
             val tilContact = TextInputLayout(context, null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox).apply {
                 boxStrokeColor = Color.parseColor("#0D9488")
-                // ✅ FIX MUTLAK: Menggunakan fungsi sah setBoxCornerRadii untuk kelengkungan ujung box
                 setBoxCornerRadii(12 * density, 12 * density, 12 * density, 12 * density)
             }
             
@@ -136,7 +137,7 @@ class TransactionEditorDialog(
             
             val btnPick = MaterialButton(context).apply {
                 text = "👥 HUBUNG"
-                textSize = 11f // ✅ FIX MUTLAK: Ukuran float murni aman
+                textSize = 11f 
                 cornerRadius = (10 * density).toInt()
                 backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#475569"))
                 setOnClickListener {
@@ -159,15 +160,15 @@ class TransactionEditorDialog(
             if (currentType == "INCOME") rbRight.isChecked = true else rbLeft.isChecked = true
         }
 
-        // Tampilkan urutan input tanggal secara linier lurus tanpa manipulasi indeks sisip rapuh
+        // ✅ FIX PANDUAN VISUAL: Mengarahkan format penulisan input ke premium bertenaga jam menit
         innerLayout.addView(TextView(context).apply { 
-            text = "Tanggal Transaksi (YYYY-MM-DD)"
+            text = "Tanggal Transaksi (DD-MM-YYYY • HH:mm)"
             textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
         })
         
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val etDate = EditText(context).apply {
-            setText(sdf.format(Date(currentTimestamp)))
+            // ✅ FIX PARSING BAWAAN: Tampilkan data tanggal bawaan asli menggunakan format premium baru
+            setText(sdfPremium.format(Date(currentTimestamp)))
             setTextColor(Color.parseColor("#2D3748"))
             textSize = 14.5f
             setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (12 * density).toInt())
@@ -202,7 +203,6 @@ class TransactionEditorDialog(
             }
         }
 
-        // BARIS TOMBOL AKSI PREMIUM (BATAL + SIMPAN)
         val actionButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             weightSum = 2f
@@ -241,7 +241,6 @@ class TransactionEditorDialog(
 
         val editorDialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
-        // ✅ FIX MUTLAK LIFECYCLE: Listener dipasang setelah editorDialog resmi dideklarasikan sempurna
         btnCancel.setOnClickListener { editorDialog.dismiss() }
 
         btnDelete.setOnClickListener {
@@ -265,7 +264,8 @@ class TransactionEditorDialog(
             val dateVal = etDate.text.toString().trim()
 
             if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty() && docId.isNotEmpty()) {
-                val parsedDate = try { sdf.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
+                // ✅ PARSING EKSEKUSI AMAN: Mengubah string input jam-menit manual ke bentuk Long timestamp murni Firestore
+                val parsedDate = try { sdfPremium.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
                 
                 val selectedCategory = filteredCategoriesCloud[spinnerCategory.selectedItemPosition]
                 var catId = selectedCategory["id"] as Long
