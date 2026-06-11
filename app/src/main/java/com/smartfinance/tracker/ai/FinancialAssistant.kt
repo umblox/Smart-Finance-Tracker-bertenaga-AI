@@ -37,7 +37,7 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
-                    val targetTimestamp = System.currentTimeMillis() // ✅ FIX TANGGAL: Selalu gunakan Long murni agar Firestore tidak menolak simpan data
+                    val targetTimestamp = System.currentTimeMillis()
                     val finalAmount = parseAmount(item)
 
                     if (finalAmount <= 0.0) continue
@@ -53,7 +53,6 @@ class FinancialAssistant(private val context: Context) {
                             executePureTransaction(item, finalAmount, targetTimestamp)
                         }
                         "DEBT_RECORD" -> {
-                            // ✅ FIX DETEKSI AKURAT: Ambil tipe kaku langsung dari analisis keputusan JSON Groq murni ("RECEIVABLE" / "DEBT")
                             val isReceivableFlow = item.optString("debt_type", "DEBT").uppercase(Locale.ROOT) == "RECEIVABLE"
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
@@ -85,7 +84,6 @@ class FinancialAssistant(private val context: Context) {
             "timestamp" to timestampValue,
             "isPaid" to false
         )
-        // Amankan proses penyimpanan cloud murni tanpa hambatan crash tipe data
         firestore.collection("debts").document(debtId).set(debtMap).await()
 
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
@@ -183,7 +181,7 @@ class FinancialAssistant(private val context: Context) {
         val cleanNote = item.optString("clean_note", "Transaksi AI").trim().uppercase(Locale.ROOT)
         val type = item.optString("type", "EXPENSE").trim().uppercase(Locale.ROOT)
 
-        var catName = item.optString("category_name", "").trim()
+        var catName = item.optString("category_name", "Lain-lain / Umum").trim()
         var catId = item.optLong("category_id", 15L)
 
         if (catName.isEmpty() || catName == "Lain-lain / Umum") {
@@ -194,6 +192,17 @@ class FinancialAssistant(private val context: Context) {
                 catId = 15L
                 catName = "Lain-lain / Umum"
             }
+        }
+
+        // 🔥 AMAN & PRESET: Tempat eksekusi pendaftaran kategori baru yang sah dan lolos kompilasi
+        val isNewCategory = item.optBoolean("is_new_category", false)
+        if (isNewCategory && catId > 200L) {
+            val newCatMap = hashMapOf(
+                "id" to catId,
+                "name" to catName,
+                "type" to type
+            )
+            firestore.collection("categories").document("cat_$catId").set(newCatMap).await()
         }
 
         val txId = "tx_${System.currentTimeMillis()}"
@@ -286,17 +295,7 @@ class FinancialAssistant(private val context: Context) {
             "CUSTOM_DATE" -> "Pada Tanggal $targetDateStr"
             else -> "Bulan Ini"
         }
-        // Di dalam executePureTransaction milik FinancialAssistant.kt:
-val isNewCategory = item.optBoolean("is_new_category", false)
-if (isNewCategory && catId > 200L) {
-    val newCatMap = hashMapOf(
-        "id" to catId,
-        "name" to catName,
-        "type" to type
-    )
-    // Otomatis daftarkan kategori baru bikinan Groq ke database master menu kategori lu!
-    firestore.collection("categories").document("cat_$catId").set(newCatMap)
-}
+        
         val kategoriLabel = if (targetCategory.isNotEmpty()) " Kategori [$targetCategory]" else ""
         val subKategoriLabel = if (targetKeyword.isNotEmpty()) " Spesifik Barang [$targetKeyword]" else ""
 
