@@ -116,6 +116,8 @@ class HistoryTransactionFragment : Fragment() {
                             put("categoryName", data["categoryName"] as? String ?: "Umum")
                             put("categoryId", (data["categoryId"] as? Number)?.toLong() ?: 0L)
                             put("note", data["note"] as? String ?: "Transaksi AI")
+                            // 🔥 AMAN TOTAL: Sekarang field debtId ditarik sempurna dari Firestore dan ikut dilempar!
+                            put("debtId", data["debtId"] as? String ?: "")
                         }
                         monthlyCloudList.add(itemMap)
                     }
@@ -145,7 +147,6 @@ class HistoryTransactionFragment : Fragment() {
                 }
 
                 groupMapCloud.forEach { (dateHeader, transactionsList) ->
-                    // ✨ MEWAH: Card wadah harian melengkung halus modern senada menu debt
                     val dateCard = MaterialCardView(context).apply {
                         radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
                         setCardBackgroundColor(Color.WHITE)
@@ -176,7 +177,6 @@ class HistoryTransactionFragment : Fragment() {
                         left.addView(TextView(context).apply { text = note; setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f })
                         left.addView(TextView(context).apply { text = categoryName; textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, (2 * density).toInt(), 0, 0) })
                         
-                        // Sinkronisasi arah penentuan warna text laporan
                         val isIncomeFlow = typeUpper == "INCOME" || typeUpper == "DEBT"
                         val rightText = if (isIncomeFlow) "+" else "-"
                         val rightColor = if (isIncomeFlow) "#0284C7" else "#EF4444"
