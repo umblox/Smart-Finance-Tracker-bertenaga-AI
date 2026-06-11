@@ -49,6 +49,9 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     private lateinit var rbIncome: RadioButton
     private lateinit var rbDebt: RadioButton
 
+    // ✅ PREMIUM FORMAT: Format tanggal & jam seragam di seluruh aspek input manual aplikasi
+    private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
+
     private val contactPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val contactUri: Uri? = result.data?.data
@@ -86,13 +89,11 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgManualPremiumType)
         val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnManualPremiumPick)
 
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        etDate.setText(sdf.format(Date()))
+        // Set default text box otomatis merekam hari ini lengkap dengan Jam dan Menit riil
+        etDate.setText(sdfPremium.format(Date()))
 
-        // Jembatan Dialog murni biar bisa di-dismiss dari dalam scope klik tombol batal
         val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
 
-        // 🔥 FIX SINKRONISASI UX: Membuat baris tombol kembar horizontal (Batal + Simpan)
         val actionButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             weightSum = 2f
@@ -166,7 +167,8 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
             if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty()) {
                 lifecycleScope.launch {
-                    val targetTime = try { sdf.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                    // ✅ PARSING AMAN: Memakai format penanggalan premium terpadu milidetik Long murni
+                    val targetTime = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
                     val selectedCat = filteredCategoriesCloud[spinnerCategory.selectedItemPosition]
                     val catId = selectedCat["id"] as Long
                     val catName = selectedCat["name"] as String
@@ -184,6 +186,8 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     }
 
                     val txId = "tx_${System.currentTimeMillis()}"
+                    val generatedDebtId = if (rbDebt.isChecked) "debt_${System.currentTimeMillis()}" else null
+
                     val txMap = hashMapOf(
                         "id" to txId,
                         "amount" to amountVal,
@@ -191,27 +195,27 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         "categoryId" to catId,
                         "categoryName" to catName,
                         "note" to finalNote,
-                        "timestamp" to targetTime
+                        "timestamp" to targetTime,
+                        "debtId" to generatedDebtId // ✅ SINKRON: Sekarang field debtId resmi tertanam di riwayat transaksi manual!
                     )
                     
                     firestore.collection("transactions").document(txId).set(txMap).await()
 
-                    if (rbDebt.isChecked) {
-                        val debtId = "debt_${System.currentTimeMillis()}"
+                    if (rbDebt.isChecked && generatedDebtId != null) {
                         val selectedDebtType = if (catId == 104L) "RECEIVABLE" else "DEBT"
                         
                         val debtMap = hashMapOf(
-                            "id" to debtId,
+                            "id" to generatedDebtId,
                             "contactName" to contactVal.uppercase(Locale.ROOT),
                             "contactPhoneNumber" to "0812",
-                            "amount" to amountVal,
-                            "remainingAmount" to amountVal,
+                            "amount" to amountValue,
+                            "remainingAmount" to amountValue,
                             "type" to selectedDebtType,
                             "note" to "Input Manual Form Cloud",
                             "timestamp" to targetTime,
                             "isPaid" to false
                         )
-                        firestore.collection("debts").document(debtId).set(debtMap).await()
+                        firestore.collection("debts").document(generatedDebtId).set(debtMap).await()
                     }
 
                     Toast.makeText(context, "Berhasil Disimpan Langsung ke Cloud Server!", Toast.LENGTH_SHORT).show()
