@@ -31,7 +31,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val txContext = java.lang.StringBuilder()
 
         try {
-            // 1. Ambil Data Master Kategori
             val categorySnapshot = firestore.collection("categories").get().await()
             for (doc in categorySnapshot.documents) {
                 val id = doc.getLong("id") ?: 0L
@@ -40,7 +39,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 catContext.append("- ID: $id, Nama: $name, Tipe: $type\n")
             }
 
-            // 2. Ambil Data Catatan Pinjaman Berjalan
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
                 val isPaid = doc.getBoolean("isPaid") ?: false
@@ -52,7 +50,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
-            // 3. Tarik seluruh riwayat transaksi riil dari Firestore Cloud
             val txSnapshot = firestore.collection("transactions").get().await()
             val sdfTx = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             for (doc in txSnapshot.documents) {
@@ -72,36 +69,32 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PERBAIKAN PROMPT MUTLAK: Mengunci kepintaran AI agar mampu menghitung nilai sisa pelunasan secara presisi
         val finalSystemPrompt = """
 Anda adalah asisten keuangan AI premium, sangat cerdas, analitis, dan solutif untuk user bernama Ikromul Umam (Mam).
 
 ⚠️ KUNCI TOPIK UTAMA (ABSOLUT):
-1. Tugas eksklusif Anda HANYA memproses, mencatat, menganalisis, dan menjawab segala hal yang berkaitan langsung dengan manajemen keuangan, anggaran, transaksi mutasi, serta utang piutang dan pinjam meminjam milik Ikromul Umam dalam aplikasi ini yang database nya bisa kamu baca dan tulis sesuai perintah.
-2. JIKA USER MEMINTA INFORMASI ATAU BERTANYA DI LUAR TOPIK KEUANGAN, ANDA WAJIB MENOLAKNYA SECARA HALUS DAN TEGAS. 
-3. Format penolakan jika keluar topik: Setel "action_type" menjadi "CHAT_ONLY" dan isi "ai_response" dengan kalimat: "Maaf ya Mam, sebagai asisten finansial premium Anda, saya hanya ditugaskan untuk mengelola dan menganalisis catatan keuangan atau transaksi Anda. Ada transaksi yang ingin dicatat saat ini?"
+1. Tugas eksklusif Anda HANYA memproses, mencatat, menganalisis, dan menjawab segala hal yang berkaitan langsung dengan manajemen keuangan, anggaran, transaksi mutasi, serta utang piutang dan pinjam meminjam milik Ikromul Umam dalam aplikasi ini.
+2. JIKA USER BERTANYA DI LUAR TOPIK KEUANGAN, ANDA WAJIB MENOLAKNYA SECARA HALUS DAN TEGAS. 
 
 🗓️ INFO HARI INI: $todayString
 
 🗂️ DATA MASTER KATEGORI REGISTERED:
 ${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
 
-🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
+🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI (Gunakan data ini untuk mencocokkan nama orang secara cerdas):
 ${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
 
 📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL:
 ${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else txContext.toString()}
 
-⚠️ ATURAN PELUNASAN DAN UTANG (ANTI-BODOH / ANTI-NOL):
-- Kata seperti "Beri", "Tolong", "Tampilkan" adalah kata perintah bahasa natural, BUKAN nama orang.
-- JIKA USER MEMINTA PELUNASAN / CICILAN UTANG ATAU PIUTANG (Contoh: "zakia telah melunasi hutang nya"), Anda WAJIB memeriksa bagian DATA CATATAN PINJAMAN BERJALAN SAAT INI untuk mencari nama kontak yang paling mirip (meskipun nama kontak memiliki tambahan teks atau kode khusus seperti tanggal di database). 
-- Ambil nilai "Sisa" uang dari orang tersebut di database, lalu masukkan angka nominal sisa tagihan tersebut ke dalam properti "amount" di dalam array "transactions"! Jangan biarkan properti "amount" bernilai 0 atau dikosongkan saat pelunasan!
-- Setel properti "action_type" menjadi "DEBT_PAYMENT" secara mutlak untuk segala bentuk pembayaran kembali, cicilan, atau pelunasan pinjaman!
+⚠️ ATURAN PELUNASAN / PEMBAYARAN UTANG:
+- Jika user berkata "zakia baru saja melunasi semua hutang nya", Anda WAJIB mengambil nilai sisa tagihan Zakia yang aktif dari data di atas (Rp 36885.0), lalu masukkan angka tersebut secara utuh ke properti "amount" dalam objek "transactions"!
+- Tulis jawaban konfirmasi pelunasan Anda secara lengkap dan indah di properti "ai_response". Sertakan rincian nominal dan sisa tagihan (Rp 0 setelah lunas) menggunakan poin-poin Markdown yang rapi sampai selesai! Jangan biarkan teks terpotong ditengah jalan!
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
   "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Tuliskan rincian lengkap rincian transaksi atau pelunasan data yang berhasil dieksekusi di sini.",
+  "ai_response": "Tuliskan jawaban konfirmasi pelunasan secara mendalam, lengkap dengan rincian poin pembayaran dari awal sampai selesai tanpa terpotong.",
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
     "target_date": "yyyy-MM-dd",
@@ -111,8 +104,8 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
   "transactions": [
     {
       "amount": 36885,
-      "contact_name": "NAMA_ORANG",
-      "clean_note": "PELUNASAN UTANG PIUTANG"
+      "contact_name": "ZAKIA GHAISANI ANNA REJOSO",
+      "clean_note": "PELUNASAN UTANG PIUTANG ALL"
     }
   ]
 }
@@ -151,7 +144,6 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
                 val actionType = jsonResult.optString("action_type", "").trim().uppercase(Locale.ROOT)
                 val aiResponse = jsonResult.optString("ai_response", "").trim()
                 
-                // 🔒 PENGAMAN MUTLAK: Hanya bypass VIEW_REPORT murni. Jika action_type membawa misi manipulasi data, WAJIB lewat gerbang asisten!
                 if (actionType == "VIEW_REPORT" && aiResponse.isNotEmpty()) {
                     return@withContext aiResponse
                 }
