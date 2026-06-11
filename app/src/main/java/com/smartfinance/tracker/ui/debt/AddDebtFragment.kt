@@ -1,28 +1,18 @@
 package com.smartfinance.tracker.ui.debt
 
-import android.Manifest
-import android.app.Activity
-import android.app.AlertDialog
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.provider.ContactsContract
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.button.MaterialButton
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.R
@@ -36,41 +26,19 @@ class AddDebtFragment : Fragment() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    private val sdfDisplay = SimpleDateFormat("d MMM yyyy", Locale("id", "ID"))
+    
+    // ✅ FORMAT PREMIUM TERPADU: Format penanggalan luxury untuk tampilan Buku Utang
+    private val sdfDisplayPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
+    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
     
     private var currentTab = "DEBT"
-    private var activeContactEditText: EditText? = null
     private var debtListenerRegistration: ListenerRegistration? = null
+    private val currentCalendar = Calendar.getInstance()
 
-    private val contactPickerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val contactUri = result.data?.data ?: return@registerForActivityResult
-            val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-            
-            requireContext().contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    if (nameIndex != -1) {
-                        val contactName = cursor.getString(nameIndex)
-                        activeContactEditText?.setText(contactName)
-                    }
-                }
-            }
-        }
-    }
-
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            launchNativeContactPicker()
-        } else {
-            Toast.makeText(context, "Izin kontak ditolak. Anda tetap bisa mengetik manual.", Toast.LENGTH_LONG).show()
-        }
-    }
+    private lateinit var tvMonthLabel: TextView
+    private lateinit var listContainer: LinearLayout
+    private lateinit var cardDebt: MaterialCardView
+    private lateinit var cardReceivable: MaterialCardView
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -78,126 +46,139 @@ class AddDebtFragment : Fragment() {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
-        val root = LinearLayout(context).apply {
+        val root = FrameLayout(context).apply { 
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) 
+        }
+        
+        val mainContent = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
+            setBackgroundColor(Color.parseColor("#F8FAFC")) 
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. HEADER VISUAL MODERN
+        // 1. HEADER BAR VISUAL LUXURY
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (14 * density).toInt())
             gravity = Gravity.CENTER_VERTICAL
         }
         val tvTitle = TextView(context).apply {
-            text = "🤝 Catatan Pinjaman"
+            text = "🤝 Buku Utang Piutang"
             textSize = 20f
             setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
             setTextColor(Color.parseColor("#1E293B"))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val btnAddManual = MaterialButton(context).apply {
-            text = "➕ PINJAMAN"
-            textSize = 12f
-            cornerRadius = (10 * density).toInt()
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
-            setTextColor(Color.WHITE)
-            insetTop = 0
-            insetBottom = 0
-        }
         headerLayout.addView(tvTitle)
-        headerLayout.addView(btnAddManual)
-        root.addView(headerLayout)
+        mainContent.addView(headerLayout)
 
-        // 2. SUMMARY CARDS
+        // 2. TIMELINE NAVIGASI BULANAN PREMIUM
+        val navMonthRow = LinearLayout(context).apply { 
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (14 * density).toInt()) 
+        }
+        val btnPrev = MaterialButton(context).apply { 
+            text = "◀"; cornerRadius = 10
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
+            setTextColor(Color.parseColor("#475569"))
+            insetTop = 0; insetBottom = 0
+            setOnClickListener { 
+                currentCalendar.add(Calendar.MONTH, -1)
+                refreshDebtListLive() 
+            }
+        }
+        tvMonthLabel = TextView(context).apply { 
+            textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B"))
+            gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) 
+        }
+        val btnNext = MaterialButton(context).apply { 
+            text = "▶"; cornerRadius = 10
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
+            setTextColor(Color.parseColor("#475569"))
+            insetTop = 0; insetBottom = 0
+            setOnClickListener { 
+                currentCalendar.add(Calendar.MONTH, 1)
+                refreshDebtListLive() 
+            }
+        }
+        navMonthRow.addView(btnPrev)
+        navMonthRow.addView(tvMonthLabel)
+        navMonthRow.addView(btnNext)
+        mainContent.addView(navMonthRow)
+
+        // 3. CARDS RINGKASAN SALDO BERJALAN
         val summaryLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (16 * density).toInt())
             weightSum = 2f
         }
-        val cardDebt = createPremiumSummaryCard(context, "Hutang Saya", "#DFA526")
-        val cardReceivable = createPremiumSummaryCard(context, "Piutang (Di Orang)", "#0284C7")
-        
+        cardDebt = createPremiumSummaryCard(context, "Hutang Aktif Saya", "#D97706")
+        cardReceivable = createPremiumSummaryCard(context, "Piutang Aktif (Di Orang)", "#0284C7")
         summaryLayout.addView(cardDebt)
         summaryLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams((12 * density).toInt(), 1) })
         summaryLayout.addView(cardReceivable)
-        root.addView(summaryLayout)
+        mainContent.addView(summaryLayout)
 
-        // 3. TABS CONTROL
+        // 4. KONTROL TAB LAYOUT
         val tabOuterContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (44 * density).toInt()).apply {
-                leftMargin = (16 * density).toInt()
-                rightMargin = (16 * density).toInt()
-                bottomMargin = (16 * density).toInt()
+                leftMargin = (16 * density).toInt(); rightMargin = (16 * density).toInt(); bottomMargin = (16 * density).toInt()
             }
-            background = GradientDrawable().apply {
-                cornerRadius = 12 * density
-                setColor(Color.parseColor("#E2E8F0"))
-            }
+            background = GradientDrawable().apply { cornerRadius = 12 * density; setColor(Color.parseColor("#E2E8F0")) }
         }
-
-        val btnTabDebt = MaterialButton(context).apply {
-            text = "Hutang Saya"
-            textSize = 13f
-            cornerRadius = (10 * density).toInt()
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-            insetTop = 0; insetBottom = 0
-        }
-        val btnTabReceivable = MaterialButton(context).apply {
-            text = "Piutang / Tagihan"
-            textSize = 13f
-            cornerRadius = (10 * density).toInt()
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-            insetTop = 0; insetBottom = 0
-        }
+        val btnTabDebt = MaterialButton(context).apply { text = "Hutang Saya"; textSize = 13f; cornerRadius = (10 * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabReceivable = MaterialButton(context).apply { text = "Piutang / Tagihan"; textSize = 13f; cornerRadius = (10 * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
         tabOuterContainer.addView(btnTabDebt)
         tabOuterContainer.addView(btnTabReceivable)
-        root.addView(tabOuterContainer)
+        mainContent.addView(tabOuterContainer)
 
-        // 4. DATA SCROLL CONTAINER
-        val scrollView = ScrollView(context).apply {
-            isFillViewport = true
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
-        val listContainer = LinearLayout(context).apply {
+        // 5. SCROLL VIEW DATA MUTASI
+        val scrollView = ScrollView(context).apply { isFillViewport = true }
+        listContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (24 * density).toInt())
         }
         scrollView.addView(listContainer)
-        root.addView(scrollView)
+        mainContent.addView(scrollView)
+        root.addView(mainContent)
 
-        btnAddManual.setOnClickListener {
-            showAddDebtManualDialog()
+        // FAB UNTUK MEMICU DIALOG INPUT MANUAL BARU
+        val fab = FloatingActionButton(context).apply {
+            setImageResource(android.R.drawable.ic_input_add)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+                setMargins(0, 0, (24 * density).toInt(), (24 * density).toInt())
+            }
+            setOnClickListener {
+                DebtManualDialog(currentTab) { refreshDebtListLive() }.show(parentFragmentManager, "DebtManualDialog")
+            }
         }
-
-        setPremiumTabStyles(btnTabDebt, btnTabDebt)
+        root.addView(fab)
 
         btnTabDebt.setOnClickListener {
             currentTab = "DEBT"
             setPremiumTabStyles(btnTabDebt, btnTabReceivable)
-            refreshDebtListLive(listContainer, cardDebt, cardReceivable)
+            refreshDebtListLive()
         }
-
         btnTabReceivable.setOnClickListener {
             currentTab = "RECEIVABLE"
             setPremiumTabStyles(btnTabReceivable, btnTabDebt)
-            refreshDebtListLive(listContainer, cardDebt, cardReceivable)
+            refreshDebtListLive()
         }
 
-        refreshDebtListLive(listContainer, cardDebt, cardReceivable)
+        setPremiumTabStyles(btnTabDebt, btnTabReceivable)
+        refreshDebtListLive()
         return root
     }
 
     private fun createPremiumSummaryCard(ctx: Context, title: String, valueColorHex: String): MaterialCardView {
         val density = ctx.resources.displayMetrics.density
         return MaterialCardView(ctx).apply {
-            radius = 14 * density
-            cardElevation = 2 * density
-            strokeWidth = 1
-            setStrokeColor(android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")))
+            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 
@@ -205,196 +186,39 @@ class AddDebtFragment : Fragment() {
                 orientation = LinearLayout.VERTICAL
                 setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
             }
-            val tvTitle = TextView(ctx).apply { text = title; setTextColor(Color.parseColor("#64748B")); textSize = 12f }
-            val tvValue = TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 16f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
-            
-            layout.addView(tvTitle)
-            layout.addView(tvValue)
+            layout.addView(TextView(ctx).apply { text = title; setTextColor(Color.parseColor("#64748B")); textSize = 11.5f })
+            layout.addView(TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 15.5f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) })
             addView(layout)
         }
     }
 
     private fun setPremiumTabStyles(active: MaterialButton, inactive: MaterialButton) {
         active.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
-        active.setTextColor(Color.WHITE)
-        active.setTypeface(null, Typeface.BOLD)
-        
+        active.setTextColor(Color.WHITE); active.setTypeface(null, Typeface.BOLD)
         inactive.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
-        inactive.setTextColor(Color.parseColor("#64748B"))
-        inactive.setTypeface(null, Typeface.NORMAL)
+        inactive.setTextColor(Color.parseColor("#64748B")); inactive.setTypeface(null, Typeface.NORMAL)
     }
 
-    private fun checkContactPermissionAndLaunch() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            launchNativeContactPicker()
-        } else {
-            requestPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-        }
-    }
-
-    private fun launchNativeContactPicker() {
-        val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-        contactPickerLauncher.launch(intent)
-    }
-
-    private fun showAddDebtManualDialog() {
+    private fun refreshDebtListLive() {
+        if (!isAdded) return
         val context = requireContext()
         val density = context.resources.displayMetrics.density
-        
-        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
-        val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
 
-        val etAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
-        val etNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
-        val spinnerCategory = viewInflated.findViewById<Spinner>(R.id.spinnerPremiumTxCategory)
-        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
-        val rbDebt = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxExpense)
-        val rbReceivable = viewInflated.findViewById<RadioButton>(R.id.rbPremiumTxIncome)
-
-        val tvCategoryLabel = viewInflated.findViewWithTag<TextView>("tvCategoryLabel") ?: (spinnerCategory.parent as ViewGroup).getChildAt((spinnerCategory.parent as ViewGroup).indexOfChild(spinnerCategory) - 1) as? TextView
-
-        spinnerCategory.visibility = View.GONE
-        tvCategoryLabel?.visibility = View.GONE
-
-        rbDebt.text = "Saya Berhutang (Hutang)"
-        rbReceivable.text = "Orang Lain Berhutang (Piutang)"
-        if (currentTab == "DEBT") rbDebt.isChecked = true else rbReceivable.isChecked = true
-
-        val contactLabel = TextView(context).apply {
-            text = "Nama Kontak Terkait:"
-            textSize = 12f; setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.BOLD)
-            setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
-        }
-        innerLayout.addView(contactLabel, 2)
-
-        val contactRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding((20 * density).toInt(), 0, (20 * density).toInt(), 0)
-        }
-        
-        val tilContact = TextInputLayout(context, null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox).apply {
-            boxStrokeColor = Color.parseColor("#0D9488")
-            setBoxCornerRadii(12 * density, 12 * density, 12 * density, 12 * density)
-        }
-        tilContact.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-
-        // ✅ FIX MUTLAK: Menggunakan 'val' agar terdefinisi dengan benar secara lokal di fungsi
-        val etContact = TextInputEditText(context).apply {
-            hint = "Contoh: JOKO atau AGUS"
-            setTextColor(Color.parseColor("#1E293B"))
-        }
-        activeContactEditText = etContact
-        tilContact.addView(etContact)
-        
-        val btnPick = MaterialButton(context).apply {
-            text = "👥 HUBUNG"; textSize = 11f; cornerRadius = (10 * density).toInt()
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#475569"))
-            setOnClickListener { checkContactPermissionAndLaunch() }
-        }
-        btnPick.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (54 * density).toInt()).apply { leftMargin = (10 * density).toInt() }
-        
-        contactRow.addView(tilContact); contactRow.addView(btnPick)
-        innerLayout.addView(contactRow, 3)
-
-        innerLayout.addView(TextView(context).apply { 
-            text = "Tanggal Transaksi (YYYY-MM-DD)"
-            textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
-        })
-        
-        val etDate = EditText(context).apply {
-            setText(sdfDate.format(Date()))
-            setTextColor(Color.parseColor("#2D3748")); textSize = 14.5f
-            setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (12 * density).toInt())
-        }
-        innerLayout.addView(etDate)
-
-        val actionButtonsRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL; weightSum = 2f
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
-                setMargins((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (20 * density).toInt()) 
-            }
-        }
-
-        val btnCancel = MaterialButton(context).apply {
-            text = "Batal"; textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
-        }
-        
-        val btnSave = MaterialButton(context).apply {
-            text = "Simpan Ke Cloud"; textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        actionButtonsRow.addView(btnCancel); actionButtonsRow.addView(btnSave)
-        innerLayout.addView(actionButtonsRow)
-
-        val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
-        btnCancel.setOnClickListener { dialog.dismiss() }
-
-        btnSave.setOnClickListener {
-            val name = etContact.text.toString().trim().uppercase(Locale.ROOT)
-            val amountValue = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-            val noteText = etNote.text.toString().trim()
-            val dateVal = etDate.text.toString().trim()
-            val selectedType = if (rgType.checkedRadioButtonId == rbDebt.id) "DEBT" else "RECEIVABLE"
-
-            if (name.isNotEmpty() && amountValue > 0.0 && dateVal.isNotEmpty()) {
-                val targetTimestamp = try { sdfDate.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
-                val debtId = "debt_${System.currentTimeMillis()}"
-                
-                val debtMap = hashMapOf(
-                    "id" to debtId,
-                    "contactName" to name,
-                    "contactPhoneNumber" to "0812",
-                    "amount" to amountValue,
-                    "remainingAmount" to amountValue,
-                    "type" to selectedType,
-                    "note" to noteText.ifEmpty { "Input Manual Premium Cloud" },
-                    "timestamp" to targetTimestamp,
-                    "isPaid" to false
-                )
-                firestore.collection("debts").document(debtId).set(debtMap)
-
-                val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
-                val catId = if (selectedType == "RECEIVABLE") 104L else 101L
-                val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
-                val txId = "tx_${System.currentTimeMillis()}"
-                
-                val txMap = hashMapOf(
-                    "id" to txId,
-                    "amount" to amountValue,
-                    "type" to flowType,
-                    "categoryId" to catId,
-                    "categoryName" to catName,
-                    "note" to "[$catName] $name - ${noteText.ifEmpty { "INPUT MANUAL PINJAMAN" }.uppercase(Locale.ROOT)}",
-                    "timestamp" to targetTimestamp,
-                    "debtId" to debtId
-                )
-                firestore.collection("transactions").document(txId).set(txMap)
-                Toast.makeText(context, "Pinjaman Berhasil Tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            } else {
-                Toast.makeText(context, "Mohon lengkapi nominal dan nama kontak!", Toast.LENGTH_SHORT).show()
-            }
-        }
-        dialog.show()
-    }
-
-    private fun refreshDebtListLive(container: LinearLayout, cardDebt: MaterialCardView, cardReceivable: MaterialCardView) {
-        val density = requireContext().resources.displayMetrics.density
+        tvMonthLabel.text = sdfMonthLabel.format(currentCalendar.time).uppercase(Locale.ROOT)
         debtListenerRegistration?.remove()
 
         debtListenerRegistration = firestore.collection("debts")
             .addSnapshotListener { snapshots, e ->
                 if (e != null || snapshots == null) return@addSnapshotListener
 
-                container.removeAllViews()
+                listContainer.removeAllViews()
                 var totalDebtSum = 0.0
                 var totalReceivableSum = 0.0
 
-                val allDebtsList = ArrayList<HashMap<String, Any>>()
-                
+                val targetMonth = currentCalendar.get(Calendar.MONTH)
+                val targetYear = currentCalendar.get(Calendar.YEAR)
+                val monthlyFilteredDebts = ArrayList<HashMap<String, Any>>()
+
                 for (doc in snapshots.documents) {
                     val data = doc.data ?: continue
                     val isPaid = data["isPaid"] as? Boolean ?: false
@@ -406,192 +230,82 @@ class AddDebtFragment : Fragment() {
                         if (type == "DEBT") totalDebtSum += remainingAmount else totalReceivableSum += remainingAmount
                     }
                     
-                    val itemMap = HashMap(data)
-                    itemMap["id"] = doc.id
-                    itemMap["timestamp"] = timestamp
-                    allDebtsList.add(itemMap)
+                    val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                    if (txCal.get(Calendar.MONTH) == targetMonth && txCal.get(Calendar.YEAR) == targetYear) {
+                        val itemMap = HashMap(data)
+                        itemMap["id"] = doc.id
+                        itemMap["timestamp"] = timestamp
+                        monthlyFilteredDebts.add(itemMap)
+                    }
                 }
 
-                allDebtsList.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
-
+                // Inject data live ke Summary Card Atas
                 (((cardDebt.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalDebtSum)
                 (((cardReceivable.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalReceivableSum)
 
-                val filteredList = allDebtsList.filter { (it["type"] as? String) == currentTab }
+                val activeTabFiltered = monthlyFilteredDebts.filter { (it["type"] as? String) == currentTab }
 
-                if (filteredList.isEmpty()) {
-                    val tvEmpty = TextView(requireContext()).apply {
-                        text = "\nTidak ada data catatan aktif pada kategori ini."
-                        textSize = 14f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
+                if (activeTabFiltered.isEmpty()) {
+                    listContainer.addView(TextView(context).apply {
+                        text = "\nTidak ada catatan pinjaman pada periode bulan ini."
+                        textSize = 13.5f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
                         setTypeface(null, Typeface.ITALIC)
-                    }
-                    container.addView(tvEmpty)
-                } else {
-                    filteredList.forEach { debtItem ->
-                        val itemCard = MaterialCardView(requireContext()).apply {
-                            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
-                            setCardBackgroundColor(Color.WHITE)
-                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10 * density).toInt() }
-                        }
-
-                        val cardInsideLayout = LinearLayout(requireContext()).apply {
-                            orientation = LinearLayout.HORIZONTAL
-                            setPadding((16 * density).toInt(), (18 * density).toInt(), (16 * density).toInt(), (18 * density).toInt())
-                            gravity = Gravity.CENTER_VERTICAL
-                        }
-
-                        val leftInfo = LinearLayout(requireContext()).apply {
-                            orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                        }
-                        
-                        val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
-                        val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
-                        val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
-                        val docId = (debtItem["id"] as? String) ?: ""
-                        val debtType = (debtItem["type"] as? String) ?: "DEBT"
-                        val debtTime = (debtItem["timestamp"] as? Long) ?: System.currentTimeMillis()
-
-                        leftInfo.addView(TextView(requireContext()).apply { text = contactName; textSize = 15.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
-                        
-                        val dateAndStatusLabel = "📅 ${sdfDisplay.format(Date(debtTime))} • Sisa: ${formatRupiah.format(remainingAmount)}"
-                        val statusLabel = if (isPaid) "LUNAS ✅" else dateAndStatusLabel
-                        leftInfo.addView(TextView(requireContext()).apply { text = statusLabel; textSize = 11.5f; setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B")); setPadding(0, (4 * density).toInt(), 0, 0) })
-                        cardInsideLayout.addView(leftInfo)
-
-                        val tvOriginalAmount = TextView(requireContext()).apply {
-                            text = formatRupiah.format((debtItem["amount"] as? Number)?.toDouble() ?: 0.0); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
-                            setTextColor(if (currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7")); gravity = Gravity.END
-                        }
-                        cardInsideLayout.addView(tvOriginalAmount)
-                        
-                        itemCard.addView(cardInsideLayout)
-                        itemCard.setOnClickListener { 
-                            showDebtActionOptionsCloud(docId, contactName, remainingAmount, isPaid, debtType)
-                        }
-                        container.addView(itemCard)
-                    }
-                }
-            }
-    }
-
-    private fun showDebtActionOptionsCloud(docId: String, contactName: String, remainingAmount: Double, isPaid: Boolean, debtType: String) {
-        val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
-        val density = requireContext().resources.displayMetrics.density
-        
-        AlertDialog.Builder(requireContext()).apply {
-            setTitle("Aksi Kontak: $contactName")
-            setItems(options) { _, which ->
-                if (which == 0) {
-                    if (isPaid) {
-                        Toast.makeText(context, "Pinjaman ini sudah lunas sepenuhnya!", Toast.LENGTH_SHORT).show()
-                        return@setItems
-                    }
-                    
-                    val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_premium, null, false)
-                    val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
-                    
-                    val etPayAmount = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxAmount)
-                    val etPayNote = viewInflated.findViewById<TextInputEditText>(R.id.etPremiumTxNote)
-                    val spinnerCategory = viewInflated.findViewById<Spinner>(R.id.spinnerPremiumTxCategory)
-                    val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgPremiumTxType)
-                    
-                    val tvCategoryLabel = viewInflated.findViewWithTag<TextView>("tvCategoryLabel") ?: (spinnerCategory.parent as ViewGroup).getChildAt((spinnerCategory.parent as ViewGroup).indexOfChild(spinnerCategory) - 1) as? TextView
-
-                    spinnerCategory.visibility = View.GONE
-                    tvCategoryLabel?.visibility = View.GONE
-                    rgType.visibility = View.GONE
-
-                    etPayAmount.setHint("Masukkan Nominal Pembayaran (Rp)")
-                    etPayNote.setHint("Keterangan cicilan (Boleh kosong)")
-
-                    innerLayout.addView(TextView(context).apply { 
-                        text = "Tanggal Pembayaran (YYYY-MM-DD)"
-                        textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding((20 * density).toInt(), (14 * density).toInt(), 0, (4 * density).toInt())
                     })
+                    return@addSnapshotListener
+                }
+
+                activeTabFiltered.sortByDescending { (it["timestamp"] as? Long) ?: 0L }
+
+                activeTabFiltered.forEach { debtItem ->
+                    val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
+                    val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
+                    val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
+                    val docId = (debtItem["id"] as? String) ?: ""
+                    val debtType = (debtItem["type"] as? String) ?: "DEBT"
+                    val debtTime = (debtItem["timestamp"] as? Long) ?: System.currentTimeMillis()
+
+                    val itemCard = MaterialCardView(context).apply {
+                        radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
+                        setCardBackgroundColor(Color.WHITE)
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10 * density).toInt() }
+                        
+                        setOnClickListener { 
+                            // Melempar data komplit reaktif ke komponen Editor Dialog khusus kita
+                            val passMap = HashMap(debtItem)
+                            DebtEditorDialog(passMap) { refreshDebtListLive() }.show(parentFragmentManager, "DebtEditorDialog")
+                        }
+                    }
+
+                    val rowLayout = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                        setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+                    }
+
+                    val leftLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+                    leftLayout.addView(TextView(context).apply { text = contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
                     
-                    val etPayDate = EditText(context).apply {
-                        setText(sdfDate.format(Date()))
-                        setTextColor(Color.parseColor("#2D3748")); textSize = 14.5f
-                        setPadding((20 * density).toInt(), (12 * density).toInt(), (20 * density).toInt(), (12 * density).toInt())
-                    }
-                    innerLayout.addView(etPayDate)
-
-                    val actionButtonsRow = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL; weightSum = 2f
-                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
-                            setMargins((20 * density).toInt(), (24 * density).toInt(), (20 * density).toInt(), (20 * density).toInt()) 
-                        }
-                    }
-
-                    val btnCancelPay = MaterialButton(context).apply {
-                        text = "Batal"; textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
-                        backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (12 * density).toInt() }
-                    }
+                    val dateAndStatusLabel = "📅 ${sdfDisplayPremium.format(Date(debtTime))} \nSisa Tagihan: ${formatRupiah.format(remainingAmount)}"
+                    val statusLabel = if (isPaid) "LUNAS SEPENUHNYA ✅" else dateAndStatusLabel
                     
-                    val btnSavePay = MaterialButton(context).apply {
-                        text = "Proses Pembayaran"; textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
-                        backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    leftLayout.addView(TextView(context).apply { 
+                        text = statusLabel; textSize = 11.5f
+                        setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B"))
+                        setPadding(0, (4 * density).toInt(), 0, 0) 
+                    })
+                    rowLayout.addView(leftLayout)
+
+                    val tvOriginalAmount = TextView(context).apply {
+                        text = formatRupiah.format((debtItem["amount"] as? Number)?.toDouble() ?: 0.0)
+                        textSize = 14.5f; setTypeface(null, Typeface.BOLD)
+                        setTextColor(if (currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
+                        gravity = Gravity.END
                     }
-                    actionButtonsRow.addView(btnCancelPay); actionButtonsRow.addView(btnSavePay)
-                    innerLayout.addView(actionButtonsRow)
-
-                    val payDialog = AlertDialog.Builder(context).setView(viewInflated).create()
-                    btnCancelPay.setOnClickListener { payDialog.dismiss() }
-
-                    btnSavePay.setOnClickListener {
-                        val payValue = etPayAmount.text.toString().toDoubleOrNull() ?: 0.0
-                        val userPayNote = etPayNote.text.toString().trim()
-                        val payDateVal = etPayDate.text.toString().trim()
-
-                        if (payValue > 0.0 && payDateVal.isNotEmpty()) {
-                            val payTimestamp = try { sdfDate.parse(payDateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
-                            val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
-                            
-                            firestore.collection("debts").document(docId).update(
-                                "remainingAmount", newRemaining,
-                                "isPaid", newRemaining <= 0.0
-                            )
-
-                            val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
-                            val targetCatId = if (debtType == "DEBT") 102L else 103L
-                            val targetCatName = if (debtType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
-                            val txId = "tx_${System.currentTimeMillis()}"
-
-                            val payTransactionMap = hashMapOf(
-                                "id" to txId,
-                                "amount" to payValue,
-                                "type" to flowType,
-                                "categoryId" to targetCatId,
-                                "categoryName" to targetCatName,
-                                "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL CLOUD" }.uppercase(Locale.ROOT)}",
-                                "timestamp" to payTimestamp,
-                                "debtId" to docId
-                            )
-                            firestore.collection("transactions").document(txId).set(payTransactionMap)
-                            Toast.makeText(context, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
-                            payDialog.dismiss()
-                        } else {
-                            Toast.makeText(context, "Mohon masukkan nominal cicilan valid!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    payDialog.show()
-                } else if (which == 1) {
-                    AlertDialog.Builder(context).apply {
-                        setTitle("Hapus Data")
-                        setMessage("Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari $contactName?")
-                        setPositiveButton("Hapus") { _, _ ->
-                            firestore.collection("debts").document(docId).delete()
-                            Toast.makeText(context, "Catatan berhasil dihapus dari awan!", Toast.LENGTH_SHORT).show()
-                        }
-                        setNegativeButton("Batal", null)
-                        show()
-                    }
+                    rowLayout.addView(tvOriginalAmount)
+                    
+                    itemCard.addView(rowLayout)
+                    listContainer.addView(itemCard)
                 }
             }
-            show()
-        }
     }
 
     override fun onDestroyView() {
