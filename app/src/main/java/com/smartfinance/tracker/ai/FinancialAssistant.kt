@@ -14,10 +14,10 @@ class FinancialAssistant(private val context: Context) {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
-        // 🔥 FIX MUTLAK ANTI-PATAH STRINGS: Menggunakan Regex untuk membuang tag block ```json secara instan
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("^```json\\s*"), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("^```\\s*"), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("^
+```\\s*"), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("\\s*```$"), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -31,7 +31,6 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (actionType == "VIEW_REPORT") {
-                // ✅ CLEAN UP: Parameter 'aiResponse' tak terpakai telah dibuang murni dari panggilan fungsi ini
                 return compileAiReport(cleanJsonStr)
             }
 
@@ -104,7 +103,7 @@ class FinancialAssistant(private val context: Context) {
             "categoryName" to catName,
             "note" to "[$selectedType] $sanitizedName - INPUT AUTOMATIC AI",
             "timestamp" to timestampValue,
-            "debtId" to debtId // 🔥 SINKRON TOTAL: AI sekarang otomatis menyuntikkan jembatan KTP debtId ke transaksi penyeimbang!
+            "debtId" to debtId
         )
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
@@ -115,15 +114,22 @@ class FinancialAssistant(private val context: Context) {
         var matchDocId: String? = null
         var matchAmount = 0.0
         var matchType = "DEBT"
-        var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }
+        var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
+
+        val cleanedInputName = contactNameRaw.uppercase(Locale.ROOT).trim()
 
         for (doc in snapshot.documents) {
             val isPaid = doc.getBoolean("isPaid") ?: false
             if (!isPaid) {
-                val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT)
+                val dbName = (doc.getString("contactName") ?: "").uppercase(Locale.ROOT).trim()
                 val remainingAmount = doc.getDouble("remainingAmount") ?: 0.0
                 
-                if (dbName == contactNameRaw.uppercase(Locale.ROOT) || aiResponseUpper.contains(dbName) || finalAmount == remainingAmount) {
+                // 🔥 FIX SINKRONISASI COCOK MASSAL: Menggunakan pendeteksian dua arah (.contains) agar 'ZAKIA GHAISANI ANNA REJOSO 01/03' lolos terdeteksi kata 'ZAKIA'
+                val isNameMatch = dbName.contains(cleanedInputName) || 
+                                  cleanedInputName.contains(dbName) || 
+                                  aiResponseUpper.contains(dbName)
+
+                if (isNameMatch || finalAmount == remainingAmount) {
                     matchDocId = doc.id
                     matchAmount = remainingAmount
                     matchType = doc.getString("type") ?: "DEBT"
@@ -143,6 +149,7 @@ class FinancialAssistant(private val context: Context) {
                 "isPaid", nextRemaining <= 0.0
             ).await()
 
+            // Penyeimbang rumus kas dashboard keuangan utama Anda
             val txType = if (matchType == "DEBT") "EXPENSE" else "INCOME"
             val catId = if (matchType == "DEBT") 102L else 103L
             val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
@@ -156,7 +163,7 @@ class FinancialAssistant(private val context: Context) {
                 "categoryName" to catName,
                 "note" to "[$catName] $matchContactName - CICILAN AI CLOUD",
                 "timestamp" to targetTimestamp,
-                "debtId" to matchDocId // Menjaga jembatan ID cicilan pembayaran utang
+                "debtId" to matchDocId
             )
             firestore.collection("transactions").document(txId).set(payTxMap).await()
         }
@@ -183,7 +190,6 @@ class FinancialAssistant(private val context: Context) {
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
-    // ✅ CLEAN UP: Parameter 'aiResponse' dibuang bersih untuk membasmi logs warning kompilator
     private suspend fun compileAiReport(cleanJsonStr: String): String {
         val snapshot = firestore.collection("transactions").get().await()
         val json = JSONObject(cleanJsonStr)
