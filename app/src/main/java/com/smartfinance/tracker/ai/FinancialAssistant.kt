@@ -37,6 +37,7 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
+                    // Mengunci waktu eksekusi riil saat ini (Termasuk Jam dan Menit riil)
                     val targetTimestamp = System.currentTimeMillis()
                     val finalAmount = parseAmount(item)
 
@@ -194,7 +195,6 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
-        // 🔥 FIX STRUKTUR KATEGORI BARU: Menyertakan properti iconName dan parentCategoryId agar lolos validasi render UI Dialog!
         val isNewCategory = item.optBoolean("is_new_category", false)
         if (isNewCategory && catId > 200L) {
             val newCatMap = hashMapOf(
@@ -234,13 +234,12 @@ class FinancialAssistant(private val context: Context) {
         var incSum = 0.0
         var expSum = 0.0
         val calToday = Calendar.getInstance()
-        val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
+        val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")) // ✅ FORMAT SINKRON SPREAD
 
         for (doc in snapshot.documents) {
             val amt = doc.getDouble("amount") ?: 0.0
             val type = doc.getString("type") ?: "EXPENSE"
             
-            // 🔥 SINKRONISASI FIELD LAPORAN: Mengambil field categoryName secara aman, dipangkas spasi silumannya
             val currentCategoryName = (doc.getString("categoryName") ?: "Umum").uppercase(Locale.ROOT).trim()
             val note = (doc.getString("note") ?: "").uppercase(Locale.ROOT).trim()
             val timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
@@ -311,7 +310,7 @@ class FinancialAssistant(private val context: Context) {
 
     private fun parseTransactionDate(dateStr: String): Long {
         if (dateStr.trim().isEmpty()) return System.currentTimeMillis()
-        return try { SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+        return try { SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
     }
 
     private fun parseAmount(item: JSONObject): Double {
