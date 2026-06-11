@@ -19,6 +19,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
+import com.smartfinance.tracker.ui.report.DetailCategoryReportFragment
 import com.smartfinance.tracker.ui.report.ReportFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import java.text.NumberFormat
@@ -34,7 +35,7 @@ class DashboardFragment : Fragment() {
 
     private lateinit var chartContainer: LinearLayout
     private lateinit var topExpenseContainer: LinearLayout
-    private lateinit var recentTxContainer: LinearLayout // ✅ KONSISTEN: Tetap gunakan nama asli properti kelas
+    private lateinit var recentTxContainer: LinearLayout
     
     private lateinit var tvBalance: TextView
     private lateinit var tvIncomeSummary: TextView
@@ -45,6 +46,9 @@ class DashboardFragment : Fragment() {
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private var selectedTopFilter = "BULAN INI"
+    
+    // Format Waktu dan Tanggal Premium Sesuai Request Mutlak
+    private val sdfPremiumDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -77,7 +81,6 @@ class DashboardFragment : Fragment() {
             setPadding(0, 4, 0, (16 * density).toInt())
         })
 
-        // 1. BALUTAN SALDO PREMIUM TEAL OVAL
         val cardBalance = MaterialCardView(context).apply { 
             radius = 16 * density
             cardElevation = 2 * density
@@ -95,7 +98,6 @@ class DashboardFragment : Fragment() {
         cardBalance.addView(balanceLayout)
         mainLayout.addView(cardBalance)
 
-        // 2. SUMMARY KAS MINI CARD
         val statsRowContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
@@ -126,7 +128,6 @@ class DashboardFragment : Fragment() {
         statsRowContainer.addView(cardExp)
         mainLayout.addView(statsRowContainer)
 
-        // 3. CHART INFOGRAFIS MODERN
         val headerReportRow = createHeaderSectionRow("Grafik Laporan Keuangan", "Detail Laporan") {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -151,9 +152,9 @@ class DashboardFragment : Fragment() {
         cardChart.addView(chartInsideVerticalLayout)
         mainLayout.addView(cardChart)
 
-        // 4. MODUL PENGELUARAN TERATAS
+        // 🔥 REDIREKSI PREMIUM: Tombol "Lihat Analisis" sekarang menembak menu detail tersembunyi kita yang baru!
         val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran Teratas", "Lihat Analisis") {
-            (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
+            (activity as? MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
         }
         mainLayout.addView(headerTopExpenseRow)
 
@@ -203,13 +204,11 @@ class DashboardFragment : Fragment() {
         cardTopExpense.addView(topExpenseInsideLayout)
         mainLayout.addView(cardTopExpense)
 
-        // 5. MODUL TRANSAKSI TERKINI
         val headerRecentRow = createHeaderSectionRow("Transaksi Terkini", "Lihat Semua") {
             (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
         }
         mainLayout.addView(headerRecentRow)
 
-        // ✅ FIX 212 & 216: Menggunakan referensi properti kelas yang benar
         recentTxContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -284,9 +283,12 @@ class DashboardFragment : Fragment() {
             .addSnapshotListener { snapshots, e ->
                 if (e != null || snapshots == null) return@addSnapshotListener
 
-                val sdf = SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
-                val calToday = Calendar.getInstance()
-                val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+                // Baca referensi waktu aktif dari SharedPreferences agar sinkron dua arah
+                val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
+
+                val calToday = Calendar.getInstance().apply { timeInMillis = activeTimePrefs }
+                val calLastMonth = Calendar.getInstance().apply { timeInMillis = activeTimePrefs; add(Calendar.MONTH, -1) }
 
                 var balanceTotal = 0.0
                 var incomeThisMonth = 0.0
@@ -304,18 +306,23 @@ class DashboardFragment : Fragment() {
                     val categoryName = data["categoryName"] as? String ?: "Umum"
                     val note = data["note"] as? String ?: "Transaksi AI"
 
+                    if (typeRaw == "INCOME" || typeRaw == "DEBT") {
+                        balanceTotal += amount
+                    } else if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") {
+                        balanceTotal -= amount
+                    }
+
                     val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
                     val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                     val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
 
-                    if (typeRaw == "INCOME" || typeRaw == "DEBT") {
-                        balanceTotal += amount
-                        if (isThisMonth) incomeThisMonth += amount
-                        if (isLastMonth) incomeLastMonth += amount
-                    } else if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") {
-                        balanceTotal -= amount
-                        if (isThisMonth) expenseThisMonth += amount
-                        if (isLastMonth) expenseLastMonth += amount
+                    if (isThisMonth) {
+                        if (typeRaw == "INCOME" || typeRaw == "DEBT") incomeThisMonth += amount
+                        if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") expenseThisMonth += amount
+                    }
+                    if (isLastMonth) {
+                        if (typeRaw == "INCOME" || typeRaw == "DEBT") incomeLastMonth += amount
+                        if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") expenseLastMonth += amount
                     }
 
                     val itemMap = HashMap<String, Any>().apply {
@@ -344,8 +351,11 @@ class DashboardFragment : Fragment() {
                 val incDiffPercent = if (incomeLastMonth > 0) ((incomeThisMonth - incomeLastMonth) / incomeLastMonth * 100).toInt() else 0
                 val expDiffPercent = if (expenseLastMonth > 0) ((expenseThisMonth - expenseLastMonth) / expenseLastMonth * 100).toInt() else 0
 
+                val sdfMonthLabel = SimpleDateFormat("MMMM", Locale("id", "ID"))
+                val labelBulanIni = sdfMonthLabel.format(calToday.time)
+
                 summaryLayout.addView(TextView(context).apply {
-                    text = "🔹 Bulan Lalu: Pemasukan ${formatRupiah.format(incomeLastMonth)} • Pengeluaran ${formatRupiah.format(expenseLastMonth)}"
+                    text = "🔹 Ringkasan Kas Bulan $labelBulanIni Terpusat"
                     textSize = 11.5f; setTextColor(Color.parseColor("#64748B")); setPadding(0, 0, 0, (2 * density).toInt())
                 })
 
@@ -357,7 +367,7 @@ class DashboardFragment : Fragment() {
                 })
                 chartContainer.addView(summaryLayout)
 
-                // 3. PENGELUARAN TERATAS
+                // PENGELUARAN TERATAS
                 topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
                 val filteredExpenses = allTxList.filter { item -> 
@@ -406,8 +416,7 @@ class DashboardFragment : Fragment() {
                         val iconCircle = FrameLayout(context).apply {
                             layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                             background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.WHITE) }
-                            val txt = TextView(context).apply { text = "💰"; textSize = 14f; gravity = Gravity.CENTER }
-                            addView(txt)
+                            addView(TextView(context).apply { text = "💰"; textSize = 14f; gravity = Gravity.CENTER })
                         }
                         rowLayout.addView(iconCircle)
 
@@ -431,8 +440,7 @@ class DashboardFragment : Fragment() {
                     }
                 }
 
-                // 4. TRANSAKSI TERKINI
-                // ✅ FIX 436, 441, & 493: Menembak target properti container yang sah
+                // TRANSAKSI TERKINI DENGAN FORMAT PREMIUM JAM MENIT
                 recentTxContainer.removeAllViews()
                 val recentTxList = allTxList.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }.take(4)
                 
@@ -463,12 +471,11 @@ class DashboardFragment : Fragment() {
                         val iconCircle = FrameLayout(context).apply {
                             layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                             background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#F1F5F9")) }
-                            val txt = TextView(context).apply { 
+                            addView(TextView(context).apply { 
                                 text = if (isInc) "📥" else "💸"
                                 textSize = 15f
                                 gravity = Gravity.CENTER 
-                            }
-                            addView(txt)
+                            })
                         }
                         rowLayout.addView(iconCircle)
 
@@ -477,7 +484,9 @@ class DashboardFragment : Fragment() {
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                         }
                         centerInfo.addView(TextView(context).apply { text = note; setTextColor(Color.parseColor("#1E293B")); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
-                        centerInfo.addView(TextView(context).apply { text = sdf.format(Date(timestamp)); setTextColor(Color.parseColor("#94A3B8")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
+                        
+                        // 🔥 TAMPILAN FORMAT JAM MENIT PREMIUM
+                        centerInfo.addView(TextView(context).apply { text = sdfPremiumDateTime.format(Date(timestamp)); setTextColor(Color.parseColor("#94A3B8")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
                         rowLayout.addView(centerInfo)
 
                         val colorHex = if (isInc) "#0284C7" else "#F43F5E"
