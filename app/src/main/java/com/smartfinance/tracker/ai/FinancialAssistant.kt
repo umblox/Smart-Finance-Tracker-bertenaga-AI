@@ -194,13 +194,16 @@ class FinancialAssistant(private val context: Context) {
             }
         }
 
-        // 🔥 AMAN & PRESET: Tempat eksekusi pendaftaran kategori baru yang sah dan lolos kompilasi
+        // 🔥 FIX STRUKTUR KATEGORI BARU: Menyertakan properti iconName dan parentCategoryId agar lolos validasi render UI Dialog!
         val isNewCategory = item.optBoolean("is_new_category", false)
         if (isNewCategory && catId > 200L) {
             val newCatMap = hashMapOf(
                 "id" to catId,
                 "name" to catName,
-                "type" to type
+                "type" to type,
+                "iconName" to "ic_custom",
+                "parentCategoryId" to null,
+                "isLocked" to false
             )
             firestore.collection("categories").document("cat_$catId").set(newCatMap).await()
         }
@@ -225,8 +228,8 @@ class FinancialAssistant(private val context: Context) {
         
         val timeRange = filterObj?.optString("time_range", "MONTHLY") ?: "MONTHLY"
         val targetDateStr = filterObj?.optString("target_date", "") ?: ""
-        val targetCategory = filterObj?.optString("target_category", "")?.uppercase(Locale.ROOT) ?: ""
-        val targetKeyword = filterObj?.optString("target_keyword", "")?.uppercase(Locale.ROOT) ?: ""
+        val targetCategory = filterObj?.optString("target_category", "")?.uppercase(Locale.ROOT)?.trim() ?: ""
+        val targetKeyword = filterObj?.optString("target_keyword", "")?.uppercase(Locale.ROOT)?.trim() ?: ""
 
         var incSum = 0.0
         var expSum = 0.0
@@ -236,8 +239,10 @@ class FinancialAssistant(private val context: Context) {
         for (doc in snapshot.documents) {
             val amt = doc.getDouble("amount") ?: 0.0
             val type = doc.getString("type") ?: "EXPENSE"
-            val catName = doc.getString("categoryName") ?: "Umum"
-            val note = doc.getString("note") ?: ""
+            
+            // 🔥 SINKRONISASI FIELD LAPORAN: Mengambil field categoryName secara aman, dipangkas spasi silumannya
+            val currentCategoryName = (doc.getString("categoryName") ?: "Umum").uppercase(Locale.ROOT).trim()
+            val note = (doc.getString("note") ?: "").uppercase(Locale.ROOT).trim()
             val timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
 
             val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
@@ -269,14 +274,11 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (isTimeMatch) {
-                val currentTxCat = catName.uppercase(Locale.ROOT)
-                val currentTxNote = note.uppercase(Locale.ROOT)
-
-                if (targetCategory.isNotEmpty() && !currentTxCat.contains(targetCategory)) {
+                if (targetCategory.isNotEmpty() && !currentCategoryName.contains(targetCategory) && !targetCategory.contains(currentCategoryName)) {
                     isTimeMatch = false
                 }
 
-                if (isTimeMatch && targetKeyword.isNotEmpty() && !currentTxNote.contains(targetKeyword)) {
+                if (isTimeMatch && targetKeyword.isNotEmpty() && !note.contains(targetKeyword)) {
                     isTimeMatch = false
                 }
             }
