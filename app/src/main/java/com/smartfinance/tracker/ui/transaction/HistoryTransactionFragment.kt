@@ -32,6 +32,9 @@ class HistoryTransactionFragment : Fragment() {
     private lateinit var tvMonthLabel: TextView
     private lateinit var transactionListContainer: LinearLayout
 
+    // ✅ PREMIUM CLOCK FORMAT: Formatter khusus untuk menarik waktu jam & menit di baris item mutasi
+    private val sdfPremiumClock = SimpleDateFormat("HH:mm 'WIB'", Locale("id", "ID"))
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -48,7 +51,6 @@ class HistoryTransactionFragment : Fragment() {
         }
         mainContent.addView(tvTitle)
 
-        // Navigasi Bulan Elegan Gaya Premium
         val navMonth = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (14 * density).toInt()) }
         val btnPrev = MaterialButton(context).apply { text = "◀"; cornerRadius = 10; backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0")); setTextColor(Color.parseColor("#475569")); setOnClickListener { currentCalendar.add(Calendar.MONTH, -1); observeCloudHistoryLive() }; insetTop = 0; insetBottom = 0 }
         tvMonthLabel = TextView(context).apply { textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")); gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
@@ -116,7 +118,6 @@ class HistoryTransactionFragment : Fragment() {
                             put("categoryName", data["categoryName"] as? String ?: "Umum")
                             put("categoryId", (data["categoryId"] as? Number)?.toLong() ?: 0L)
                             put("note", data["note"] as? String ?: "Transaksi AI")
-                            // 🔥 AMAN TOTAL: Sekarang field debtId ditarik sempurna dari Firestore dan ikut dilempar!
                             put("debtId", data["debtId"] as? String ?: "")
                         }
                         monthlyCloudList.add(itemMap)
@@ -172,10 +173,16 @@ class HistoryTransactionFragment : Fragment() {
                         val categoryName = item["categoryName"] as String
                         val amount = item["amount"] as Double
                         val typeUpper = item["type"] as String
+                        val timestamp = item["timestamp"] as Long
 
                         val left = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
                         left.addView(TextView(context).apply { text = note; setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f })
-                        left.addView(TextView(context).apply { text = categoryName; textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, (2 * density).toInt(), 0, 0) })
+                        
+                        // ✅ FIX SINKRONISASI VISUAL: Tampilkan Jam dan Menit riil tepat di samping nama kategori transaksi
+                        left.addView(TextView(context).apply { 
+                            text = "$categoryName • ${sdfPremiumClock.format(Date(timestamp))}" 
+                            textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, (2 * density).toInt(), 0, 0) 
+                        })
                         
                         val isIncomeFlow = typeUpper == "INCOME" || typeUpper == "DEBT"
                         val rightText = if (isIncomeFlow) "+" else "-"
