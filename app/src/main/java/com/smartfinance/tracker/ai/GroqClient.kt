@@ -31,6 +31,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val txContext = java.lang.StringBuilder()
 
         try {
+            // 1. Ambil Data Master Kategori Terdaftar
             val categorySnapshot = firestore.collection("categories").get().await()
             for (doc in categorySnapshot.documents) {
                 val id = doc.getLong("id") ?: 0L
@@ -39,6 +40,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 catContext.append("- ID: $id, Nama: $name, Tipe: $type\n")
             }
 
+            // 2. Ambil Data Catatan Pinjaman Berjalan Aktif
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
                 val isPaid = doc.getBoolean("isPaid") ?: false
@@ -50,6 +52,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
+            // 3. Tarik Seluruh Riwayat Transaksi Riil untuk Analisis Matematika Laporan
             val txSnapshot = firestore.collection("transactions").get().await()
             val sdfTx = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             for (doc in txSnapshot.documents) {
@@ -69,22 +72,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
+        // 🔥 MASTA PROMPT REVOLUSI: Menggabungkan Kecerdasan Analisis Laporan Finansial + SPOK Indonesia Berlapis
         val finalSystemPrompt = """
-Anda adalah asisten keuangan AI premium yang sangat cerdas untuk user bernama Ikromul Umam (Mam).
-Tugas utama Anda adalah menganalisis struktur kalimat Bahasa Indonesia berdasarkan SPOK secara mutlak untuk urusan utang piutang.
-
-⚠️ ATURAN KAKU DEBT & RECEIVABLE (ANTI-TERBALIK):
-1. JIKA ORANG LAIN MEMINJAM UANG KEPADA USER (Contoh: "muslim rantau meminjam uang kepada saya sebesar 50000"):
-   - Artinya: User melepaskan uang untuk dipinjamkan ke orang tersebut. Ini adalah PIUTANG bagi user.
-   - Setel "action_type" menjadi "DEBT_RECORD" secara mutlak.
-   - Setel properti "debt_type" di dalam objek transaksi menjadi "RECEIVABLE" secara mutlak!
-   - Tulis teks konfirmasi di "ai_response" secara jujur bahwa Anda mencatat PIUTANG (orang lain berhutang ke user).
-
-2. JIKA USER MEMINJAM UANG DARI ORANG LAIN (Contoh: "saya pinjam uang ke muslim rantau"):
-   - Artinya: User menerima pinjaman uang dari orang lain. Ini adalah UTANG bagi user.
-   - Setel "action_type" menjadi "DEBT_RECORD".
-   - Setel properti "debt_type" di dalam objek transaksi menjadi "DEBT" secara mutlak!
-   - Tulis teks konfirmasi di "ai_response" secara jujur bahwa user menambah UTANG baru.
+Anda adalah asisten keuangan AI premium, sangat cerdas, analitis, dan solutif untuk user bernama Ikromul Umam (Mam).
+Tugas utama Anda adalah mengelola data keuangan, membuat laporan mendalam, dan memetakan teks transaksi ke JSON secara akurat tanpa terbalik.
 
 🗓️ INFO HARI INI: $todayString
 
@@ -94,23 +85,43 @@ ${if (catContext.isEmpty()) "- Belum ada kategori" else catContext.toString()}
 🤝 DATA CATATAN PINJAMAN BERJALAN SAAT INI:
 ${if (debtContext.isEmpty()) "- Tidak ada utang/piutang aktif" else debtContext.toString()}
 
-📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL:
-${if (txContext.isEmpty()) "- Belum ada riwayat mutasi" else txContext.toString()}
+📊 DATA SELURUH RIWAYAT TRANSAKSI RIIL (Wajib hitung laporan harian, mingguan, bulanan, tahunan dari sini):
+${if (txContext.isEmpty()) "- Belum ada riwayat mutasi transaksi keuangan" else txContext.toString()}
+
+⚠️ ATURAN LAPORAN FINANSIAL:
+- Jika user meminta laporan (Harian, Mingguan, Bulanan, Tahunan, atau per kategori/keyword barang spesifik), Anda WAJIB menjumlahkan data mutasi di atas secara matematis dan akurat, lalu tulis rincian kalkulasinya di "ai_response" menggunakan Markdown yang rapi. Setel "action_type": "VIEW_REPORT".
+
+⚠️ ATURAN TATA BAHASA UTANG PIUTANG (SPOK INDONESIA):
+- KALIMAT PIUTANG (RECEIVABLE): Jika orang lain meminjam uang ke user (Contoh: "muslim rantau meminjam uang kepada saya"). Setel "action_type": "DEBT_RECORD", dan setel "debt_type": "RECEIVABLE".
+- KALIMAT UTANG (DEBT): Jika user meminjam uang dari orang lain. Setel "action_type": "DEBT_RECORD", dan setel "debt_type": "DEBT".
+
+⚠️ ATURAN KHUSUS KATEGORI & SUB-KATEGORI BARU (ANTI-BENTROK):
+1. Cari kategori terdekat dari DATA MASTER KATEGORI REGISTERED di atas. Jika ada yang mendekati, WAJIB gunakan ID dan Nama dari master tersebut!
+2. JIKALAU TRANSAKSI USER BENAR-BENAR BARU DAN TIDAK ADA KATEGORI YANG MENDEKATI:
+   - Buatkan Nama Kategori Baru yang relevan (Gunakan format HURUF BESAR di awal).
+   - Berikan "category_id" acak baru di atas angka 200 (Contoh: 205, 210) agar tidak bentrok dengan ID master.
+   - WAJIB setel properti "is_new_category" menjadi true! (Jika menggunakan kategori master lama, setel menjadi false).
 
 STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
 {
   "action_type": "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "CHAT_ONLY",
-  "ai_response": "Tuliskan rincian jawaban konfirmasi finansial secara lengkap, indah, bahasa Indonesia formal/gaul yang presisi tanpa terpotong.",
+  "ai_response": "Tuliskan hasil laporan finansial mendalam atau teks konfirmasi transaksi yang lengkap dan indah tanpa terpotong.",
   "report_filter": {
     "time_range": "ALL" | "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE",
-    "target_date": "yyyy-MM-dd"
+    "target_date": "yyyy-MM-dd",
+    "target_category": "NAMA_KATEGORI",
+    "target_keyword": "SUB_KATEGORI_ATAU_NAMA_BARANG_SPESIFIK"
   },
   "transactions": [
     {
       "amount": 50000,
+      "type": "INCOME" | "EXPENSE",
       "debt_type": "DEBT" | "RECEIVABLE",
-      "contact_name": "MUSLIM RANTAU",
-      "clean_note": "MEMINJAMKAN UANG"
+      "category_id": 15,
+      "category_name": "Nama Kategori",
+      "is_new_category": false,
+      "contact_name": "NAMA_ORANG",
+      "clean_note": "Catatan deskripsi ringkas"
     }
   ]
 }
@@ -149,6 +160,7 @@ STRUKTUR JSON OUTPUT YANG WAJIB ANDA PATUHI:
                 val actionType = jsonResult.optString("action_type", "").trim().uppercase(Locale.ROOT)
                 val aiResponse = jsonResult.optString("ai_response", "").trim()
                 
+                // 🔒 BYPASS GERBANG UTAMA: Jika murni VIEW_REPORT, biarkan kepintaran matematika Llama langsung menyembur ke UI chat!
                 if (actionType == "VIEW_REPORT" && aiResponse.isNotEmpty()) {
                     return@withContext aiResponse
                 }
