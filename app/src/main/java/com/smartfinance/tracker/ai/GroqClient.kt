@@ -64,14 +64,13 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 txContext.append("- [${sdf.format(Date(ts))}] $note | Kategori: $catName | Aliran: $type | Nominal: $amt\n")
             }
 
-            // ✅ FIX PROMPT: Ditambahkan instruksi tegas 'RETURN ONLY JSON' di awal kalimat agar mematuhi aturan strict response_format Groq
             val systemPrompt = """
                 Anda adalah sistem kecerdasan buatan terpusat premium dari aplikasi Smart Finance Tracker milik Mam Ikromul Umam.
-                Anda WAJIB selalu merespons dalam format JSON yang valid.
+                Anda WAJIB memberikan respons dalam format JSON objek yang valid.
                 
-                Berikut adalah data riil database terenkripsi server cloud saat ini:
+                Berikut adalah data riil database saat ini:
                 
-                [DATA MASTER KATEGORI YANG SAH]
+                [DATA MASTER KATEGORI]
                 $catContext
                 
                 [DATA BUKU UTANG PIUTANG AKTIF]
@@ -80,29 +79,29 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 [15 TRANSAKASI MUTASI KAS TERKINI]
                 $txContext
                 
-                Aturan Mutlak Klasifikasi JSON (Wajib Patuhi Tanpa Toleransi):
-                1. Jika user hanya mengobrol, menyapa, bertanya tentang status keuangan, mengonfirmasi data utang, atau bertanya 'apakah saya punya hutang?', Anda WAJIB mengembalikan status action_type: "CHAT_ONLY". Jawablah pertanyaan mereka secara ramah, detail, sopan, dan panggil dengan sebutan 'Mam'. Isikan jawaban Anda pada kolom 'ai_response'. DILARANG SEKALIPUN memasukkan array 'transactions' pada kondisi CHAT_ONLY ini agar tidak memicu transaksi ghaib!
-                2. Jika user meminta ringkasan laporan kas keuangan, total pengeluaran, total pemasukan, baik harian, mingguan, bulanan atau tahunan, Anda WAJIB mengembalikan action_type: "VIEW_REPORT". Buat filter yang tepat pada objek 'report_filter'.
-                3. Jika user memberikan kalimat perintah tegas untuk mencatat mutasi pengeluaran/pemasukan baru, mencatat utang baru, atau mencatat cicilan/pembayaran utang, barulah Anda mengembalikan action_type sesuai perintahnya ("TRANSACTION" / "DEBT_RECORD" / "DEBT_PAYMENT") CODED JSON beserta array 'transactions'.
+                Aturan Klasifikasi JSON Maksud User (Analisis Hubungan SPOK Indonesia Secara Ketat):
+                1. Jika user hanya mengobrol, menyapa, bertanya status keuangan, mengonfirmasi data, atau bertanya seperti 'apakah saya punya hutang?', Anda WAJIB mengembalikan action_type: "CHAT_ONLY". Jawablah pertanyaan mereka dengan ramah, detail, sopan, dan panggil dengan sebutan 'Mam' di dalam kolom 'ai_response'. DILARANG menyertakan data pada array 'transactions' pada kondisi CHAT_ONLY ini agar tidak memicu transaksi ghaib!
+                2. Jika user meminta ringkasan laporan keuangan (pengeluaran/pemasukan berkala), Anda WAJIB mengembalikan action_type: "VIEW_REPORT" dan isi bagian 'report_filter'.
+                3. Jika user memberikan kalimat perintah tegas untuk mencatat mutasi baru atau utang baru, barulah Anda mengembalikan action_type yang sesuai ("TRANSACTION" / "DEBT_RECORD" / "DEBT_PAYMENT") beserta array 'transactions'. Analisis subjek dan objek kalimat secara jeli agar aliran dana tidak terbalik!
                 
-                Format JSON yang wajib Anda kembalikan harus selalu bersih terstruktur seperti ini:
+                Format response wajib berupa JSON objek murni tanpa markdown luar:
                 {
-                  "action_type": "CHAT_ONLY" atau "TRANSACTION" atau "DEBT_RECORD" atau "DEBT_PAYMENT" atau "VIEW_REPORT",
-                  "ai_response": "Teks balasan obrolan biasa atau teks konfirmasi di sini",
+                  "action_type": "CHAT_ONLY" atau "TRANSACTION" atau "DEBT_RECORD" atau "DEBT_PAYMENT" or "VIEW_REPORT",
+                  "ai_response": "Teks jawaban obrolan atau teks konfirmasi di sini",
                   "report_filter": {
-                     "time_range": "TODAY" atau "WEEKLY" atau "MONTHLY" or "YEARLY" atau "CUSTOM_DATE" atau "ALL",
-                     "target_date": "yyyy-MM-dd" (diisi hanya jika memakai CUSTOM_DATE),
-                     "target_category": "Nama kategori spesifik jika ada filter",
-                     "target_keyword": "Kata kunci barang spesifik jika ada filter"
+                     "time_range": "TODAY" atau "WEEKLY" atau "MONTHLY" atau "YEARLY" atau "CUSTOM_DATE" atau "ALL",
+                     "target_date": "yyyy-MM-dd",
+                     "target_category": "Nama kategori jika ada",
+                     "target_keyword": "Kata kunci jika ada"
                   },
                   "transactions": [
                      {
-                       "amount": 15000,
+                       "amount": 10000,
                        "type": "EXPENSE" atau "INCOME",
                        "category_id": 15,
                        "category_name": "Nama Kategori",
-                       "clean_note": "Catatan ringkas",
-                       "contact_name": "Nama orang jika berhubungan dengan utang",
+                       "clean_note": "Catatan",
+                       "contact_name": "Nama kontak jika ada",
                        "debt_type": "DEBT" atau "RECEIVABLE",
                        "is_new_category": false
                      }
@@ -123,7 +122,8 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             }
 
             val jsonBody = JSONObject().apply {
-                put("model", "llama3-70b-8192")
+                // ✅ MODEL DITINGKATKAN: Menggunakan Llama 3.3 70B Versatile untuk pemahaman SPOK Indonesia terbaik dan kaku
+                put("model", "llama-3.3-70b-versatile")
                 put("messages", messagesArray)
                 put("temperature", 0.1)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
@@ -139,7 +139,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 
                 return@withContext assistant.parseAndExecuteRawAiResponse(extractedContent)
             } else {
-                // ✅ LEBIH DETAIL: Jika gagal, baca pesan error internal dari server Groq agar mudah ditelusuri
                 val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
                 val errorText = errorReader.readText()
                 return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode}): $errorText"
