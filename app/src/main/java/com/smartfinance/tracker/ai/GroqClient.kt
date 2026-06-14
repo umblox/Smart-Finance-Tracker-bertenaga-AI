@@ -32,7 +32,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val txContext = java.lang.StringBuilder()
 
         try {
-            // 1. TARIK KATEGORI MASTER (INDUK & ANAK)
             val categorySnapshot = firestore.collection("categories").get().await()
             val allCats = categorySnapshot.documents.mapNotNull { it.data }
             val parents = allCats.filter { it["parentCategoryId"] == null }
@@ -50,7 +49,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
-            // 2. TARIK UTANG & PIUTANG TERPISAH
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
                 val isPaid = doc.getBoolean("isPaid") ?: false
@@ -63,7 +61,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
-            // 3. TARIK 50 TRANSAKSI TERAKHIR (HANYA UNTUK REFERENSI TANGGAL/WAKTU)
             val txSnapshot = firestore.collection("transactions").orderBy("timestamp", Query.Direction.DESCENDING).limit(50).get().await()
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
             for (doc in txSnapshot.documents) {
@@ -89,36 +86,26 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             [HUTANG SAYA]: \n${if (myDebtContext.isEmpty()) "Tidak ada" else myDebtContext.toString()}
             [PIUTANG SAYA]: \n${if (otherReceivableContext.isEmpty()) "Tidak ada" else otherReceivableContext.toString()}
             [50 TRANSAKSI TERAKHIR MAM]: \n${if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString()}
-            (PERINGATAN: GUNAKAN DATA TRANSAKSI DI ATAS HANYA UNTUK MENCARI TANGGAL/WAKTU. DILARANG KERAS MENGHITUNG TOTAL DARI SINI!)
+            (GUNAKAN DATA TRANSAKSI DI ATAS HANYA UNTUK MENCARI TANGGAL/WAKTU. DILARANG MENGHITUNG TOTAL DARI SINI!)
             
             ATURAN INTERAKSI & KLASIFIKASI MUTLAK:
-            1. PERTANYAAN TANGGAL/WAKTU ("Kapan saya beli X?", "Tanggal berapa ada income Y?"):
-               - Cari barang/income tersebut di [50 TRANSAKSI TERAKHIR MAM].
-               - Kembalikan action_type: "CHAT_ONLY" dan beri tahu tanggalnya dengan luwes di 'ai_response'.
+            1. PERTANYAAN TANGGAL ("Kapan saya beli X?"):
+               - Cari barang di [50 TRANSAKSI TERAKHIR MAM]. Kembalikan "CHAT_ONLY" dan jawab tanggalnya.
             
-            2. PERMINTAAN LAPORAN KATEGORI/SUB-KATEGORI/RENTANG WAKTU:
-               - Jika ditanya "Berapa pengeluaran bensin bulan ini?" atau "Laporan makanan minggu lalu".
-               - Kembalikan action_type: "VIEW_REPORT". Kosongkan 'ai_response'.
-               - Isi "report_type" (SUMMARY / TOP_EXPENSE / CATEGORY_BREAKDOWN).
-               - Isi "time_range" (TODAY, WEEKLY, MONTHLY, LAST_MONTH, YEARLY, CUSTOM_RANGE).
-               - WAJIB isi "target_category" dengan nama kategori, atau "target_keyword" dengan nama barang.
+            2. PERMINTAAN LAPORAN (VIEW_REPORT):
+               - Jika Mam meminta "rincian", "detail", atau "daftar" pembelian suatu barang (misal: "Rincian beli rokok", "Detail pengeluaran bensin"), WAJIB set "report_type" ke "ITEM_DETAILS".
+               - Jika Mam menyebut TANGGAL ATAU WAKTU SPESIFIK (contoh: "12 juni", "kemarin", "3 hari lalu", "tanggal 1 sampai 5"), HARAM HUKUMNYA menggunakan TODAY/MONTHLY. Anda WAJIB memakai "CUSTOM_RANGE", lalu hitung presisi dan isi "start_date" dan "end_date" ("dd-MM-yyyy").
             
-            3. CATAT TRANSAKSI & KONFIRMASI 2 OPSI (SANGAT PENTING):
-               - Jika Mam mencatat pembelian/pendapatan, JANGAN ASAL BUAT KATEGORI! Cek [KATEGORI DATABASE].
-               - Jika barang sangat sesuai dengan kategori yang ada (Misal: "Pertamax" -> "Transportasi"), langsung catat (action_type: "TRANSACTION").
-               - JIKA BARANG MERAGUKAN ATAU BELUM ADA KATEGORI PASTI: ANDA WAJIB MENUNDA PENCATATAN! Kembalikan action_type: "CHAT_ONLY" dan tanyakan di 'ai_response': "Mam, untuk transaksi [Barang] senilai Rp[Nominal], mau dibuatkan kategori/sub-kategori baru, atau digabung ke kategori terdekat yaitu [Sebutkan Kategori Terdekat]?"
-               - Jika Mam merespons konfirmasi tersebut (Misal: "Gabung ke Transportasi" atau "Buat baru aja"), barulah Anda kembalikan action_type: "TRANSACTION" sesuai instruksi Mam. Jika sub-kategori baru, isi "parent_category_id" dengan ID Induk yang sesuai.
-            
-            4. UTANG & PIUTANG (SPOK):
-               - Mam pinjam uang DARI orang -> DEBT. Mam meminjamkan KE orang -> RECEIVABLE.
-               - Bayar cicilan -> DEBT_PAYMENT.
+            3. CATAT TRANSAKSI & KONFIRMASI 2 OPSI:
+               - Jika barang sangat sesuai kategori yang ada, catat ("TRANSACTION").
+               - JIKA BARANG BARU/MERAGUKAN: TUNDA PENCATATAN! Kembalikan "CHAT_ONLY" dan tanyakan: "Mam, untuk transaksi [Barang] Rp[Nominal], mau dibuatkan kategori/sub baru, atau gabung ke kategori terdekat [Sebutkan]?"
             
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
               "ai_response": "Balasan luwes (Kosongkan jika VIEW_REPORT / VIEW_CATEGORIES)",
               "report_filter": {
-                 "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN",
+                 "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN" | "ITEM_DETAILS",
                  "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "LAST_MONTH" | "YEARLY" | "CUSTOM_RANGE" | "ALL",
                  "start_date": "dd-MM-yyyy",
                  "end_date": "dd-MM-yyyy",
@@ -149,7 +136,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             val jsonBody = JSONObject().apply {
                 put("model", "llama-3.3-70b-versatile")
                 put("messages", messagesArray)
-                put("temperature", 0.0) // Suhu 0 agar sangat logis dan tidak berhalusinasi
+                put("temperature", 0.0) 
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
