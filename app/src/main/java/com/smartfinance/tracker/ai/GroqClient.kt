@@ -31,7 +31,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val debtContext = java.lang.StringBuilder()
 
         try {
-            // HANYA tarik Kategori dan Utang agar AI bisa mencocokkan nama dan membuat kategori baru.
             val categorySnapshot = firestore.collection("categories").get().await()
             for (doc in categorySnapshot.documents) {
                 val id = doc.getLong("id") ?: 0L
@@ -51,34 +50,35 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                     debtContext.append("- Kontak: $contactName, Sisa Riil Terutang: Rp $remaining, Jenis: $type\n")
                 }
             }
-            
-            // 🚫 DATA TRANSAKSI ($txContext) SENGAJA DIHAPUS DARI SINI AGAR GROQ TIDAK SOK PINTAR BERHITUNG MATEMATIKA!
-
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        val sdfToday = SimpleDateFormat("dd-MM-yyyy (EEEE)", Locale("id", "ID"))
+        // ✅ FIX TANGGAL: Ngasih tau Groq jam dan tahun sekarang biar dia bisa ngitung tanggal mundur dengan pas
+        val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PROMPT DIKUNCI KAKU: Memaksa Groq melempar VIEW_REPORT ke Kotlin!
         val systemPrompt = """
-            Anda adalah Mesin Parser Linguistik (Pemroses Bahasa) untuk aplikasi Smart Finance Tracker milik Ikromul Umam (Mam).
-            TUGAS ANDA BUKAN MENGHITUNG ANGKA! Tugas Anda HANYA memetakan maksud kalimat user ke dalam format JSON yang valid.
+            Anda adalah Asisten Finansial Pribadi untuk aplikasi Smart Finance Tracker milik Ikromul Umam.
+            Nama panggilan user adalah 'Mam'. DILARANG KERAS menggunakan kata 'Anda', ganti dengan kata 'Mam'.
+            Gunakan bahasa Indonesia yang santai, luwes, profesional, dan akrab.
             
-            🗓️ HARI INI: $todayString
+            🗓️ WAKTU SAAT INI: $todayString
             [KATEGORI MASTER]: $catContext
             [DATA UTANG AKTIF]: $debtContext
             
-            ATURAN KLASIFIKASI MUTLAK:
-            1. VIEW_REPORT (PERMINTAAN LAPORAN): Jika user meminta laporan, riwayat kas, pengeluaran, pemasukan, atau saldo (harian/mingguan/bulanan/tahunan/kategori spesifik), ANDA DILARANG MENJAWAB DENGAN ANGKA! Anda WAJIB mengembalikan action_type: "VIEW_REPORT" dan isi 'report_filter' secara spesifik. Biarkan sistem backend Kotlin yang akan menghitungnya secara matematis!
-            2. CHAT_ONLY (NGOBROL BIASA): Jika user menyapa, atau bertanya sisa utang spesifik dari [DATA UTANG AKTIF] di atas, kembalikan action_type: "CHAT_ONLY" dan jawab di 'ai_response' tanpa menyertakan objek 'transactions' sama sekali.
-            3. TRANSACTION / DEBT_RECORD / DEBT_PAYMENT (INPUT DATA): Jika user secara tegas MENYURUH mencatat transaksi baru, utang baru, atau cicilan, pilih action_type ini dan isi array 'transactions'. JIKA nama kategori tidak ada di [KATEGORI MASTER], setel "is_new_category": true dan berikan "category_id" di atas angka 200.
-            
+            ATURAN KLASIFIKASI & RESPON:
+            1. VIEW_REPORT (PERMINTAAN LAPORAN): Jika Mam meminta laporan (harian/mingguan/bulanan/kategori), kembalikan action_type: "VIEW_REPORT". KOSONGKAN 'ai_response' karena Kotlin yang akan merender teks laporannya.
+            2. CHAT_ONLY (NGOBROL BIASA): Jika Mam bertanya daftar kategori, buatlah list berderet ke bawah menggunakan bullet point dan emoji yang rapi di 'ai_response'. Jika Mam bertanya status utang, jawab dengan luwes tanpa array transactions.
+            3. TRANSAKSI & PINJAMAN: Jika Mam menyuruh mencatat uang. Perhatikan SPOK! 
+               - Jika Mam meminjamkan uang ke orang lain (PIUTANG / RECEIVABLE), balas di 'ai_response' dengan kalimat: "Siap Mam, piutang untuk [Nama] sebesar [Nominal] sudah saya catat." (JANGAN PERNAH bilang "utang dari [Nama]").
+               - Jika Mam ngutang ke orang (DEBT), balas: "Siap Mam, utang kepada [Nama] sudah dicatat."
+               - Pastikan Anda mengekstrak tanggal dan jam dari perintah Mam ke format "dd-MM-yyyy HH:mm" di dalam JSON 'transaction_date'.
+               
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT",
-              "ai_response": "Teks ramah memanggil 'Mam' (Kosongkan jika action_type adalah VIEW_REPORT)",
+              "ai_response": "Teks balasan asisten yang luwes (Kosongkan jika VIEW_REPORT)",
               "report_filter": {
                  "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE" | "ALL",
                  "target_date": "dd-MM-yyyy",
@@ -91,10 +91,11 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                    "type": "EXPENSE" | "INCOME",
                    "category_id": 15,
                    "category_name": "Nama Kategori",
-                   "clean_note": "Catatan",
+                   "clean_note": "Catatan ringkas",
                    "contact_name": "NAMA_KONTAK",
                    "debt_type": "DEBT" | "RECEIVABLE",
-                   "is_new_category": false
+                   "is_new_category": false,
+                   "transaction_date": "dd-MM-yyyy HH:mm" // Isi sesuai perintah Mam. Kosongkan jika tidak disebutkan.
                  }
               ]
             }
@@ -114,9 +115,9 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             }
 
             val jsonBody = JSONObject().apply {
-                put("model", "llama-3.3-70b-versatile") // Model Paling Pintar SPOK
+                put("model", "llama-3.3-70b-versatile")
                 put("messages", messagesArray)
-                put("temperature", 0.0) // Suhu 0 agar robot murni patuh tanpa halusinasi
+                put("temperature", 0.0)
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
