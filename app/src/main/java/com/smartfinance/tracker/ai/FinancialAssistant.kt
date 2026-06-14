@@ -16,7 +16,8 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^
+```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -38,10 +39,8 @@ class FinancialAssistant(private val context: Context) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     
-                    // ✅ PARSING TANGGAL: Tarik tanggal spesifik dari instruksi Mam (Jika ada)
                     val customDateStr = item.optString("transaction_date", "").trim()
                     val targetTimestamp = parseTransactionDateTime(customDateStr)
-                    
                     val finalAmount = parseAmount(item)
 
                     if (finalAmount <= 0.0) continue
@@ -61,7 +60,7 @@ class FinancialAssistant(private val context: Context) {
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
                         "DEBT_PAYMENT" -> {
-                            return executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp)
+                            executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp)
                         }
                     }
                 }
@@ -95,20 +94,23 @@ class FinancialAssistant(private val context: Context) {
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
         val txId = "tx_${System.currentTimeMillis()}"
 
+        // 🔥 FIX CATATAN SERAGAM: Catatan lebih enak dibaca dan logis
+        val standardizedNote = if (selectedType == "RECEIVABLE") "MEMBERIKAN PINJAMAN KEPADA $sanitizedName" else "MENERIMA PINJAMAN DARI $sanitizedName"
+
         val txMap = hashMapOf(
             "id" to txId,
             "amount" to amountValue,
             "type" to flowType,
             "categoryId" to catId,
             "categoryName" to catName,
-            "note" to "[$catName] $sanitizedName - INPUT AI",
+            "note" to standardizedNote,
             "timestamp" to timestampValue,
             "debtId" to debtId
         )
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
 
-    private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, originalAiResponse: String, targetTimestamp: Long): String {
+    private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, originalAiResponse: String, targetTimestamp: Long) {
         val snapshot = firestore.collection("debts").get().await()
         var matchDocId: String? = null
         var matchAmount = 0.0
@@ -157,26 +159,21 @@ class FinancialAssistant(private val context: Context) {
             val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
             val txId = "tx_${System.currentTimeMillis()}"
 
+            // 🔥 FIX CATATAN SERAGAM
+            val standardizedNote = if (matchType == "DEBT") "MEMBAYAR CICILAN UTANG KE $matchContactName" else "MENERIMA CICILAN PIUTANG DARI $matchContactName"
+
             val payTxMap = hashMapOf(
                 "id" to txId,
                 "amount" to targetPayAmount,
                 "type" to txType,
                 "categoryId" to catId,
                 "categoryName" to catName,
-                "note" to "[$catName] $matchContactName - CICILAN AI",
+                "note" to standardizedNote,
                 "timestamp" to targetTimestamp,
                 "debtId" to matchDocId
             )
             firestore.collection("transactions").document(txId).set(payTxMap).await()
-
-            val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA ✅" else formatRupiah.format(nextRemaining)
-            return "✅ **Sip Mam, Cicilan Berhasil Dicatat!**\n\n" +
-                   "👤 Kontak: $matchContactName\n" +
-                   "💵 Nominal: ${formatRupiah.format(targetPayAmount)}\n" +
-                   "📊 Sisa Hutang: $statusLunasText"
         }
-        
-        return originalAiResponse
     }
 
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
@@ -198,25 +195,31 @@ class FinancialAssistant(private val context: Context) {
 
         val isNewCategory = item.optBoolean("is_new_category", false)
         if (isNewCategory && catId > 200L) {
+            // 🔥 PARSING PARENT CATEGORY: Membaca ID Induk jika ini adalah sub-kategori baru
+            val pIdStr = item.optString("parent_category_id", "")
+            val parsedParentId: Long? = if (pIdStr.isEmpty() || pIdStr == "null") null else pIdStr.toLongOrNull()
+
             val newCatMap = hashMapOf(
                 "id" to catId,
                 "name" to catName,
                 "type" to type,
                 "iconName" to "ic_custom",
-                "parentCategoryId" to null,
+                "parentCategoryId" to parsedParentId,
                 "isLocked" to false
             )
             firestore.collection("categories").document("cat_$catId").set(newCatMap).await()
         }
 
         val txId = "tx_${System.currentTimeMillis()}"
+        val finalNoteStr = cleanNote.ifEmpty { "TRANSAKSI $catName" }.uppercase(Locale.ROOT)
+
         val txMap = hashMapOf(
             "id" to txId,
             "amount" to finalAmount,
             "type" to type,
             "categoryId" to catId,
             "categoryName" to catName,
-            "note" to cleanNote,
+            "note" to finalNoteStr,
             "timestamp" to targetTimestamp
         )
         firestore.collection("transactions").document(txId).set(txMap).await()
@@ -240,7 +243,6 @@ class FinancialAssistant(private val context: Context) {
         for (doc in snapshot.documents) {
             val amt = doc.getDouble("amount") ?: 0.0
             val type = doc.getString("type") ?: "EXPENSE"
-            
             val currentCategoryName = (doc.getString("categoryName") ?: "Umum").uppercase(Locale.ROOT).trim()
             val note = (doc.getString("note") ?: "").uppercase(Locale.ROOT).trim()
             val timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
@@ -258,19 +260,18 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (isTimeMatch) {
-                // ✅ FILTERING CERDAS LUAS: Cek ke kategori DAN juga cek ke isi nama barang/notes. 
-                // Jadi AI salah nulis keyword/kategori pun data tetap kebaca bener!
-                var passedFilter = true
+                // 🔥 LOGIKA PENCARIAN SUPER LEBAR: Anti bug kategori 0
+                var matchCat = true
+                var matchKey = true
                 
                 if (targetCategory.isNotEmpty()) {
-                    if (!currentCategoryName.contains(targetCategory) && !note.contains(targetCategory)) passedFilter = false
+                    matchCat = currentCategoryName.contains(targetCategory) || note.contains(targetCategory)
                 }
-                
-                if (passedFilter && targetKeyword.isNotEmpty()) {
-                    if (!note.contains(targetKeyword) && !currentCategoryName.contains(targetKeyword)) passedFilter = false
+                if (targetKeyword.isNotEmpty()) {
+                    matchKey = note.contains(targetKeyword) || currentCategoryName.contains(targetKeyword)
                 }
 
-                if (passedFilter) {
+                if (matchCat && matchKey) {
                     val tUpper = type.trim().uppercase(Locale.ROOT)
                     if (tUpper == "INCOME" || tUpper == "DEBT") incSum += amt
                     if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") expSum += amt
@@ -288,16 +289,17 @@ class FinancialAssistant(private val context: Context) {
         
         var lingkupLabel = ""
         if (targetCategory.isNotEmpty()) lingkupLabel += "\n📂 Kategori: $targetCategory"
-        if (targetKeyword.isNotEmpty()) lingkupLabel += "\n🔍 Filter Spesifik: $targetKeyword"
+        if (targetKeyword.isNotEmpty()) lingkupLabel += "\n🔍 Pencarian: $targetKeyword"
 
-        // ✅ TEMPLATE CHAT MEWAH & NATURAL
-        return "📊 **Ringkasan Finansial Mam ($rentangLabel)**\n" +
+        // 🔥 TEMPLATE LAPORAN MEWAH & LUWES
+        return "📊 **Laporan Kas Mam ($rentangLabel)**\n" +
                "==========================" +
                "$lingkupLabel\n\n" +
                "🟢 Pemasukan: ${formatRupiah.format(incSum)}\n" +
                "🔴 Pengeluaran: ${formatRupiah.format(expSum)}\n" +
                "==========================\n" +
-               "💰 **Sisa Bersih: ${formatRupiah.format(incSum - expSum)}**"
+               "💰 **Sisa Bersih: ${formatRupiah.format(incSum - expSum)}**\n\n" +
+               "_(Data akurat ditarik dari Cloud)_"
     }
 
     private fun parseTransactionDateTime(dateStr: String): Long {
@@ -319,7 +321,7 @@ class FinancialAssistant(private val context: Context) {
     }
 
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK")
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH")
         val textUpper = text.uppercase(Locale.ROOT)
         val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
         for (name in databasePopulerNames) { if (textUpper.contains(name) || msgUpper.contains(name)) return name }
