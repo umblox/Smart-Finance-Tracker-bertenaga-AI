@@ -26,7 +26,7 @@ class FinancialAssistant(private val context: Context) {
             val aiResponse = json.optString("ai_response", "").trim()
 
             if (actionType == "CHAT_ONLY") {
-                return aiResponse.ifEmpty { "Ada yang bisa saya bantu lagi, Mam?" }
+                return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
             }
 
             if (actionType == "VIEW_REPORT") {
@@ -37,7 +37,11 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
-                    val targetTimestamp = System.currentTimeMillis()
+                    
+                    // ✅ PARSING TANGGAL: Tarik tanggal spesifik dari instruksi Mam (Jika ada)
+                    val customDateStr = item.optString("transaction_date", "").trim()
+                    val targetTimestamp = parseTransactionDateTime(customDateStr)
+                    
                     val finalAmount = parseAmount(item)
 
                     if (finalAmount <= 0.0) continue
@@ -62,9 +66,9 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
             }
-            return aiResponse.ifEmpty { "Catatan keuangan berhasil diproses ke Firebase Cloud, Mam!" }
+            return aiResponse.ifEmpty { "Sip Mam, mutasi sudah berhasil diamankan ke Cloud!" }
         } catch (e: Exception) {
-            return "❌ Kalimat transaksi tidak dikenali oleh sistem awan."
+            return "❌ Maaf Mam, sistem gagal membaca maksud instruksi ini."
         }
     }
 
@@ -80,7 +84,7 @@ class FinancialAssistant(private val context: Context) {
             "amount" to amountValue,
             "remainingAmount" to amountValue,
             "type" to selectedType,
-            "note" to "Proses Otomatis via AI Cloud Premium",
+            "note" to "Dicatat Otomatis oleh AI",
             "timestamp" to timestampValue,
             "isPaid" to false
         )
@@ -97,7 +101,7 @@ class FinancialAssistant(private val context: Context) {
             "type" to flowType,
             "categoryId" to catId,
             "categoryName" to catName,
-            "note" to "[$catName] $sanitizedName - INPUT AUTOMATIC AI",
+            "note" to "[$catName] $sanitizedName - INPUT AI",
             "timestamp" to timestampValue,
             "debtId" to debtId
         )
@@ -106,7 +110,6 @@ class FinancialAssistant(private val context: Context) {
 
     private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, originalAiResponse: String, targetTimestamp: Long): String {
         val snapshot = firestore.collection("debts").get().await()
-        
         var matchDocId: String? = null
         var matchAmount = 0.0
         var matchType = "DEBT"
@@ -160,18 +163,17 @@ class FinancialAssistant(private val context: Context) {
                 "type" to txType,
                 "categoryId" to catId,
                 "categoryName" to catName,
-                "note" to "[$catName] $matchContactName - CICILAN AI CLOUD",
+                "note" to "[$catName] $matchContactName - CICILAN AI",
                 "timestamp" to targetTimestamp,
                 "debtId" to matchDocId
             )
             firestore.collection("transactions").document(txId).set(payTxMap).await()
 
-            val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA 🎉" else formatRupiah.format(nextRemaining)
-            return "✅ **Transaksi Cicilan Berhasil Diproses!**\n\n" +
-                   "* **Kontak Terkait:** $matchContactName\n" +
-                   "* **Pembayaran:** ${formatRupiah.format(targetPayAmount)}\n" +
-                   "* **Sisa Hutang Riil di Database:** $statusLunasText\n\n" +
-                   "Catatan mutasi penyeimbang kas dashboard Anda telah berhasil disinkronkan."
+            val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA ✅" else formatRupiah.format(nextRemaining)
+            return "✅ **Sip Mam, Cicilan Berhasil Dicatat!**\n\n" +
+                   "👤 Kontak: $matchContactName\n" +
+                   "💵 Nominal: ${formatRupiah.format(targetPayAmount)}\n" +
+                   "📊 Sisa Hutang: $statusLunasText"
         }
         
         return originalAiResponse
@@ -196,7 +198,6 @@ class FinancialAssistant(private val context: Context) {
 
         val isNewCategory = item.optBoolean("is_new_category", false)
         if (isNewCategory && catId > 200L) {
-            // ✅ FIX MUTLAK: Mengubah tanda panah '->' menjadi sintaks pemetaan 'to' bawaan Kotlin yang sah
             val newCatMap = hashMapOf(
                 "id" to catId,
                 "name" to catName,
@@ -248,44 +249,32 @@ class FinancialAssistant(private val context: Context) {
             var isTimeMatch = false
 
             when (timeRange) {
-                "TODAY" -> {
-                    isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && 
-                                  txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                }
-                "WEEKLY" -> {
-                    isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && 
-                                  txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                }
-                "MONTHLY" -> {
-                    isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && 
-                                  txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                }
-                "YEARLY" -> {
-                    isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                }
-                "CUSTOM_DATE" -> {
-                    if (targetDateStr.isNotEmpty()) {
-                        val txDateStr = sdfDate.format(Date(timestamp))
-                        isTimeMatch = txDateStr == targetDateStr
-                    }
-                }
+                "TODAY" -> isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "WEEKLY" -> isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "MONTHLY" -> isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "YEARLY" -> isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "CUSTOM_DATE" -> if (targetDateStr.isNotEmpty()) isTimeMatch = sdfDate.format(Date(timestamp)) == targetDateStr
                 "ALL" -> isTimeMatch = true
             }
 
             if (isTimeMatch) {
-                if (targetCategory.isNotEmpty() && !currentCategoryName.contains(targetCategory) && !targetCategory.contains(currentCategoryName)) {
-                    isTimeMatch = false
+                // ✅ FILTERING CERDAS LUAS: Cek ke kategori DAN juga cek ke isi nama barang/notes. 
+                // Jadi AI salah nulis keyword/kategori pun data tetap kebaca bener!
+                var passedFilter = true
+                
+                if (targetCategory.isNotEmpty()) {
+                    if (!currentCategoryName.contains(targetCategory) && !note.contains(targetCategory)) passedFilter = false
+                }
+                
+                if (passedFilter && targetKeyword.isNotEmpty()) {
+                    if (!note.contains(targetKeyword) && !currentCategoryName.contains(targetKeyword)) passedFilter = false
                 }
 
-                if (isTimeMatch && targetKeyword.isNotEmpty() && !note.contains(targetKeyword)) {
-                    isTimeMatch = false
+                if (passedFilter) {
+                    val tUpper = type.trim().uppercase(Locale.ROOT)
+                    if (tUpper == "INCOME" || tUpper == "DEBT") incSum += amt
+                    if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") expSum += amt
                 }
-            }
-
-            if (isTimeMatch) {
-                val tUpper = type.trim().uppercase(Locale.ROOT)
-                if (tUpper == "INCOME" || tUpper == "DEBT") incSum += amt
-                if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") expSum += amt
             }
         }
 
@@ -293,24 +282,35 @@ class FinancialAssistant(private val context: Context) {
             "TODAY" -> "Hari Ini"
             "WEEKLY" -> "Minggu Ini"
             "YEARLY" -> "Tahun Ini"
-            "CUSTOM_DATE" -> "Pada Tanggal $targetDateStr"
+            "CUSTOM_DATE" -> "Tanggal $targetDateStr"
             else -> "Bulan Ini"
         }
         
-        val kategoriLabel = if (targetCategory.isNotEmpty()) " Kategori [$targetCategory]" else ""
-        val subKategoriLabel = if (targetKeyword.isNotEmpty()) " Spesifik Barang [$targetKeyword]" else ""
+        var lingkupLabel = ""
+        if (targetCategory.isNotEmpty()) lingkupLabel += "\n📂 Kategori: $targetCategory"
+        if (targetKeyword.isNotEmpty()) lingkupLabel += "\n🔍 Filter Spesifik: $targetKeyword"
 
-        return "📊 **Laporan Finansial Cloud $rentangLabel Anda, Mam:**\n" +
-               "📌 Lingkup:$kategoriLabel$subKategoriLabel\n\n" +
-               "🟢 Total Arus Masuk: ${formatRupiah.format(incSum)}\n" +
-               "🔴 Total Arus Keluar: ${formatRupiah.format(expSum)}\n" +
-               "💰 Sisa Kas Bersih: ${formatRupiah.format(incSum - expSum)}\n\n" +
-               "Data diproses secara aman dan real-time dari Firebase Firestore Cloud."
+        // ✅ TEMPLATE CHAT MEWAH & NATURAL
+        return "📊 **Ringkasan Finansial Mam ($rentangLabel)**\n" +
+               "==========================" +
+               "$lingkupLabel\n\n" +
+               "🟢 Pemasukan: ${formatRupiah.format(incSum)}\n" +
+               "🔴 Pengeluaran: ${formatRupiah.format(expSum)}\n" +
+               "==========================\n" +
+               "💰 **Sisa Bersih: ${formatRupiah.format(incSum - expSum)}**"
     }
 
-    private fun parseTransactionDate(dateStr: String): Long {
+    private fun parseTransactionDateTime(dateStr: String): Long {
         if (dateStr.trim().isEmpty()) return System.currentTimeMillis()
-        return try { SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+        return try { 
+            if (dateStr.contains(":")) {
+                SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() 
+            } else {
+                SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() 
+            }
+        } catch (e: Exception) { 
+            System.currentTimeMillis() 
+        }
     }
 
     private fun parseAmount(item: JSONObject): Double {
@@ -319,13 +319,10 @@ class FinancialAssistant(private val context: Context) {
     }
 
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI")
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK")
         val textUpper = text.uppercase(Locale.ROOT)
         val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
-        
-        for (name in databasePopulerNames) { 
-            if (textUpper.contains(name) || msgUpper.contains(name)) return name 
-        }
+        for (name in databasePopulerNames) { if (textUpper.contains(name) || msgUpper.contains(name)) return name }
         return "TEMAN"
     }
 }
