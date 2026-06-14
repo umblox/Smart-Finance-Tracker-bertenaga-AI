@@ -2,6 +2,7 @@ package com.smartfinance.tracker.ai
 
 import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.smartfinance.tracker.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
@@ -28,8 +29,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val catContext = java.lang.StringBuilder()
         val myDebtContext = java.lang.StringBuilder()
         val otherReceivableContext = java.lang.StringBuilder()
+        val txContext = java.lang.StringBuilder()
 
         try {
+            // 1. TARIK KATEGORI MASTER (INDUK & ANAK)
             val categorySnapshot = firestore.collection("categories").get().await()
             val allCats = categorySnapshot.documents.mapNotNull { it.data }
             val parents = allCats.filter { it["parentCategoryId"] == null }
@@ -47,6 +50,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
+            // 2. TARIK UTANG & PIUTANG TERPISAH
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
                 val isPaid = doc.getBoolean("isPaid") ?: false
@@ -54,12 +58,21 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                     val contactName = doc.getString("contactName") ?: "TEMAN"
                     val remaining = doc.getDouble("remainingAmount") ?: 0.0
                     val type = doc.getString("type") ?: "DEBT"
-                    if (type == "DEBT") {
-                        myDebtContext.append("- Saya berhutang ke: $contactName | Sisa Belum Dibayar: Rp $remaining\n")
-                    } else {
-                        otherReceivableContext.append("- $contactName berhutang ke saya | Sisa Belum Ditagih: Rp $remaining\n")
-                    }
+                    if (type == "DEBT") myDebtContext.append("- Saya berhutang ke: $contactName | Sisa: Rp $remaining\n")
+                    else otherReceivableContext.append("- $contactName berhutang ke saya | Sisa: Rp $remaining\n")
                 }
+            }
+
+            // 3. TARIK 50 TRANSAKSI TERAKHIR (HANYA UNTUK REFERENSI TANGGAL/WAKTU)
+            val txSnapshot = firestore.collection("transactions").orderBy("timestamp", Query.Direction.DESCENDING).limit(50).get().await()
+            val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
+            for (doc in txSnapshot.documents) {
+                val amt = doc.getDouble("amount") ?: 0.0
+                val type = doc.getString("type") ?: "EXPENSE"
+                val catName = doc.getString("categoryName") ?: "Umum"
+                val note = doc.getString("note") ?: "Transaksi AI"
+                val ts = doc.getLong("timestamp") ?: System.currentTimeMillis()
+                txContext.append("- [${sdfTx.format(Date(ts))}] $note | Kategori: $catName | Tipe: $type | Nominal: Rp$amt\n")
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -68,62 +81,55 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 REVOLUSI WAKTU: Groq dipaksa menghitung start_date & end_date jika Mam minta waktu custom (Kemarin, 2 minggu lalu, dsb)
         val systemPrompt = """
-            Anda adalah Asisten Finansial Pribadi untuk aplikasi Smart Finance Tracker milik Ikromul Umam.
-            Selalu panggil user dengan sebutan 'Mam'. JANGAN gunakan kata 'Anda'.
-            
+            Anda adalah Asisten Finansial Pribadi cerdas untuk Ikromul Umam (selalu panggil 'Mam').
             🗓️ WAKTU SAAT INI: $todayString
             
-            [KATEGORI DATABASE]: 
-            $catContext
+            [KATEGORI DATABASE]: \n$catContext
+            [HUTANG SAYA]: \n${if (myDebtContext.isEmpty()) "Tidak ada" else myDebtContext.toString()}
+            [PIUTANG SAYA]: \n${if (otherReceivableContext.isEmpty()) "Tidak ada" else otherReceivableContext.toString()}
+            [50 TRANSAKSI TERAKHIR MAM]: \n${if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString()}
+            (PERINGATAN: GUNAKAN DATA TRANSAKSI DI ATAS HANYA UNTUK MENCARI TANGGAL/WAKTU. DILARANG KERAS MENGHITUNG TOTAL DARI SINI!)
             
-            [HUTANG SAYA (SAYA YANG PINJAM UANG)]:
-            ${if (myDebtContext.isEmpty()) "Tidak ada hutang" else myDebtContext.toString()}
+            ATURAN INTERAKSI & KLASIFIKASI MUTLAK:
+            1. PERTANYAAN TANGGAL/WAKTU ("Kapan saya beli X?", "Tanggal berapa ada income Y?"):
+               - Cari barang/income tersebut di [50 TRANSAKSI TERAKHIR MAM].
+               - Kembalikan action_type: "CHAT_ONLY" dan beri tahu tanggalnya dengan luwes di 'ai_response'.
             
-            [PIUTANG SAYA (ORANG LAIN PINJAM UANG SAYA)]:
-            ${if (otherReceivableContext.isEmpty()) "Tidak ada piutang" else otherReceivableContext.toString()}
+            2. PERMINTAAN LAPORAN KATEGORI/SUB-KATEGORI/RENTANG WAKTU:
+               - Jika ditanya "Berapa pengeluaran bensin bulan ini?" atau "Laporan makanan minggu lalu".
+               - Kembalikan action_type: "VIEW_REPORT". Kosongkan 'ai_response'.
+               - Isi "report_type" (SUMMARY / TOP_EXPENSE / CATEGORY_BREAKDOWN).
+               - Isi "time_range" (TODAY, WEEKLY, MONTHLY, LAST_MONTH, YEARLY, CUSTOM_RANGE).
+               - WAJIB isi "target_category" dengan nama kategori, atau "target_keyword" dengan nama barang.
             
-            ATURAN SPOK (DARI, KE, OLEH, KEPADA):
-            - Jika Mam menerima uang DARI orang lain (Mam pinjam) -> Kas Mam +, ini DEBT (Hutang Mam).
-            - Jika Mam memberikan uang KE/KEPADA orang lain (Mam meminjamkan) -> Kas Mam -, ini RECEIVABLE (Piutang Mam).
-            - Jika Mam membayar cicilan KE/KEPADA orang -> DEBT_PAYMENT untuk kontak di [HUTANG SAYA].
-            - Jika Mam menerima cicilan DARI/OLEH orang -> DEBT_PAYMENT untuk kontak di [PIUTANG SAYA].
-            - JIKA Mam bertanya "Apakah saya punya hutang?", BACA HANYA blok [HUTANG SAYA]. DILARANG menyebut data piutang sebagai hutang!
+            3. CATAT TRANSAKSI & KONFIRMASI 2 OPSI (SANGAT PENTING):
+               - Jika Mam mencatat pembelian/pendapatan, JANGAN ASAL BUAT KATEGORI! Cek [KATEGORI DATABASE].
+               - Jika barang sangat sesuai dengan kategori yang ada (Misal: "Pertamax" -> "Transportasi"), langsung catat (action_type: "TRANSACTION").
+               - JIKA BARANG MERAGUKAN ATAU BELUM ADA KATEGORI PASTI: ANDA WAJIB MENUNDA PENCATATAN! Kembalikan action_type: "CHAT_ONLY" dan tanyakan di 'ai_response': "Mam, untuk transaksi [Barang] senilai Rp[Nominal], mau dibuatkan kategori/sub-kategori baru, atau digabung ke kategori terdekat yaitu [Sebutkan Kategori Terdekat]?"
+               - Jika Mam merespons konfirmasi tersebut (Misal: "Gabung ke Transportasi" atau "Buat baru aja"), barulah Anda kembalikan action_type: "TRANSACTION" sesuai instruksi Mam. Jika sub-kategori baru, isi "parent_category_id" dengan ID Induk yang sesuai.
             
-            ATURAN KLASIFIKASI & RESPON:
-            1. VIEW_CATEGORIES: Jika Mam meminta daftar kategori. Kosongkan 'ai_response'.
-            2. VIEW_REPORT: Jika Mam meminta laporan, pengeluaran tertinggi, atau rincian per kategori. Kosongkan 'ai_response'.
-               - Jika Mam meminta waktu spesifik/dinamis (contoh: "kemarin", "minggu lalu", "2 minggu lalu", "3 hari terakhir", "januari sampai maret"), Anda WAJIB menghitung tanggalnya berdasarkan WAKTU SAAT INI. Set "time_range" ke "CUSTOM_RANGE", lalu hitung dan isi "start_date" dan "end_date" dengan format "dd-MM-yyyy". Jika hanya 1 hari ("kemarin"), isi start dan end dengan tanggal yang sama.
-            3. CHAT_ONLY: Jika Mam ngobrol atau tanya status hutang spesifik. Jawab dengan ramah di 'ai_response'.
-            4. TRANSAKSI/PINJAMAN: Jika mencatat mutasi ("TRANSACTION", "DEBT_RECORD", "DEBT_PAYMENT"). Pastikan SPOK tidak terbalik! Ekstrak tanggal ke 'transaction_date'.
+            4. UTANG & PIUTANG (SPOK):
+               - Mam pinjam uang DARI orang -> DEBT. Mam meminjamkan KE orang -> RECEIVABLE.
+               - Bayar cicilan -> DEBT_PAYMENT.
             
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
-              "ai_response": "Teks balasan asisten yang luwes (Kosongkan jika VIEW_REPORT / VIEW_CATEGORIES)",
+              "ai_response": "Balasan luwes (Kosongkan jika VIEW_REPORT / VIEW_CATEGORIES)",
               "report_filter": {
                  "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN",
-                 "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_RANGE" | "ALL",
+                 "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "LAST_MONTH" | "YEARLY" | "CUSTOM_RANGE" | "ALL",
                  "start_date": "dd-MM-yyyy",
                  "end_date": "dd-MM-yyyy",
-                 "target_category": "Nama Kategori",
-                 "target_keyword": "Kata Kunci"
+                 "target_category": "NAMA_KATEGORI_JIKA_ADA",
+                 "target_keyword": "KATA_KUNCI_JIKA_ADA"
               },
-              "transactions": [
-                 {
-                   "amount": 50000,
-                   "type": "EXPENSE" | "INCOME",
-                   "category_id": 15,
-                   "category_name": "Nama Kategori",
-                   "clean_note": "Nama barang",
-                   "contact_name": "Nama kontak utang",
-                   "debt_type": "DEBT" | "RECEIVABLE",
-                   "is_new_category": false,
-                   "parent_category_id": "ID_Induk_Jika_SubKategori",
-                   "transaction_date": "dd-MM-yyyy HH:mm"
-                 }
-              ]
+              "transactions": [{
+                 "amount": 50000, "type": "EXPENSE" | "INCOME", "category_id": 15, "category_name": "Nama", 
+                 "clean_note": "Barang", "contact_name": "Kontak", "debt_type": "DEBT" | "RECEIVABLE", 
+                 "is_new_category": false, "parent_category_id": "ID_Induk_Jika_Sub", "transaction_date": "dd-MM-yyyy HH:mm"
+              }]
             }
         """.trimIndent()
 
@@ -143,7 +149,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             val jsonBody = JSONObject().apply {
                 put("model", "llama-3.3-70b-versatile")
                 put("messages", messagesArray)
-                put("temperature", 0.0)
+                put("temperature", 0.0) // Suhu 0 agar sangat logis dan tidak berhalusinasi
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
