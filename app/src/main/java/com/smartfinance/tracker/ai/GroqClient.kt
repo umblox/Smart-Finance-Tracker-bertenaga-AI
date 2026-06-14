@@ -26,10 +26,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         if (apiKey.isEmpty()) return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build."
 
         val catContext = java.lang.StringBuilder()
-        val debtContext = java.lang.StringBuilder()
+        val myDebtContext = java.lang.StringBuilder()
+        val otherReceivableContext = java.lang.StringBuilder()
 
         try {
-            // 🔥 REVOLUSI KATEGORI: Menyusun hirarki Induk & Anak (Visual Pohon) agar AI paham strukturnya
             val categorySnapshot = firestore.collection("categories").get().await()
             val allCats = categorySnapshot.documents.mapNotNull { it.data }
             val parents = allCats.filter { it["parentCategoryId"] == null }
@@ -38,9 +38,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             for (p in parents) {
                 val pId = p["id"] as? Long ?: 0L
                 val pName = p["name"] as? String ?: "Tanpa Nama"
-                val pType = p["type"] as? String ?: "EXPENSE"
-                catContext.append("📁 [INDUK] ID: $pId | Nama: $pName | Tipe: $pType\n")
-                
+                catContext.append("📁 [INDUK] ID: $pId | Nama: $pName\n")
                 val kids = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == pId }
                 for (k in kids) {
                     val kId = k["id"] as? Long ?: 0L
@@ -56,7 +54,11 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                     val contactName = doc.getString("contactName") ?: "TEMAN"
                     val remaining = doc.getDouble("remainingAmount") ?: 0.0
                     val type = doc.getString("type") ?: "DEBT"
-                    debtContext.append("- Kontak: $contactName, Sisa Riil Terutang: Rp $remaining, Jenis: $type\n")
+                    if (type == "DEBT") {
+                        myDebtContext.append("- Saya berhutang ke: $contactName | Sisa Belum Dibayar: Rp $remaining\n")
+                    } else {
+                        otherReceivableContext.append("- $contactName berhutang ke saya | Sisa Belum Ditagih: Rp $remaining\n")
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -66,40 +68,47 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PROMPT SUPER KETAT: Memandu AI meracik template chat luwes & membedakan Utang/Piutang mutlak!
+        // 🔥 REVOLUSI WAKTU: Groq dipaksa menghitung start_date & end_date jika Mam minta waktu custom (Kemarin, 2 minggu lalu, dsb)
         val systemPrompt = """
             Anda adalah Asisten Finansial Pribadi untuk aplikasi Smart Finance Tracker milik Ikromul Umam.
-            Panggilan akrab user adalah 'Mam'. DILARANG KERAS menggunakan kata 'Anda', selalu panggil 'Mam'.
+            Selalu panggil user dengan sebutan 'Mam'. JANGAN gunakan kata 'Anda'.
             
             🗓️ WAKTU SAAT INI: $todayString
+            
             [KATEGORI DATABASE]: 
             $catContext
-            [DATA UTANG AKTIF]: 
-            $debtContext
             
-            ATURAN GAYA BAHASA (ai_response):
-            - Gunakan bahasa Indonesia kasual yang profesional. Jangan kaku.
-            - Gunakan variasi awalan luwes, contoh: "Siap Mam, ", "Oke Mam, ", "Baik Mam, ".
-            - BENTUK PIUTANG (Mam meminjamkan uang ke orang): "Siap Mam, uang keluar RpX untuk pinjaman ke [Nama] sudah dicatat."
-            - BENTUK UTANG (Mam pinjam uang dari orang): "Oke Mam, utang RpX dari [Nama] sudah direkam."
-            - BENTUK TRANSAKSI: "Baik Mam, pengeluaran untuk [Barang] sebesar RpX sudah masuk catatan."
-            - BENTUK BAYAR CICILAN: "Siap Mam, pembayaran cicilan dari/untuk [Nama] sebesar RpX sudah diproses."
+            [HUTANG SAYA (SAYA YANG PINJAM UANG)]:
+            ${if (myDebtContext.isEmpty()) "Tidak ada hutang" else myDebtContext.toString()}
             
-            ATURAN AKUNTANSI (WAJIB DIPATUHI):
-            1. PIUTANG / RECEIVABLE: Jika Mam meminjamkan uang ke orang lain -> Kas Mam Berkurang. WAJIB pilih action_type: "DEBT_RECORD" dengan debt_type: "RECEIVABLE".
-            2. UTANG / DEBT: Jika Mam berutang ke orang lain -> Kas Mam Bertambah. WAJIB pilih action_type: "DEBT_RECORD" dengan debt_type: "DEBT".
-            3. Jika Mam meminta laporan (Harian/Bulanan/Kategori), pilih "VIEW_REPORT" dan KOSONGKAN 'ai_response'.
-            4. Pembuatan Kategori Baru: Jika barang tidak ada di [KATEGORI DATABASE], setel "is_new_category": true. Buatkan "category_id" acak di atas 200. JIKA barang itu cocok menjadi sub-kategori dari salah satu [INDUK] di atas, masukkan ID Induk tersebut ke "parent_category_id". Jika dia berdiri sendiri, isi dengan string kosong "".
+            [PIUTANG SAYA (ORANG LAIN PINJAM UANG SAYA)]:
+            ${if (otherReceivableContext.isEmpty()) "Tidak ada piutang" else otherReceivableContext.toString()}
             
-            FORMAT JSON KAKU (Wajib patuhi struktur ini):
+            ATURAN SPOK (DARI, KE, OLEH, KEPADA):
+            - Jika Mam menerima uang DARI orang lain (Mam pinjam) -> Kas Mam +, ini DEBT (Hutang Mam).
+            - Jika Mam memberikan uang KE/KEPADA orang lain (Mam meminjamkan) -> Kas Mam -, ini RECEIVABLE (Piutang Mam).
+            - Jika Mam membayar cicilan KE/KEPADA orang -> DEBT_PAYMENT untuk kontak di [HUTANG SAYA].
+            - Jika Mam menerima cicilan DARI/OLEH orang -> DEBT_PAYMENT untuk kontak di [PIUTANG SAYA].
+            - JIKA Mam bertanya "Apakah saya punya hutang?", BACA HANYA blok [HUTANG SAYA]. DILARANG menyebut data piutang sebagai hutang!
+            
+            ATURAN KLASIFIKASI & RESPON:
+            1. VIEW_CATEGORIES: Jika Mam meminta daftar kategori. Kosongkan 'ai_response'.
+            2. VIEW_REPORT: Jika Mam meminta laporan, pengeluaran tertinggi, atau rincian per kategori. Kosongkan 'ai_response'.
+               - Jika Mam meminta waktu spesifik/dinamis (contoh: "kemarin", "minggu lalu", "2 minggu lalu", "3 hari terakhir", "januari sampai maret"), Anda WAJIB menghitung tanggalnya berdasarkan WAKTU SAAT INI. Set "time_range" ke "CUSTOM_RANGE", lalu hitung dan isi "start_date" dan "end_date" dengan format "dd-MM-yyyy". Jika hanya 1 hari ("kemarin"), isi start dan end dengan tanggal yang sama.
+            3. CHAT_ONLY: Jika Mam ngobrol atau tanya status hutang spesifik. Jawab dengan ramah di 'ai_response'.
+            4. TRANSAKSI/PINJAMAN: Jika mencatat mutasi ("TRANSACTION", "DEBT_RECORD", "DEBT_PAYMENT"). Pastikan SPOK tidak terbalik! Ekstrak tanggal ke 'transaction_date'.
+            
+            FORMAT JSON WAJIB:
             {
-              "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT",
-              "ai_response": "Teks balasan asisten yang luwes (Kosongkan jika VIEW_REPORT)",
+              "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
+              "ai_response": "Teks balasan asisten yang luwes (Kosongkan jika VIEW_REPORT / VIEW_CATEGORIES)",
               "report_filter": {
-                 "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_DATE" | "ALL",
-                 "target_date": "dd-MM-yyyy",
-                 "target_category": "NAMA_KATEGORI_JIKA_ADA",
-                 "target_keyword": "KATA_KUNCI_BARANG_JIKA_ADA"
+                 "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN",
+                 "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM_RANGE" | "ALL",
+                 "start_date": "dd-MM-yyyy",
+                 "end_date": "dd-MM-yyyy",
+                 "target_category": "Nama Kategori",
+                 "target_keyword": "Kata Kunci"
               },
               "transactions": [
                  {
@@ -107,11 +116,11 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                    "type": "EXPENSE" | "INCOME",
                    "category_id": 15,
                    "category_name": "Nama Kategori",
-                   "clean_note": "Nama barang/catatan",
-                   "contact_name": "Nama kontak utang (jika ada)",
+                   "clean_note": "Nama barang",
+                   "contact_name": "Nama kontak utang",
                    "debt_type": "DEBT" | "RECEIVABLE",
                    "is_new_category": false,
-                   "parent_category_id": "ID_Induk_Jika_SubKategori_Baru",
+                   "parent_category_id": "ID_Induk_Jika_SubKategori",
                    "transaction_date": "dd-MM-yyyy HH:mm"
                  }
               ]
