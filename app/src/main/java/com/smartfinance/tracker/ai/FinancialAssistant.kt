@@ -16,8 +16,7 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^
-```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -56,7 +55,7 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
             }
-            return aiResponse.ifEmpty { "Sip Mam, mutasi sudah berhasil diamankan ke Cloud!" }
+            return aiResponse.ifEmpty { "Sip Mam, transaksi/kategori telah berhasil diamankan ke Cloud!" }
         } catch (e: Exception) {
             return "❌ Maaf Mam, sistem gagal membaca maksud instruksi ini."
         }
@@ -185,10 +184,8 @@ class FinancialAssistant(private val context: Context) {
         val startDateStr = filterObj?.optString("start_date", "") ?: ""
         val endDateStr = filterObj?.optString("end_date", "") ?: ""
 
-        // 🔥 LOGIKA BARU PEMECAH WAKTU: Mengonversi waktu kustom Groq ke skala Timestamp mili-detik
         val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
-        var startTs = 0L
-        var endTs = Long.MAX_VALUE
+        var startTs = 0L; var endTs = Long.MAX_VALUE
 
         if (timeRange == "CUSTOM_RANGE") {
             try {
@@ -212,6 +209,7 @@ class FinancialAssistant(private val context: Context) {
         var incSum = 0.0; var expSum = 0.0
         val expenseList = mutableListOf<Map<String, Any>>()
         val calToday = Calendar.getInstance()
+        val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
 
         for (doc in snapshot.documents) {
             val amt = doc.getDouble("amount") ?: 0.0
@@ -227,6 +225,7 @@ class FinancialAssistant(private val context: Context) {
                 "TODAY" -> isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                 "WEEKLY" -> isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                 "MONTHLY" -> isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "LAST_MONTH" -> isTimeMatch = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
                 "YEARLY" -> isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                 "CUSTOM_RANGE" -> isTimeMatch = timestamp in startTs..endTs
                 "ALL" -> isTimeMatch = true
@@ -234,9 +233,14 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (isTimeMatch) {
+                // 🔥 PENAJAMAN FILTER KATEGORI & KEYWORD
                 var matchCat = true; var matchKey = true
-                if (targetCategory.isNotEmpty()) { matchCat = currentCategoryName.contains(targetCategory) || note.contains(targetCategory) }
-                if (targetKeyword.isNotEmpty()) { matchKey = note.contains(targetKeyword) || currentCategoryName.contains(targetKeyword) }
+                if (targetCategory.isNotEmpty()) {
+                    matchCat = currentCategoryName.contains(targetCategory) || targetCategory.contains(currentCategoryName)
+                }
+                if (targetKeyword.isNotEmpty()) {
+                    matchKey = note.contains(targetKeyword) || targetKeyword.contains(note)
+                }
 
                 if (matchCat && matchKey) {
                     val tUpper = type.trim().uppercase(Locale.ROOT)
@@ -250,7 +254,7 @@ class FinancialAssistant(private val context: Context) {
         }
 
         val rentangLabel = when (timeRange) {
-            "TODAY" -> "Hari Ini"; "WEEKLY" -> "Minggu Ini"; "MONTHLY" -> "Bulan Ini"; "YEARLY" -> "Tahun Ini"
+            "TODAY" -> "Hari Ini"; "WEEKLY" -> "Minggu Ini"; "MONTHLY" -> "Bulan Ini"; "LAST_MONTH" -> "Bulan Lalu"; "YEARLY" -> "Tahun Ini"
             "CUSTOM_RANGE" -> if (startDateStr == endDateStr) "Tanggal $startDateStr" else "Periode $startDateStr s/d $endDateStr"
             else -> "Semua Waktu"
         }
