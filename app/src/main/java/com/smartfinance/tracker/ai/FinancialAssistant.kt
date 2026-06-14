@@ -16,7 +16,8 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^
+```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -207,7 +208,8 @@ class FinancialAssistant(private val context: Context) {
         }
 
         var incSum = 0.0; var expSum = 0.0
-        val expenseList = mutableListOf<Map<String, Any>>()
+        val matchedTransactions = mutableListOf<Map<String, Any>>()
+        
         val calToday = Calendar.getInstance()
         val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
 
@@ -233,22 +235,20 @@ class FinancialAssistant(private val context: Context) {
             }
 
             if (isTimeMatch) {
-                // 🔥 PENAJAMAN FILTER KATEGORI & KEYWORD
                 var matchCat = true; var matchKey = true
                 if (targetCategory.isNotEmpty()) {
                     matchCat = currentCategoryName.contains(targetCategory) || targetCategory.contains(currentCategoryName)
                 }
                 if (targetKeyword.isNotEmpty()) {
-                    matchKey = note.contains(targetKeyword) || targetKeyword.contains(note)
+                    matchKey = note.contains(targetKeyword) || targetKeyword.contains(note) || currentCategoryName.contains(targetKeyword)
                 }
 
                 if (matchCat && matchKey) {
                     val tUpper = type.trim().uppercase(Locale.ROOT)
                     if (tUpper == "INCOME" || tUpper == "DEBT") incSum += amt
-                    if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") {
-                        expSum += amt
-                        expenseList.add(mapOf("note" to note, "category" to currentCategoryName, "amount" to amt, "date" to timestamp))
-                    }
+                    if (tUpper == "EXPENSE" || tUpper == "RECEIVABLE") expSum += amt
+                    
+                    matchedTransactions.add(mapOf("note" to note, "category" to currentCategoryName, "amount" to amt, "date" to timestamp, "flow" to tUpper))
                 }
             }
         }
@@ -261,6 +261,28 @@ class FinancialAssistant(private val context: Context) {
         var lingkupLabel = ""
         if (targetCategory.isNotEmpty()) lingkupLabel += "\n📂 Kategori: $targetCategory"
         if (targetKeyword.isNotEmpty()) lingkupLabel += "\n🔍 Pencarian: $targetKeyword"
+
+        val expenseList = matchedTransactions.filter { it["flow"] == "EXPENSE" || it["flow"] == "RECEIVABLE" }
+
+        // 🔥 TAMPILAN RINCIAN DETAIL (ITEM_DETAILS) -> DAFTAR LIST INDAH
+        if (reportType == "ITEM_DETAILS") {
+            if (matchedTransactions.isEmpty()) return "📊 **Rincian Transaksi Mam ($rentangLabel)**\nBelum ada data untuk pencarian ini."
+            
+            val sb = java.lang.StringBuilder("📝 **Rincian Transaksi Mam ($rentangLabel)**$lingkupLabel\n\n")
+            val sortedList = matchedTransactions.sortedByDescending { it["date"] as Long }
+            val sdfItem = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale("id", "ID"))
+            
+            sortedList.forEachIndexed { index, map -> 
+                val dateStr = sdfItem.format(Date(map["date"] as Long))
+                val flow = map["flow"] as String
+                val icon = if (flow == "INCOME" || flow == "DEBT") "🟢" else "🔴"
+                sb.append("${index + 1}. **${map["note"]}**\n   └ $dateStr | ${map["category"]} | $icon ${formatRupiah.format(map["amount"])}\n\n")
+            }
+            sb.append("==========================\n")
+            if (incSum > 0) sb.append("🟢 Total Pemasukan: ${formatRupiah.format(incSum)}\n")
+            if (expSum > 0) sb.append("🔴 Total Pengeluaran: ${formatRupiah.format(expSum)}\n")
+            return sb.toString().trimEnd()
+        }
 
         if (reportType == "TOP_EXPENSE") {
             val topItems = expenseList.sortedByDescending { it["amount"] as Double }.take(5)
