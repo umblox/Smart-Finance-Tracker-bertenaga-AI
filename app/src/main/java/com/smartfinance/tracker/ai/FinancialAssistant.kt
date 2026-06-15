@@ -16,7 +16,8 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^
+```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -43,7 +44,6 @@ class FinancialAssistant(private val context: Context) {
 
             // 2. Evaluasi Chat Biasa atau Penahanan Konfirmasi
             if (actionType == "CHAT_ONLY") {
-                // HANYA simpan pending jika AI meminta konfirmasi (CHAT_ONLY)
                 val pendingJson = json.optJSONObject("pending_transaction")
                 if (pendingJson != null && pendingJson.length() > 0) {
                     val pAmt = parseAmount(pendingJson)
@@ -54,11 +54,30 @@ class FinancialAssistant(private val context: Context) {
                 return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
             }
 
-            // 3. Eksekusi Laporan
+            // 3. Eksekusi Laporan & Tampilan Kategori
             if (actionType == "VIEW_CATEGORIES") return renderBeautifulCategoryList()
             if (actionType == "VIEW_REPORT") return compileAiReport(cleanJsonStr)
 
-            // 4. Eksekusi Mutasi Mutlak (Otomatis tanpa konfirmasi)
+            // 🔥 4. EKSEKUSI PEMBUATAN KATEGORI BARU VIA CHAT
+            if (actionType == "CREATE_CATEGORY") {
+                val newCat = json.optJSONObject("new_category")
+                if (newCat != null) {
+                    val catName = newCat.optString("name", "").trim()
+                    val catType = newCat.optString("type", "EXPENSE").uppercase(Locale.ROOT)
+                    val pIdStr = newCat.optString("parent_category_id", "")
+                    val parsedParentId: Long? = if (pIdStr.isEmpty() || pIdStr == "null") null else pIdStr.toLongOrNull()
+                    
+                    if (catName.isNotEmpty()) {
+                        val newId = System.currentTimeMillis()
+                        val newCatMap = hashMapOf("id" to newId, "name" to catName, "type" to catType, "iconName" to "ic_custom", "parentCategoryId" to parsedParentId, "isLocked" to false)
+                        firestore.collection("categories").document("cat_$newId").set(newCatMap).await()
+                        return aiResponse.ifEmpty { "✅ Kategori baru **$catName** berhasil ditambahkan ke Cloud!" }
+                    }
+                }
+                return "❌ Gagal membuat kategori, format instruksi AI kurang lengkap."
+            }
+
+            // 5. Eksekusi Mutasi Otomatis
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
@@ -93,6 +112,7 @@ class FinancialAssistant(private val context: Context) {
         }
     }
 
+    // 🔥 PEROMBAKAN TAMPILAN KATEGORI (DIKELOMPOKKAN BERDASARKAN TIPE)
     private suspend fun renderBeautifulCategoryList(): String {
         val snapshot = firestore.collection("categories").get().await()
         val allCats = snapshot.documents.mapNotNull { it.data }
@@ -102,17 +122,37 @@ class FinancialAssistant(private val context: Context) {
         if (parents.isEmpty()) return "Maaf Mam, belum ada kategori terdaftar di Cloud."
 
         val sb = java.lang.StringBuilder("🗂️ **Daftar Kategori Finansial Mam:**\n\n")
-        for (p in parents) {
-            val pId = p["id"] as? Long ?: 0L
-            val pName = p["name"] as? String ?: "Tanpa Nama"
-            sb.append("📁 **$pName**\n")
+        
+        // Pemetaan Grup
+        val types = listOf(
+            "INCOME" to "🟢 PEMASUKAN", 
+            "EXPENSE" to "🔴 PENGELUARAN", 
+            "DEBT" to "🟡 HUTANG", 
+            "RECEIVABLE" to "🔵 PIUTANG"
+        )
+        
+        for ((typeCode, typeLabel) in types) {
+            // Ambil parent yang tipenya sesuai
+            val typeParents = parents.filter { (it["type"] as? String)?.uppercase(Locale.ROOT) == typeCode }
             
-            val kids = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == pId }.sortedBy { it["name"] as? String ?: "" }
-            for (k in kids) {
-                val kName = k["name"] as? String ?: "Tanpa Nama"
-                sb.append("   └── 💰 $kName\n")
+            if (typeParents.isNotEmpty()) {
+                sb.append("=========================\n")
+                sb.append("**$typeLabel**\n")
+                sb.append("=========================\n")
+                
+                for (p in typeParents) {
+                    val pId = p["id"] as? Long ?: 0L
+                    val pName = p["name"] as? String ?: "Tanpa Nama"
+                    sb.append("📁 **$pName**\n")
+                    
+                    val kids = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == pId }.sortedBy { it["name"] as? String ?: "" }
+                    for (k in kids) {
+                        val kName = k["name"] as? String ?: "Tanpa Nama"
+                        sb.append("   └── 💰 $kName\n")
+                    }
+                }
+                sb.append("\n") // Jarak antar grup
             }
-            sb.append("\n")
         }
         return sb.toString().trimEnd()
     }
