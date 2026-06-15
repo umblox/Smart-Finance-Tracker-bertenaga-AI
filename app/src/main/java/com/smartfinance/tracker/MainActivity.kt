@@ -16,6 +16,22 @@ import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
+private fun checkBiometric() {
+    val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+    if (prefs.getBoolean("use_biometric", false)) {
+        val executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { finish() } // Kunci mati kalau gagal
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { /* Akses Diberikan */ }
+        })
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Smart Finance Locked")
+            .setSubtitle("Gunakan sidik jari untuk membuka")
+            .setNegativeButtonText("Batal")
+            .build()
+        biometricPrompt.authenticate(promptInfo)
+    }
+}
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
