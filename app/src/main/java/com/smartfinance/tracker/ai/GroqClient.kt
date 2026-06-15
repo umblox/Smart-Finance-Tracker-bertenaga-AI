@@ -24,6 +24,9 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
         // 🔥 BACA API KEY CUSTOM DARI SETTINGS (Jika kosong, pakai dari BuildConfig)
         val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        val customPrompt = prefs.getString("expert_system_prompt", null) // Ambil terbaru dari Settings
+        val finalPrompt = customPrompt ?: defaultPrompt // Pakai custom jika ada, kalau tidak pakai default
+        
         var apiKey = prefs.getString("groq_key_override", "") ?: ""
         if (apiKey.isEmpty()) {
             apiKey = BuildConfig.GROQ_API_KEY
@@ -94,6 +97,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             [50 TRANSAKSI TERAKHIR MAM]: \n{TX_CONTEXT}
             (GUNAKAN DATA TRANSAKSI DI ATAS HANYA UNTUK MENCARI TANGGAL/WAKTU. DILARANG MENGHITUNG TOTAL DARI SINI!)
             
+            ATURAN PENCATATAN OTOMATIS:
+            1. JIKA kategori di [KATEGORI DATABASE] sangat cocok (Misal: "Beli bensin" -> "Transportasi"), langsung catat dengan action_type: "TRANSACTION".
+            2. JIKA kategori meragukan/tidak ada, baru kembalikan action_type: "CHAT_ONLY" dan tanya konfirmasi ke Mam.
+
             ATURAN INTERAKSI & KLASIFIKASI MUTLAK:
             1. PERTANYAAN TANGGAL: Cari barang di [50 TRANSAKSI TERAKHIR MAM]. Kembalikan "CHAT_ONLY" dan jawab tanggalnya.
             2. PERMINTAAN LAPORAN (VIEW_REPORT): WAJIB set "report_type". Jika TANGGAL/WAKTU SPESIFIK, WAJIB "CUSTOM_RANGE".
