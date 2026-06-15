@@ -5,14 +5,17 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
         
-        maven { url = uri("https://jitpack.io") }
-        maven { url = uri("https://www.jitpack.io") }
+        // 🔥 Ini "kode java" murni yang lu ingat! Paling kebal error.
+        maven { 
+            url = java.net.URI("https://jitpack.io") 
+        }
     }
 }
 
