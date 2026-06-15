@@ -42,7 +42,8 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             for (p in parents) {
                 val pId = p["id"] as? Long ?: 0L
                 val pName = p["name"] as? String ?: "Tanpa Nama"
-                catContext.append("📁 [INDUK] ID: $pId | Nama: $pName\n")
+                val pType = p["type"] as? String ?: "EXPENSE"
+                catContext.append("📁 [INDUK - $pType] ID: $pId | Nama: $pName\n")
                 val kids = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == pId }
                 for (k in kids) {
                     val kId = k["id"] as? Long ?: 0L
@@ -80,46 +81,38 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PROMPT SUPERIOR: ANTI-BEBEO & PEMAHAMAN INCOME / WAKTU PENUH
+        // 🔥 PROMPT SUPERIOR: DILENGKAPI KEKUATAN MEMBUAT KATEGORI
         val defaultPrompt = """
             Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam).
-            WAKTU SAAT INI: $todayString
+            WAKTU SAAT INI: {TODAY_DATE}
             
-            [DATABASE KATEGORI]: \n$catContext
-            [HUTANG SAYA (SAYA PINJAM)]: \n${if (myDebtContext.isEmpty()) "Bersih" else myDebtContext.toString()}
-            [PIUTANG SAYA (ORANG PINJAM)]: \n${if (otherReceivableContext.isEmpty()) "Bersih" else otherReceivableContext.toString()}
+            [DATABASE KATEGORI]: \n{CAT_CONTEXT}
+            [HUTANG SAYA (SAYA PINJAM)]: \n{MY_DEBT_CONTEXT}
+            [PIUTANG SAYA (ORANG PINJAM)]: \n{OTHER_RECEIVABLE_CONTEXT}
             
-            ATURAN PENCATATAN (MUTLAK):
-            1. PENGELUARAN & PEMASUKAN: 
-               - Jika Mam mencatat pemasukan (Gajian, sumbangan, dll) -> action_type: "TRANSACTION", type: "INCOME".
-               - Jika Mam mencatat pengeluaran (Beli barang, parkir, dll) -> action_type: "TRANSACTION", type: "EXPENSE".
-            2. TANGGAL KUSTOM: Jika Mam menyebut "kemarin", hitung mundur 1 hari dari WAKTU SAAT INI. Jika spesifik, ubah ke format "dd-MM-yyyy HH:mm" dan masukkan ke 'transaction_date'.
-            3. KONFIRMASI CERDAS: JIKA kategori sudah jelas/mirip, LANGSUNG EKSEKUSI. HANYA tunda jika sangat meragukan (kembalikan CHAT_ONLY dan tanyakan di ai_response).
-            4. UTANG/PIUTANG:
-               - Mam pinjam uang DARI orang -> "DEBT_RECORD", debt_type: "DEBT".
-               - Mam meminjamkan uang KE orang -> "DEBT_RECORD", debt_type: "RECEIVABLE".
-               - Mam terima tagihan ATAU bayar cicilan -> "DEBT_PAYMENT".
+            ATURAN (MUTLAK):
+            1. PENGELUARAN & PEMASUKAN: Pemasukan -> "INCOME". Pengeluaran -> "EXPENSE".
+            2. TANGGAL KUSTOM: "kemarin" hitung mundur 1 hari. Format harus "dd-MM-yyyy HH:mm".
+            3. KONFIRMASI CERDAS: Jika jelas, LANGSUNG EKSEKUSI. Tunda (pending_transaction) hanya jika sangat aneh.
+            4. UTANG/PIUTANG: Mam pinjam uang DARI orang -> DEBT. Mam minjemin uang KE orang -> RECEIVABLE.
+            5. BUAT KATEGORI BARU: Jika Mam menyuruh membuat kategori/sub-kategori, gunakan action_type "CREATE_CATEGORY". Jika dia minta membuat sub-kategori, WAJIB cari ID Induk dari [DATABASE KATEGORI] dan masukkan ke 'parent_category_id' (jika tidak ketemu, set "").
                
-            PERINGATAN RESPON:
-            Buatlah kalimat luwes Anda sendiri di dalam 'ai_response'. DILARANG KERAS MENGCOPY-PASTE TEMPLATE FORMAT JSON INI SEBAGAI JAWABAN!
+            PERINGATAN: Buatlah kalimat luwes Anda sendiri di dalam 'ai_response'. DILARANG MENGCOPY TEMPLATE JSON INI!
             
             FORMAT JSON WAJIB:
             {
-              "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
+              "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES" | "CREATE_CATEGORY",
               "ai_response": "Tulis jawaban natural Anda di sini...",
               "pending_transaction": null,
               "report_filter": null,
+              "new_category": {
+                 "name": "Nama Kategori",
+                 "type": "INCOME" | "EXPENSE" | "DEBT" | "RECEIVABLE",
+                 "parent_category_id": "ID_Induk_Jika_Ada"
+              },
               "transactions": [
                  {
-                   "amount": 0,
-                   "type": "EXPENSE" | "INCOME",
-                   "category_id": 1,
-                   "category_name": "Nama Kategori",
-                   "clean_note": "Nama Transaksi",
-                   "contact_name": "",
-                   "debt_type": "DEBT" | "RECEIVABLE",
-                   "is_new_category": false,
-                   "transaction_date": "dd-MM-yyyy HH:mm"
+                   "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama Kategori", "clean_note": "Catatan", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm"
                  }
               ]
             }
@@ -129,8 +122,8 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         if (finalSystemPrompt.contains("{TODAY_DATE}")) {
             finalSystemPrompt = finalSystemPrompt.replace("{TODAY_DATE}", todayString)
                 .replace("{CAT_CONTEXT}", catContext.toString())
-                .replace("{MY_DEBT_CONTEXT}", myDebtContext.toString())
-                .replace("{OTHER_RECEIVABLE_CONTEXT}", otherReceivableContext.toString())
+                .replace("{MY_DEBT_CONTEXT}", if (myDebtContext.isEmpty()) "Bersih" else myDebtContext.toString())
+                .replace("{OTHER_RECEIVABLE_CONTEXT}", if (otherReceivableContext.isEmpty()) "Bersih" else otherReceivableContext.toString())
                 .replace("{TX_CONTEXT}", txContext.toString())
         }
 
