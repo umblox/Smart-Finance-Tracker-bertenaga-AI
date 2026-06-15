@@ -1,15 +1,18 @@
 package com.smartfinance.tracker
 
+import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.firebase.FirebaseApp // IMPORT MUTLAK ASLI FIREBASE
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,16 +20,42 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 🔥 KUNCI UTAMA: Inisialisasi Firebase secara mutlak agar koneksi Firestore langsung terikat saat start
+        // 🔥 KUNCI UTAMA: Inisialisasi Firebase Dinamis (White-Label Support)
         try {
-            FirebaseApp.initializeApp(this)
+            val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+            val customFirebaseJson = prefs.getString("custom_firebase_json", null)
+
+            // Jika user pernah upload google-services.json dari Settings
+            if (customFirebaseJson != null && FirebaseApp.getApps(this).isEmpty()) {
+                val jsonObj = JSONObject(customFirebaseJson)
+                val projectInfo = jsonObj.getJSONObject("project_info")
+                val clientInfo = jsonObj.getJSONArray("client").getJSONObject(0).getJSONObject("client_info")
+                val apiKey = jsonObj.getJSONArray("client").getJSONObject(0).getJSONArray("api_key").getJSONObject(0).getString("current_key")
+                
+                val projectId = projectInfo.getString("project_id")
+                val appId = clientInfo.getString("mobilesdk_app_id")
+                
+                val options = FirebaseOptions.Builder()
+                    .setProjectId(projectId)
+                    .setApplicationId(appId)
+                    .setApiKey(apiKey)
+                    .build()
+
+                FirebaseApp.initializeApp(this, options)
+            } 
+            // Jika tidak ada JSON kustom, inisialisasi default dari bawaan aplikasi
+            else if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
+            // Fallback aman jika parsing JSON kustom gagal
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this)
+            }
         }
 
-        // SINKRONISASI ID: Menggunakan ID bawaan XML proyek asli Anda
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
-        
         bottomNavigation.menu.findItem(R.id.menu_report)?.title = "Transaksi"
 
         if (savedInstanceState == null) {
