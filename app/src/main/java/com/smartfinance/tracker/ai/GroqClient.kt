@@ -115,7 +115,8 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
 
         try {
-            val url = URI("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)").toURL()
+            // 🔥 URL SUDAH DISTERILKAN DARI MARKDOWN
+            val url = URI("https://api.groq.com/openai/v1/chat/completions").toURL()
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
