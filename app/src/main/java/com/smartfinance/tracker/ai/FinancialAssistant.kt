@@ -25,11 +25,27 @@ class FinancialAssistant(private val context: Context) {
             val json = JSONObject(cleanJsonStr)
             val actionType = json.optString("action_type", "CHAT_ONLY").trim().uppercase(Locale.ROOT)
             val aiResponse = json.optString("ai_response", "").trim()
+            val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
+            val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
 
+            // 1. Eksekusi Konfirmasi "Ya" dari Pending Transaksi Sebelumnya
+            if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT") || cleanAiResponseUpper.contains("BENAR") || cleanAiResponseUpper.contains("CATAT")) {
+                val savedTxStr = prefs.getString("pending_tx", null)
+                if (savedTxStr != null) {
+                    val savedItem = JSONObject(savedTxStr)
+                    val amount = parseAmount(savedItem)
+                    executePureTransaction(savedItem, amount, System.currentTimeMillis())
+                    prefs.edit().remove("pending_tx").apply()
+                    return "✅ Siap Mam! Transaksi yang tertunda tadi sudah berhasil saya catat ke Cloud."
+                }
+            }
+
+            // 2. Evaluasi Chat Biasa atau Laporan
             if (actionType == "CHAT_ONLY") return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
             if (actionType == "VIEW_CATEGORIES") return renderBeautifulCategoryList()
             if (actionType == "VIEW_REPORT") return compileAiReport(cleanJsonStr)
 
+            // 3. Eksekusi Mutasi / Penundaan Konfirmasi Baru
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
@@ -37,24 +53,16 @@ class FinancialAssistant(private val context: Context) {
                     val customDateStr = item.optString("transaction_date", "").trim()
                     val targetTimestamp = parseTransactionDateTime(customDateStr)
                     val finalAmount = parseAmount(item)
-    
+
                     if (finalAmount <= 0.0) continue
                     
-val pendingJson = json.optJSONObject("pending_transaction")
-if (pendingJson != null) {
-    prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
-    return aiResponse
-}
+                    // 🔥 FITUR KONFIRMASI (TUNDA PENCATATAN)
+                    val pendingJson = json.optJSONObject("pending_transaction")
+                    if (pendingJson != null) {
+                        prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
+                        return aiResponse
+                    }
 
-if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT")) {
-    val savedTx = prefs.getString("pending_tx", null)
-    if (savedTx != null) {
-        val item = JSONObject(savedTx)
-        executePureTransaction(item, parseAmount(item), System.currentTimeMillis())
-        prefs.edit().remove("pending_tx").apply()
-        return "✅ Transaksi berhasil dicatat, Mam!"
-                    val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
-                    
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI" || contactNameRaw == "TOLONG") {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
@@ -72,7 +80,8 @@ if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT
             }
             return aiResponse.ifEmpty { "Sip Mam, transaksi/kategori telah berhasil diamankan ke Cloud!" }
         } catch (e: Exception) {
-            return "❌ Maaf Mam, sistem gagal membaca maksud instruksi ini."
+            e.printStackTrace()
+            return "❌ Maaf Mam, sistem gagal membaca instruksi. Pastikan perintahnya jelas."
         }
     }
 
@@ -278,7 +287,6 @@ if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT
 
         val expenseList = matchedTransactions.filter { it["flow"] == "EXPENSE" || it["flow"] == "RECEIVABLE" }
 
-        // 🔥 TAMPILAN RINCIAN DETAIL (ITEM_DETAILS) -> DAFTAR LIST INDAH
         if (reportType == "ITEM_DETAILS") {
             if (matchedTransactions.isEmpty()) return "📊 **Rincian Transaksi Mam ($rentangLabel)**\nBelum ada data untuk pencarian ini."
             
