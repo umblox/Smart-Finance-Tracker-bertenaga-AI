@@ -69,7 +69,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 val amt = doc.getDouble("amount") ?: 0.0
                 val type = doc.getString("type") ?: "EXPENSE"
                 val catName = doc.getString("categoryName") ?: "Umum"
-                val note = doc.getString("note") ?: "Transaksi AI"
+                val note = doc.getString("note") ?: "Transaksi"
                 val ts = doc.getLong("timestamp") ?: System.currentTimeMillis()
                 txContext.append("- [${sdfTx.format(Date(ts))}] $note | Kategori: $catName | Tipe: $type | Nominal: Rp$amt\n")
             }
@@ -77,45 +77,64 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             e.printStackTrace()
         }
 
-        val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm (EEEE)", Locale("id", "ID"))
+        val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 PROMPT INTERAKTIF & KONFIRMASI CERDAS
+        // 🔥 PROMPT SUPERIOR: ANTI-BEBEO & PEMAHAMAN INCOME / WAKTU PENUH
         val defaultPrompt = """
             Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam).
-            🗓️ WAKTU SAAT INI: {TODAY_DATE}
+            WAKTU SAAT INI: $todayString
             
-            [KATEGORI]: \n{CAT_CONTEXT}
-            [HUTANG SAYA]: \n{MY_DEBT_CONTEXT}
-            [PIUTANG SAYA]: \n{OTHER_RECEIVABLE_CONTEXT}
-            [RIWAYAT TRANSAKSI]: \n{TX_CONTEXT} (Hanya untuk cari tanggal, jangan dihitung)
+            [DATABASE KATEGORI]: \n$catContext
+            [HUTANG SAYA (SAYA PINJAM)]: \n${if (myDebtContext.isEmpty()) "Bersih" else myDebtContext.toString()}
+            [PIUTANG SAYA (ORANG PINJAM)]: \n${if (otherReceivableContext.isEmpty()) "Bersih" else otherReceivableContext.toString()}
             
-            ATURAN PENCATATAN & KONFIRMASI:
-            1. Jika Mam mencatat barang/jasa, pilih kategori yang paling cocok di [KATEGORI]. Jika cocok, pilih action "TRANSACTION".
-            2. JIKA BARANG MERAGUKAN: Tunda pencatatan. Kembalikan action "CHAT_ONLY", isi 'ai_response' menanyakan konfirmasi, DAN ISI field 'pending_transaction' dengan data sementara.
-            3. JIKA MAM MENJAWAB KONFIRMASI (Misal: "Ya", "Benar", "Lanjut"): Kembalikan action "CHAT_ONLY" dan biarkan sistem backend mengeksekusi 'pending_transaction' sebelumnya.
-            4. UTANG/PIUTANG: Pinjam dari orang -> DEBT. Minjamin ke orang -> RECEIVABLE. Bayar cicilan -> DEBT_PAYMENT. JANGAN TERBALIK!
+            ATURAN PENCATATAN (MUTLAK):
+            1. PENGELUARAN & PEMASUKAN: 
+               - Jika Mam mencatat pemasukan (Gajian, sumbangan, dll) -> action_type: "TRANSACTION", type: "INCOME".
+               - Jika Mam mencatat pengeluaran (Beli barang, parkir, dll) -> action_type: "TRANSACTION", type: "EXPENSE".
+            2. TANGGAL KUSTOM: Jika Mam menyebut "kemarin", hitung mundur 1 hari dari WAKTU SAAT INI. Jika spesifik, ubah ke format "dd-MM-yyyy HH:mm" dan masukkan ke 'transaction_date'.
+            3. KONFIRMASI CERDAS: JIKA kategori sudah jelas/mirip, LANGSUNG EKSEKUSI. HANYA tunda jika sangat meragukan (kembalikan CHAT_ONLY dan tanyakan di ai_response).
+            4. UTANG/PIUTANG:
+               - Mam pinjam uang DARI orang -> "DEBT_RECORD", debt_type: "DEBT".
+               - Mam meminjamkan uang KE orang -> "DEBT_RECORD", debt_type: "RECEIVABLE".
+               - Mam terima tagihan ATAU bayar cicilan -> "DEBT_PAYMENT".
+               
+            PERINGATAN RESPON:
+            Buatlah kalimat luwes Anda sendiri di dalam 'ai_response'. DILARANG KERAS MENGCOPY-PASTE TEMPLATE FORMAT JSON INI SEBAGAI JAWABAN!
             
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
-              "ai_response": "Balasan luwes (Kosongkan jika VIEW_REPORT/CATEGORIES)",
-              "pending_transaction": { "amount": 0, "type": "EXPENSE", "category_id": 15, "category_name": "Nama", "clean_note": "Barang", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" },
-              "report_filter": { "report_type": "SUMMARY", "time_range": "MONTHLY", "start_date": "", "end_date": "", "target_category": "", "target_keyword": "" },
-              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 15, "category_name": "Nama", "clean_note": "Barang", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
+              "ai_response": "Tulis jawaban natural Anda di sini...",
+              "pending_transaction": null,
+              "report_filter": null,
+              "transactions": [
+                 {
+                   "amount": 0,
+                   "type": "EXPENSE" | "INCOME",
+                   "category_id": 1,
+                   "category_name": "Nama Kategori",
+                   "clean_note": "Nama Transaksi",
+                   "contact_name": "",
+                   "debt_type": "DEBT" | "RECEIVABLE",
+                   "is_new_category": false,
+                   "transaction_date": "dd-MM-yyyy HH:mm"
+                 }
+              ]
             }
         """.trimIndent()
 
         var finalSystemPrompt = prefs.getString("expert_system_prompt", defaultPrompt) ?: defaultPrompt
-        finalSystemPrompt = finalSystemPrompt
-            .replace("{TODAY_DATE}", todayString)
-            .replace("{CAT_CONTEXT}", catContext.toString())
-            .replace("{MY_DEBT_CONTEXT}", if (myDebtContext.isEmpty()) "Tidak ada" else myDebtContext.toString())
-            .replace("{OTHER_RECEIVABLE_CONTEXT}", if (otherReceivableContext.isEmpty()) "Tidak ada" else otherReceivableContext.toString())
-            .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
+        if (finalSystemPrompt.contains("{TODAY_DATE}")) {
+            finalSystemPrompt = finalSystemPrompt.replace("{TODAY_DATE}", todayString)
+                .replace("{CAT_CONTEXT}", catContext.toString())
+                .replace("{MY_DEBT_CONTEXT}", myDebtContext.toString())
+                .replace("{OTHER_RECEIVABLE_CONTEXT}", otherReceivableContext.toString())
+                .replace("{TX_CONTEXT}", txContext.toString())
+        }
 
         try {
-            // 🔥 URL SUDAH DISTERILKAN DARI MARKDOWN
             val url = URI("https://api.groq.com/openai/v1/chat/completions").toURL()
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
