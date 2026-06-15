@@ -11,7 +11,8 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         // ALAMAT BARU: Menyuruh server mencari pustaka grafik MPAndroidChart di sini
-        maven { url = java.net.URI("https://jitpack.io") }
+        maven { url = java.net.URI("https://jitpack.io")
+        maven { url = uri("https://www.jitpack.io") }
     }
 }
 
