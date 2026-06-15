@@ -37,8 +37,22 @@ class FinancialAssistant(private val context: Context) {
                     val customDateStr = item.optString("transaction_date", "").trim()
                     val targetTimestamp = parseTransactionDateTime(customDateStr)
                     val finalAmount = parseAmount(item)
-
+    
                     if (finalAmount <= 0.0) continue
+                    
+val pendingJson = json.optJSONObject("pending_transaction")
+if (pendingJson != null) {
+    prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
+    return aiResponse
+}
+
+if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT")) {
+    val savedTx = prefs.getString("pending_tx", null)
+    if (savedTx != null) {
+        val item = JSONObject(savedTx)
+        executePureTransaction(item, parseAmount(item), System.currentTimeMillis())
+        prefs.edit().remove("pending_tx").apply()
+        return "✅ Transaksi berhasil dicatat, Mam!"
                     val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
                     
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
