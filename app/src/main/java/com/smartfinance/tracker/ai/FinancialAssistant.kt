@@ -16,8 +16,7 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^
-```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -34,18 +33,32 @@ class FinancialAssistant(private val context: Context) {
                 if (savedTxStr != null) {
                     val savedItem = JSONObject(savedTxStr)
                     val amount = parseAmount(savedItem)
-                    executePureTransaction(savedItem, amount, System.currentTimeMillis())
-                    prefs.edit().remove("pending_tx").apply()
-                    return "✅ Siap Mam! Transaksi yang tertunda tadi sudah berhasil saya catat ke Cloud."
+                    if (amount > 0.0) {
+                        executePureTransaction(savedItem, amount, System.currentTimeMillis())
+                        prefs.edit().remove("pending_tx").apply()
+                        return "✅ Siap Mam! Transaksi yang tertunda tadi sudah berhasil saya catat ke Cloud."
+                    }
                 }
             }
 
-            // 2. Evaluasi Chat Biasa atau Laporan
-            if (actionType == "CHAT_ONLY") return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
+            // 2. Evaluasi Chat Biasa atau Penahanan Konfirmasi
+            if (actionType == "CHAT_ONLY") {
+                // HANYA simpan pending jika AI meminta konfirmasi (CHAT_ONLY)
+                val pendingJson = json.optJSONObject("pending_transaction")
+                if (pendingJson != null && pendingJson.length() > 0) {
+                    val pAmt = parseAmount(pendingJson)
+                    if (pAmt > 0.0) {
+                        prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
+                    }
+                }
+                return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
+            }
+
+            // 3. Eksekusi Laporan
             if (actionType == "VIEW_CATEGORIES") return renderBeautifulCategoryList()
             if (actionType == "VIEW_REPORT") return compileAiReport(cleanJsonStr)
 
-            // 3. Eksekusi Mutasi / Penundaan Konfirmasi Baru
+            // 4. Eksekusi Mutasi Mutlak (Otomatis tanpa konfirmasi)
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
@@ -56,15 +69,8 @@ class FinancialAssistant(private val context: Context) {
 
                     if (finalAmount <= 0.0) continue
                     
-                    // 🔥 FITUR KONFIRMASI (TUNDA PENCATATAN)
-                    val pendingJson = json.optJSONObject("pending_transaction")
-                    if (pendingJson != null) {
-                        prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
-                        return aiResponse
-                    }
-
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
-                    if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI" || contactNameRaw == "TOLONG") {
+                    if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
                     }
 
@@ -77,11 +83,13 @@ class FinancialAssistant(private val context: Context) {
                         "DEBT_PAYMENT" -> { return executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp) }
                     }
                 }
+                return aiResponse.ifEmpty { "✅ Sip Mam, mutasi berhasil diamankan ke Cloud!" }
             }
-            return aiResponse.ifEmpty { "Sip Mam, transaksi/kategori telah berhasil diamankan ke Cloud!" }
+            
+            return aiResponse
         } catch (e: Exception) {
             e.printStackTrace()
-            return "❌ Maaf Mam, sistem gagal membaca instruksi. Pastikan perintahnya jelas."
+            return "❌ Maaf Mam, sistem AI mengalami error pemahaman. (Bisa cek menu Expert Mode)."
         }
     }
 
@@ -165,9 +173,9 @@ class FinancialAssistant(private val context: Context) {
             firestore.collection("transactions").document(txId).set(payTxMap).await()
 
             val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA ✅" else formatRupiah.format(nextRemaining)
-            return "✅ **Sip Mam, Pembayaran Berhasil Dicatat!**\n\n👤 Kontak: $matchContactName\n💵 Nominal: ${formatRupiah.format(targetPayAmount)}\n📊 Sisa: $statusLunasText"
+            return "✅ **Sip Mam, Pembayaran Berhasil Dicatat!**\n\n👤 Kontak: $matchContactName\n💵 Nominal: ${formatRupiah.format(targetPayAmount)}\n📊 Sisa: $statusLunasText\n\n$originalAiResponse"
         }
-        return originalAiResponse
+        return originalAiResponse.ifEmpty { "✅ Pencatatan diproses." }
     }
 
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
