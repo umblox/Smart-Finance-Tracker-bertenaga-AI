@@ -22,7 +22,12 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
     private val firestore = FirebaseFirestore.getInstance()
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
-        val apiKey = BuildConfig.GROQ_API_KEY
+        // 🔥 BACA API KEY CUSTOM DARI SETTINGS (Jika kosong, pakai dari BuildConfig)
+        val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        var apiKey = prefs.getString("groq_key_override", "") ?: ""
+        if (apiKey.isEmpty()) {
+            apiKey = BuildConfig.GROQ_API_KEY
+        }
 
         if (apiKey.isEmpty()) return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build."
 
@@ -78,47 +83,40 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        val systemPrompt = """
+        // 🔥 FALLBACK DEFAULT PROMPT JIKA EXPERT MODE KOSONG/DI-RESET
+        val defaultPrompt = """
             Anda adalah Asisten Finansial Pribadi cerdas untuk Ikromul Umam (selalu panggil 'Mam').
-            🗓️ WAKTU SAAT INI: $todayString
+            🗓️ WAKTU SAAT INI: {TODAY_DATE}
             
-            [KATEGORI DATABASE]: \n$catContext
-            [HUTANG SAYA]: \n${if (myDebtContext.isEmpty()) "Tidak ada" else myDebtContext.toString()}
-            [PIUTANG SAYA]: \n${if (otherReceivableContext.isEmpty()) "Tidak ada" else otherReceivableContext.toString()}
-            [50 TRANSAKSI TERAKHIR MAM]: \n${if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString()}
+            [KATEGORI DATABASE]: \n{CAT_CONTEXT}
+            [HUTANG SAYA]: \n{MY_DEBT_CONTEXT}
+            [PIUTANG SAYA]: \n{OTHER_RECEIVABLE_CONTEXT}
+            [50 TRANSAKSI TERAKHIR MAM]: \n{TX_CONTEXT}
             (GUNAKAN DATA TRANSAKSI DI ATAS HANYA UNTUK MENCARI TANGGAL/WAKTU. DILARANG MENGHITUNG TOTAL DARI SINI!)
             
             ATURAN INTERAKSI & KLASIFIKASI MUTLAK:
-            1. PERTANYAAN TANGGAL ("Kapan saya beli X?"):
-               - Cari barang di [50 TRANSAKSI TERAKHIR MAM]. Kembalikan "CHAT_ONLY" dan jawab tanggalnya.
-            
-            2. PERMINTAAN LAPORAN (VIEW_REPORT):
-               - Jika Mam meminta "rincian", "detail", atau "daftar" pembelian suatu barang (misal: "Rincian beli rokok", "Detail pengeluaran bensin"), WAJIB set "report_type" ke "ITEM_DETAILS".
-               - Jika Mam menyebut TANGGAL ATAU WAKTU SPESIFIK (contoh: "12 juni", "kemarin", "3 hari lalu", "tanggal 1 sampai 5"), HARAM HUKUMNYA menggunakan TODAY/MONTHLY. Anda WAJIB memakai "CUSTOM_RANGE", lalu hitung presisi dan isi "start_date" dan "end_date" ("dd-MM-yyyy").
-            
-            3. CATAT TRANSAKSI & KONFIRMASI 2 OPSI:
-               - Jika barang sangat sesuai kategori yang ada, catat ("TRANSACTION").
-               - JIKA BARANG BARU/MERAGUKAN: TUNDA PENCATATAN! Kembalikan "CHAT_ONLY" dan tanyakan: "Mam, untuk transaksi [Barang] Rp[Nominal], mau dibuatkan kategori/sub baru, atau gabung ke kategori terdekat [Sebutkan]?"
+            1. PERTANYAAN TANGGAL: Cari barang di [50 TRANSAKSI TERAKHIR MAM]. Kembalikan "CHAT_ONLY" dan jawab tanggalnya.
+            2. PERMINTAAN LAPORAN (VIEW_REPORT): WAJIB set "report_type". Jika TANGGAL/WAKTU SPESIFIK, WAJIB "CUSTOM_RANGE".
+            3. CATAT TRANSAKSI & KONFIRMASI: Jika barang sangat sesuai, catat ("TRANSACTION"). JIKA BARANG BARU/MERAGUKAN: TUNDA! Kembalikan "CHAT_ONLY" dan tanyakan opsi ke Mam.
             
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
               "ai_response": "Balasan luwes (Kosongkan jika VIEW_REPORT / VIEW_CATEGORIES)",
-              "report_filter": {
-                 "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN" | "ITEM_DETAILS",
-                 "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "LAST_MONTH" | "YEARLY" | "CUSTOM_RANGE" | "ALL",
-                 "start_date": "dd-MM-yyyy",
-                 "end_date": "dd-MM-yyyy",
-                 "target_category": "NAMA_KATEGORI_JIKA_ADA",
-                 "target_keyword": "KATA_KUNCI_JIKA_ADA"
-              },
-              "transactions": [{
-                 "amount": 50000, "type": "EXPENSE" | "INCOME", "category_id": 15, "category_name": "Nama", 
-                 "clean_note": "Barang", "contact_name": "Kontak", "debt_type": "DEBT" | "RECEIVABLE", 
-                 "is_new_category": false, "parent_category_id": "ID_Induk_Jika_Sub", "transaction_date": "dd-MM-yyyy HH:mm"
-              }]
+              "report_filter": { "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN" | "ITEM_DETAILS", "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "LAST_MONTH" | "YEARLY" | "CUSTOM_RANGE" | "ALL", "start_date": "dd-MM-yyyy", "end_date": "dd-MM-yyyy", "target_category": "Kategori", "target_keyword": "Keyword" },
+              "transactions": [{ "amount": 0, "type": "EXPENSE" | "INCOME", "category_id": 15, "category_name": "Nama", "clean_note": "Barang", "contact_name": "Kontak", "debt_type": "DEBT" | "RECEIVABLE", "is_new_category": false, "parent_category_id": "ID", "transaction_date": "dd-MM-yyyy HH:mm" }]
             }
         """.trimIndent()
+
+        // 🔥 INJEKSI PROMPT DARI EXPERT MODE & REPLACE VARIABELNYA
+        var finalSystemPrompt = prefs.getString("expert_system_prompt", defaultPrompt) ?: defaultPrompt
+        
+        finalSystemPrompt = finalSystemPrompt
+            .replace("{TODAY_DATE}", todayString)
+            .replace("{CAT_CONTEXT}", catContext.toString())
+            .replace("{MY_DEBT_CONTEXT}", if (myDebtContext.isEmpty()) "Tidak ada" else myDebtContext.toString())
+            .replace("{OTHER_RECEIVABLE_CONTEXT}", if (otherReceivableContext.isEmpty()) "Tidak ada" else otherReceivableContext.toString())
+            .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
 
         try {
             val url = URI("https://api.groq.com/openai/v1/chat/completions").toURL()
@@ -129,7 +127,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             conn.doOutput = true
 
             val messagesArray = JSONArray().apply {
-                put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+                put(JSONObject().apply { put("role", "system"); put("content", finalSystemPrompt) })
                 put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
             }
 
