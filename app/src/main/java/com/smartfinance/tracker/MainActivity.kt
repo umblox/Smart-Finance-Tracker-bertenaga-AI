@@ -3,6 +3,8 @@ package com.smartfinance.tracker
 import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.FirebaseApp
@@ -16,28 +18,44 @@ import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
-private fun checkBiometric() {
-    val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-    if (prefs.getBoolean("use_biometric", false)) {
-        val executor = ContextCompat.getMainExecutor(this)
-        val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { finish() } // Kunci mati kalau gagal
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { /* Akses Diberikan */ }
-        })
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Smart Finance Locked")
-            .setSubtitle("Gunakan sidik jari untuk membuka")
-            .setNegativeButtonText("Batal")
-            .build()
-        biometricPrompt.authenticate(promptInfo)
+    private fun checkBiometric() {
+        val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("use_biometric", false)) {
+            val executor = ContextCompat.getMainExecutor(this)
+            val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { 
+                    finish() // Kunci mati kalau user batalin atau salah jari
+                }
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { 
+                    // Akses Diberikan, tidak ada aksi (biarkan aplikasi terbuka)
+                }
+            })
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Smart Finance Locked")
+                .setSubtitle("Gunakan sidik jari untuk membuka")
+                .setNegativeButtonText("Batal")
+                .build()
+            biometricPrompt.authenticate(promptInfo)
+        }
     }
-}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Panggil pengunci Biometrik sebelum data lain diload
+        checkBiometric()
+
         // 🔥 KUNCI UTAMA: Inisialisasi Firebase Dinamis (White-Label Support)
         try {
+            // Bersihkan instance lama agar JSON baru bisa masuk tanpa konflik
+            val existingApps = FirebaseApp.getApps(this)
+            for (app in existingApps) {
+                if (app.name != FirebaseApp.DEFAULT_APP_NAME) {
+                    app.delete()
+                }
+            }
+
             val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
             val customFirebaseJson = prefs.getString("custom_firebase_json", null)
 
