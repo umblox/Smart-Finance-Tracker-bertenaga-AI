@@ -22,16 +22,10 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
     private val firestore = FirebaseFirestore.getInstance()
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
-        // 🔥 BACA API KEY CUSTOM DARI SETTINGS (Jika kosong, pakai dari BuildConfig)
         val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val customPrompt = prefs.getString("expert_system_prompt", null) // Ambil terbaru dari Settings
-        val finalPrompt = customPrompt ?: defaultPrompt // Pakai custom jika ada, kalau tidak pakai default
         
         var apiKey = prefs.getString("groq_key_override", "") ?: ""
-        if (apiKey.isEmpty()) {
-            apiKey = BuildConfig.GROQ_API_KEY
-        }
-
+        if (apiKey.isEmpty()) apiKey = BuildConfig.GROQ_API_KEY
         if (apiKey.isEmpty()) return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build."
 
         val catContext = java.lang.StringBuilder()
@@ -86,38 +80,33 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm (EEEE)", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 FALLBACK DEFAULT PROMPT JIKA EXPERT MODE KOSONG/DI-RESET
+        // 🔥 PROMPT INTERAKTIF & KONFIRMASI CERDAS
         val defaultPrompt = """
-            Anda adalah Asisten Finansial Pribadi cerdas untuk Ikromul Umam (selalu panggil 'Mam').
+            Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam).
             🗓️ WAKTU SAAT INI: {TODAY_DATE}
             
-            [KATEGORI DATABASE]: \n{CAT_CONTEXT}
+            [KATEGORI]: \n{CAT_CONTEXT}
             [HUTANG SAYA]: \n{MY_DEBT_CONTEXT}
             [PIUTANG SAYA]: \n{OTHER_RECEIVABLE_CONTEXT}
-            [50 TRANSAKSI TERAKHIR MAM]: \n{TX_CONTEXT}
-            (GUNAKAN DATA TRANSAKSI DI ATAS HANYA UNTUK MENCARI TANGGAL/WAKTU. DILARANG MENGHITUNG TOTAL DARI SINI!)
+            [RIWAYAT TRANSAKSI]: \n{TX_CONTEXT} (Hanya untuk cari tanggal, jangan dihitung)
             
-            ATURAN PENCATATAN OTOMATIS:
-            1. JIKA kategori di [KATEGORI DATABASE] sangat cocok (Misal: "Beli bensin" -> "Transportasi"), langsung catat dengan action_type: "TRANSACTION".
-            2. JIKA kategori meragukan/tidak ada, baru kembalikan action_type: "CHAT_ONLY" dan tanya konfirmasi ke Mam.
-
-            ATURAN INTERAKSI & KLASIFIKASI MUTLAK:
-            1. PERTANYAAN TANGGAL: Cari barang di [50 TRANSAKSI TERAKHIR MAM]. Kembalikan "CHAT_ONLY" dan jawab tanggalnya.
-            2. PERMINTAAN LAPORAN (VIEW_REPORT): WAJIB set "report_type". Jika TANGGAL/WAKTU SPESIFIK, WAJIB "CUSTOM_RANGE".
-            3. CATAT TRANSAKSI & KONFIRMASI: Jika barang sangat sesuai, catat ("TRANSACTION"). JIKA BARANG BARU/MERAGUKAN: TUNDA! Kembalikan "CHAT_ONLY" dan tanyakan opsi ke Mam.
+            ATURAN PENCATATAN & KONFIRMASI:
+            1. Jika Mam mencatat barang/jasa, pilih kategori yang paling cocok di [KATEGORI]. Jika cocok, pilih action "TRANSACTION".
+            2. JIKA BARANG MERAGUKAN: Tunda pencatatan. Kembalikan action "CHAT_ONLY", isi 'ai_response' menanyakan konfirmasi, DAN ISI field 'pending_transaction' dengan data sementara.
+            3. JIKA MAM MENJAWAB KONFIRMASI (Misal: "Ya", "Benar", "Lanjut"): Kembalikan action "CHAT_ONLY" dan biarkan sistem backend mengeksekusi 'pending_transaction' sebelumnya.
+            4. UTANG/PIUTANG: Pinjam dari orang -> DEBT. Minjamin ke orang -> RECEIVABLE. Bayar cicilan -> DEBT_PAYMENT. JANGAN TERBALIK!
             
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES",
-              "ai_response": "Balasan luwes (Kosongkan jika VIEW_REPORT / VIEW_CATEGORIES)",
-              "report_filter": { "report_type": "SUMMARY" | "TOP_EXPENSE" | "CATEGORY_BREAKDOWN" | "ITEM_DETAILS", "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "LAST_MONTH" | "YEARLY" | "CUSTOM_RANGE" | "ALL", "start_date": "dd-MM-yyyy", "end_date": "dd-MM-yyyy", "target_category": "Kategori", "target_keyword": "Keyword" },
-              "transactions": [{ "amount": 0, "type": "EXPENSE" | "INCOME", "category_id": 15, "category_name": "Nama", "clean_note": "Barang", "contact_name": "Kontak", "debt_type": "DEBT" | "RECEIVABLE", "is_new_category": false, "parent_category_id": "ID", "transaction_date": "dd-MM-yyyy HH:mm" }]
+              "ai_response": "Balasan luwes (Kosongkan jika VIEW_REPORT/CATEGORIES)",
+              "pending_transaction": { "amount": 0, "type": "EXPENSE", "category_id": 15, "category_name": "Nama", "clean_note": "Barang", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" },
+              "report_filter": { "report_type": "SUMMARY", "time_range": "MONTHLY", "start_date": "", "end_date": "", "target_category": "", "target_keyword": "" },
+              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 15, "category_name": "Nama", "clean_note": "Barang", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
             }
         """.trimIndent()
 
-        // 🔥 INJEKSI PROMPT DARI EXPERT MODE & REPLACE VARIABELNYA
         var finalSystemPrompt = prefs.getString("expert_system_prompt", defaultPrompt) ?: defaultPrompt
-        
         finalSystemPrompt = finalSystemPrompt
             .replace("{TODAY_DATE}", todayString)
             .replace("{CAT_CONTEXT}", catContext.toString())
@@ -126,7 +115,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
 
         try {
-            val url = URI("https://api.groq.com/openai/v1/chat/completions").toURL()
+            val url = URI("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)").toURL()
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
