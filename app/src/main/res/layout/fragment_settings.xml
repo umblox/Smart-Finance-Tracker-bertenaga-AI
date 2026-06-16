@@ -21,7 +21,6 @@
             android:textStyle="bold"
             android:layout_marginBottom="24dp" />
 
-        <!-- GRUP 1: AI & BACKEND (WHITE-LABEL) -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -64,7 +63,6 @@
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="🧠 Expert Mode (Prompt Override)" android:textColor="#38BDF8" android:textSize="15sp" android:textStyle="bold" app:drawableEndCompat="@android:drawable/ic_menu_manage" />
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- GRUP 2: DATA & KEAMANAN -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -83,6 +81,17 @@
             app:cardCornerRadius="14dp"
             app:cardElevation="1dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="🗂️ Kelola Master Kategori" android:textColor="#334155" android:textSize="15sp" android:textStyle="bold" app:drawableEndCompat="@android:drawable/ic_menu_sort_by_size" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/menuRecurringTx"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="1dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="⏳ Transaksi Berkala / Terjadwal" android:textColor="#334155" android:textSize="15sp" android:textStyle="bold" app:drawableEndCompat="@android:drawable/ic_menu_today" />
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
