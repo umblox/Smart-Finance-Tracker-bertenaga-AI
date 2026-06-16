@@ -14,38 +14,106 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.card.MaterialCardView
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.smartfinance.tracker.R
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.ai.GroqClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
 
 class ReportFragment : Fragment() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private var reportListenerRegistration: ListenerRegistration? = null
 
-    private lateinit var chartContainer: LinearLayout
-    private lateinit var tvReportIncome: TextView
-    private lateinit var tvReportExpense: TextView
-    private lateinit var tvReportNet: TextView
-    
-    private lateinit var topBorosContainer: LinearLayout
     private lateinit var tvAiRecommendation: TextView
     private lateinit var btnTriggerAi: Button
     private lateinit var pbAiLoading: ProgressBar
 
-    // (Biarkan fungsi onCreateView, fetchReportData, renderCharts, dan renderTopBoros persis seperti aslinya)
-    // ... [BAGIAN UI TIDAK DIUBAH AGAR TIDAK MERUSAK DESAIN LU] ...
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View {
+        val context = requireContext()
+        val density = context.resources.displayMetrics.density
 
-    // 🔥 INI YANG KITA ROMBAK: OTAK AI REPORT SEKARANG MEMBACA DATA REAL-TIME
+        val root = RelativeLayout(context).apply { 
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.parseColor("#F8FAFC")) 
+        }
+        
+        val nsv = NestedScrollView(context).apply { 
+            isFillViewport = true
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
+        }
+        
+        val mainLayout = LinearLayout(context).apply { 
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
+        }
+
+        mainLayout.addView(TextView(context).apply {
+            text = "Laporan & Evaluasi AI"
+            textSize = 22f
+            setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
+            setTextColor(Color.parseColor("#1E293B"))
+            setPadding(0, 4, 0, (16 * density).toInt())
+        })
+
+        // 🔥 KARTU AI REVIEW
+        val cardAi = MaterialCardView(context).apply {
+            radius = 16 * density
+            cardElevation = 2 * density
+            strokeWidth = 0
+            setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
+        }
+        
+        val aiLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+
+        aiLayout.addView(TextView(context).apply {
+            text = "🤖 Rekomendasi Finansial"
+            textSize = 16f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#0D9488"))
+            setPadding(0, 0, 0, (12 * density).toInt())
+        })
+
+        tvAiRecommendation = TextView(context).apply {
+            text = "Klik tombol di bawah untuk meminta AI membaca data cloud Anda dan memberikan rekomendasi penghematan cerdas."
+            textSize = 14f
+            setTextColor(Color.parseColor("#334155"))
+            setPadding(0, 0, 0, (16 * density).toInt())
+        }
+        aiLayout.addView(tvAiRecommendation)
+
+        pbAiLoading = ProgressBar(context).apply {
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER; bottomMargin = (16 * density).toInt() }
+        }
+        aiLayout.addView(pbAiLoading)
+
+        btnTriggerAi = Button(context).apply {
+            text = "MINTA EVALUASI AI"
+            setBackgroundColor(Color.parseColor("#1E293B"))
+            setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setOnClickListener { triggerAiFinancialReview() }
+        }
+        aiLayout.addView(btnTriggerAi)
+
+        cardAi.addView(aiLayout)
+        mainLayout.addView(cardAi)
+
+        nsv.addView(mainLayout)
+        root.addView(nsv)
+
+        return root
+    }
+
     private fun triggerAiFinancialReview() {
         val context = context ?: return
         btnTriggerAi.visibility = View.GONE
@@ -57,7 +125,6 @@ class ReportFragment : Fragment() {
                 val assistant = FinancialAssistant(context)
                 val groqClient = GroqClient(context, assistant)
                 
-                // Prompt Super: Memerintahkan AI membaca TX_CONTEXT dari GroqClient
                 val aiPromptRequest = """
                     Mam meminta REKOMENDASI FINANSIAL BULAN INI.
                     Tolong baca [RIWAYAT TRANSAKSI TERAKHIR] dan [SALDO UANG SAYA SAAT INI] yang sudah Anda miliki di konteks sistem Anda.
@@ -78,10 +145,5 @@ class ReportFragment : Fragment() {
                 btnTriggerAi.text = "🔄 RE-ANALISIS KEUANGAN"
             }
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        reportListenerRegistration?.remove()
     }
 }
