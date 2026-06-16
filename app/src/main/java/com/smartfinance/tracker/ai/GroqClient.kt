@@ -159,7 +159,7 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             val jsonBody = JSONObject().apply {
                 put("model", "llama-3.3-70b-versatile")
                 put("messages", messagesArray)
-                put("temperature", 0.0) 
+                put("temperature", 0.7) 
                 put("response_format", JSONObject().apply { put("type", "json_object") })
             }
 
