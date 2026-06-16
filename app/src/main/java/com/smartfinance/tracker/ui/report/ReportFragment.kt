@@ -15,14 +15,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.ai.FinancialAssistant
-import com.smartfinance.tracker.ai.GroqClient
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -38,134 +31,157 @@ class ReportFragment : Fragment() {
     private lateinit var tvReportNet: TextView
     
     private lateinit var topBorosContainer: LinearLayout
-    private lateinit var tvAiRecommendation: TextView
-    private lateinit var btnTriggerAi: Button
-    private lateinit var pbAiLoading: ProgressBar
+    
+    // UI Komponen Fitur Insight Lokal Baru
+    private lateinit var tvInsightDailyAvg: TextView
+    private lateinit var tvInsightProjection: TextView
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val sdfPremiumDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     override fun onCreateView(
-         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
-        val root = RelativeLayout(context).apply {
+        val root = RelativeLayout(context).apply { 
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
+            setBackgroundColor(Color.parseColor("#F8FAFC")) 
         }
-
-        val nsv = NestedScrollView(context).apply {
-             isFillViewport = true
+        
+        val nsv = NestedScrollView(context).apply { 
+            isFillViewport = true
             layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
         }
-
-        val mainLayout = LinearLayout(context).apply {
+        
+        val mainLayout = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
         }
 
         mainLayout.addView(TextView(context).apply {
-            text = "Analisis Laporan & Rekomendasi AI"
+            text = "Analisis Laporan Keuangan"
             textSize = 20f
             setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
             setTextColor(Color.parseColor("#1E293B"))
             setPadding(0, (8 * density).toInt(), 0, (16 * density).toInt())
         })
 
+        // =====================================
+        // 1. KARTU SUMMARY 
+        // =====================================
         val cardSummary = MaterialCardView(context).apply {
-             radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
+            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
-            
-            // ✅ KEMBALIKAN TOMBOL KLIKABLE: Klik Ringkasan untuk lari ke menu semua transaksi
-            setOnClickListener {
-                navigateToTransactionsMenu()
-            }
         }
         val summaryInside = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
         tvReportIncome = TextView(context).apply { text = "Pemasukan: Rp 0"; setTextColor(Color.parseColor("#10B981")); textSize = 14.5f; setPadding(0, 0, 0, (4 * density).toInt()); setTypeface(null, Typeface.BOLD) }
-        tvReportExpense = TextView(context).apply { text = "Pengeluaran: Rp 0"; setTextColor(Color.parseColor("#F43F5E")); textSize = 14.5f; setPadding(0, 0, 0, (8 * density).toInt()); setTypeface(null, Typeface.BOLD) }
-        tvReportNet = TextView(context).apply { text = "Selisih Bersih: Rp 0"; setTextColor(Color.parseColor("#1E293B")); textSize = 16f; setTypeface(null, Typeface.BOLD) }
+        tvReportExpense = TextView(context).apply { text = "Pengeluaran: Rp 0"; setTextColor(Color.parseColor("#F43F5E")); textSize = 14.5f; setPadding(0, 0, 0, (4 * density).toInt()); setTypeface(null, Typeface.BOLD) }
+        tvReportNet = TextView(context).apply { text = "Sisa Bersih: Rp 0"; setTextColor(Color.parseColor("#0D9488")); textSize = 16f; setTypeface(null, Typeface.BOLD); setPadding(0, (8 * density).toInt(), 0, 0) }
+
         summaryInside.addView(tvReportIncome)
         summaryInside.addView(tvReportExpense)
-        summaryInside.addView(View(context).apply { setBackgroundColor(Color.parseColor("#E2E8F0")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { bottomMargin = (8 * density).toInt() } })
+        summaryInside.addView(View(context).apply { setBackgroundColor(Color.parseColor("#E2E8F0")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { topMargin = (8 * density).toInt(); bottomMargin = (8 * density).toInt() } })
         summaryInside.addView(tvReportNet)
         cardSummary.addView(summaryInside)
         mainLayout.addView(cardSummary)
 
-        mainLayout.addView(TextView(context).apply { text = "Grafik Komparasi Arus Kas"; textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) })
-        val cardChart = MaterialCardView(context).apply {
+        // =====================================
+        // 2. KARTU GRAFIK 
+        // =====================================
+        mainLayout.addView(TextView(context).apply { 
+            text = "Grafik Komparasi Keuangan"
+            textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) 
+        })
+        val cardChart = MaterialCardView(context).apply { 
             radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
         }
-        chartContainer = LinearLayout(context).apply {
+        chartContainer = LinearLayout(context).apply { 
             orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
         }
         cardChart.addView(chartContainer)
         mainLayout.addView(cardChart)
 
-        mainLayout.addView(TextView(context).apply { text = "Alokasi Kategori Terboros Bulan Ini"; textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) })
-        topBorosContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
+        // =====================================
+        // 3. KARTU TOP BOROS 
+        // =====================================
+        mainLayout.addView(TextView(context).apply { 
+            text = "Alokasi Kategori Terboros Bulan Ini"
+            textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) 
+        })
+        val cardTopBoros = MaterialCardView(context).apply { 
+            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
+            setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
         }
-        mainLayout.addView(topBorosContainer)
-
-        mainLayout.addView(TextView(context).apply { text = "Asisten Rekomendasi Finansial AI"; textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) })
-        val cardAi = MaterialCardView(context).apply {
-            radius = 16 * density; cardElevation = 2 * density; strokeWidth = 0
-            setCardBackgroundColor(Color.parseColor("#0F172A"))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (24 * density).toInt() }
+        topBorosContainer = LinearLayout(context).apply { 
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
         }
-        val aiInside = LinearLayout(context).apply {
+        cardTopBoros.addView(topBorosContainer)
+        mainLayout.addView(cardTopBoros)
+
+        // =====================================
+        // 4. 🔥 KARTU INSIGHT LOKAL (PENGGANTI AI)
+        // =====================================
+        mainLayout.addView(TextView(context).apply { 
+            text = "Insight Cerdas Cepat"
+            textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) 
+        })
+        val cardInsight = MaterialCardView(context).apply {
+            radius = 16 * density; cardElevation = 2 * density; strokeWidth = 0
+            setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
+        }
+        
+        val insightLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
+        
+        insightLayout.addView(TextView(context).apply {
+            text = "💡 Statistik Pengeluaran Bulan Ini"
+            textSize = 15f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#F59E0B"))
+            setPadding(0, 0, 0, (12 * density).toInt())
+        })
 
-        tvAiRecommendation = TextView(context).apply {
-            text = "Klik tombol di bawah ini untuk mengizinkan AI menganalisis riwayat transaksi Cloud Anda dan memberikan rekomendasi penghematan finansial terpusat."
-            setTextColor(Color.parseColor("#94A3B8")); textSize = 13f; setLineSpacing(3f, 1.1f)
+        tvInsightDailyAvg = TextView(context).apply {
+            text = "Rata-rata pengeluaran harian: Menghitung..."
+            textSize = 14f
+            setTextColor(Color.parseColor("#334155"))
+            setPadding(0, 0, 0, (8 * density).toInt())
         }
-        aiInside.addView(tvAiRecommendation)
+        insightLayout.addView(tvInsightDailyAvg)
 
-        pbAiLoading = ProgressBar(context, null, android.R.style.Widget_Material_ProgressBar_Small).apply {
-            visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
-                gravity = Gravity.CENTER; topMargin = (12 * density).toInt(); bottomMargin = (12 * density).toInt() 
-            }
+        tvInsightProjection = TextView(context).apply {
+            text = "Proyeksi total pengeluaran akhir bulan: Menghitung..."
+            textSize = 14f
+            setTextColor(Color.parseColor("#334155"))
         }
-        aiInside.addView(pbAiLoading)
+        insightLayout.addView(tvInsightProjection)
 
-        btnTriggerAi = Button(context).apply {
-            text = "✨ ANALISIS KEUANGAN SAYA"
-            textSize = 12f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE)
-            background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 12 * density
-                setColor(Color.parseColor("#0D9488"))
-            }
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42 * density).toInt()).apply { topMargin = (14 * density).toInt() }
-           
-            setOnClickListener { triggerAiFinancialReview() }
-        }
-        aiInside.addView(btnTriggerAi)
-        cardAi.addView(aiInside)
-        mainLayout.addView(cardAi)
+        cardInsight.addView(insightLayout)
+        mainLayout.addView(cardInsight)
 
         nsv.addView(mainLayout)
         root.addView(nsv)
 
-        observeCloudReportLive()
+        observeReportData()
+
         return root
     }
 
-    private fun observeCloudReportLive() {
+    private fun observeReportData() {
         if (!isAdded) return
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -175,15 +191,18 @@ class ReportFragment : Fragment() {
             .addSnapshotListener { snapshots, e ->
                 if (e != null || snapshots == null) return@addSnapshotListener
 
-                val calToday = Calendar.getInstance()
-                val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+                val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
+
+                val calToday = Calendar.getInstance().apply { timeInMillis = activeTimePrefs }
+                val calLastMonth = Calendar.getInstance().apply { timeInMillis = activeTimePrefs; add(Calendar.MONTH, -1) }
 
                 var incomeThisMonth = 0.0
                 var expenseThisMonth = 0.0
                 var incomeLastMonth = 0.0
                 var expenseLastMonth = 0.0
 
-                val currentMonthExpenses = ArrayList<HashMap<String, Any>>()
+                val allTxList = ArrayList<HashMap<String, Any>>()
 
                 for (doc in snapshots.documents) {
                     val data = doc.data ?: continue
@@ -191,6 +210,7 @@ class ReportFragment : Fragment() {
                     val typeRaw = (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
                     val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                     val categoryName = data["categoryName"] as? String ?: "Umum"
+                    val note = data["note"] as? String ?: "Transaksi"
 
                     val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
                     val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
@@ -198,122 +218,94 @@ class ReportFragment : Fragment() {
 
                     if (isThisMonth) {
                         if (typeRaw == "INCOME" || typeRaw == "DEBT") incomeThisMonth += amount
-                        if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") {
-                            expenseThisMonth += amount
-                            val itemMap = HashMap<String, Any>().apply {
-                                put("amount", amount)
-                                put("categoryName", categoryName)
-                            }
-                            currentMonthExpenses.add(itemMap)
-                        }
+                        if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") expenseThisMonth += amount
                     }
                     if (isLastMonth) {
                         if (typeRaw == "INCOME" || typeRaw == "DEBT") incomeLastMonth += amount
                         if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") expenseLastMonth += amount
                     }
-                }
 
-                tvReportIncome.text = "🟢 Total Pemasukan Bulan Ini: ${formatRupiah.format(incomeThisMonth)}"
-                tvReportExpense.text = "🔴 Total Pengeluaran Bulan Ini: ${formatRupiah.format(expenseThisMonth)}"
-                tvReportNet.text = "💰 Surplus Bersih Bulan Ini: ${formatRupiah.format(incomeThisMonth - expenseThisMonth)}"
-
-                chartContainer.removeAllViews()
-                val barChartView = QuadVerticalBarChartView(context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat())
-                chartContainer.addView(barChartView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (140 * density).toInt()))
-
-                topBorosContainer.removeAllViews()
-                val groupedExpenses = currentMonthExpenses.groupBy { it["categoryName"] as String }
-                    .mapValues { entry -> entry.value.sumOf { (it["amount"] as Double) } }
-                    .toList()
-                    .sortedByDescending { it.second }
-                    .take(3)
-
-                if (groupedExpenses.isEmpty()) {
-                     topBorosContainer.addView(TextView(context).apply {
-                        text = "Belum ada pengeluaran terdeteksi bulan ini."; textSize = 13f
-                        setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
-                        setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
-                    })
-                } else {
-                    groupedExpenses.forEach { (categoryName, totalAmount) ->
-                        val pct = if (expenseThisMonth > 0) ((totalAmount / expenseThisMonth) * 100).toInt() else 0
-
-                        val rowCard = MaterialCardView(context).apply {
-                            radius = 12 * density; strokeWidth = 0; setCardBackgroundColor(Color.WHITE)
-                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
-                            
-                            // ✅ KEMBALIKAN TOMBOL KLIKABLE: Klik list item kategori boros untuk melihat detailnya
-                            setOnClickListener {
-                                navigateToCategoryDetailMenu(categoryName)
-                            }
+                    if (isThisMonth) {
+                        val itemMap = HashMap<String, Any>().apply {
+                            put("amount", amount)
+                            put("type", typeRaw)
+                            put("timestamp", timestamp)
+                            put("categoryName", categoryName)
+                            put("note", note)
                         }
-                        val rowLayout = LinearLayout(context).apply {
-                             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                            setPadding((12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt())
-                        }
-                        rowLayout.addView(TextView(context).apply { text = "🔥"; textSize = 15f; setPadding(0, 0, (10 * density).toInt(), 0) })
-                        
-                        val txtLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                        txtLayout.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 13.5f })
-                        txtLayout.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#64748B")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
-                       
-                        rowLayout.addView(txtLayout)
-                        
-                        rowLayout.addView(TextView(context).apply { text = "$pct%"; setTextColor(Color.parseColor("#F43F5E")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                        rowCard.addView(rowLayout)
-                
-                         topBorosContainer.addView(rowCard)
+                        allTxList.add(itemMap)
                     }
                 }
-            }
-    }
 
-    private fun triggerAiFinancialReview() {
-        val context = context ?: return
-        btnTriggerAi.visibility = View.GONE
-        pbAiLoading.visibility = View.VISIBLE
-        tvAiRecommendation.text = "Menghubungi server Groq Cloud Premium..."
+                // 1. UPDATE SUMMARY
+                tvReportIncome.text = "Pemasukan: ${formatRupiah.format(incomeThisMonth)}"
+                tvReportExpense.text = "Pengeluaran: ${formatRupiah.format(expenseThisMonth)}"
+                val net = incomeThisMonth - expenseThisMonth
+                tvReportNet.text = "Sisa Bersih: ${formatRupiah.format(net)}"
+                tvReportNet.setTextColor(if (net >= 0) Color.parseColor("#0D9488") else Color.parseColor("#F43F5E"))
 
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                val assistant = FinancialAssistant(context)
-                val groqClient = GroqClient(context, assistant)
-                
-                // 🔥 OPTIMALISASI PROMPT: Meminta hasil yang sangat singkat, to-the-point, maksimal 3 poin pendek & bervariasi
-                val aiPromptRequest = "Berikan analisis evaluasi penghematan keuangan yang SANGAT SINGKAT, padat, langsung ke inti masalah (maksimal 2-3 poin pendek). Sebutkan kategori terboros bulan ini dan aksi solusinya secara tajam tanpa bertele-tele. Berikan tips unik yang bervariasi dari analisis sebelumnya."
-                
-                val response = withContext(Dispatchers.IO) {
-                    groqClient.sendMessageToAI(aiPromptRequest)
+                // 2. UPDATE CHART
+                chartContainer.removeAllViews()
+                val barView = com.smartfinance.tracker.ui.report.QuadVerticalBarChartView(
+                    context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat()
+                )
+                chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
+
+                // 3. UPDATE TOP BOROS
+                topBorosContainer.removeAllViews()
+                val filteredExpenses = allTxList.filter { 
+                    val type = it["type"] as? String ?: "EXPENSE"
+                    type == "EXPENSE" || type == "RECEIVABLE" 
                 }
-           
-                 tvAiRecommendation.text = response
-            } catch (e: Exception) {
-                tvAiRecommendation.text = "⚠️ Gagal memuat recommendation AI: ${e.localizedMessage ?: "Timeout"}"
-            } finally {
-                pbAiLoading.visibility = View.GONE
-                btnTriggerAi.visibility = View.VISIBLE
-                 btnTriggerAi.text = "🔄 RE-ANALISIS KEUANGAN"
+                val totalFilteredExpense = filteredExpenses.sumOf { (it["amount"] as? Double) ?: 0.0 }
+                
+                val aggregated = filteredExpenses.groupBy { it["categoryName"] as? String ?: "Umum" }
+                    .mapValues { entry -> entry.value.sumOf { (it["amount"] as? Double) ?: 0.0 } }
+                    .toList()
+                    .sortedByDescending { it.second }
+
+                if (aggregated.isEmpty()) {
+                    topBorosContainer.addView(TextView(context).apply { text = "Belum ada pengeluaran bulan ini."; setTextColor(Color.GRAY); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER })
+                } else {
+                    aggregated.forEach { (catName, amt) ->
+                        val pct = if (totalFilteredExpense > 0) ((amt / totalFilteredExpense) * 100).toInt() else 0
+                        val rowLayout = LinearLayout(context).apply { 
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
+                        }
+                        val centerInfo = LinearLayout(context).apply { 
+                            orientation = LinearLayout.VERTICAL
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        }
+                        centerInfo.addView(TextView(context).apply { text = catName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                        centerInfo.addView(TextView(context).apply { text = formatRupiah.format(amt); setTextColor(Color.parseColor("#64748B")); textSize = 12f; setPadding(0, 2, 0, 0) })
+                        rowLayout.addView(centerInfo)
+                        rowLayout.addView(TextView(context).apply { 
+                            text = "$pct%"
+                            setTextColor(Color.parseColor("#F43F5E"))
+                            setTypeface(null, Typeface.BOLD)
+                            textSize = 14f
+                        })
+                        topBorosContainer.addView(rowLayout)
+                        topBorosContainer.addView(View(context).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
+                    }
+                }
+                
+                // 4. UPDATE INSIGHT LOKAL
+                val dayOfMonth = calToday.get(Calendar.DAY_OF_MONTH)
+                val daysInMonth = calToday.getActualMaximum(Calendar.DAY_OF_MONTH)
+                
+                if (expenseThisMonth > 0 && dayOfMonth > 0) {
+                    val dailyAvg = expenseThisMonth / dayOfMonth
+                    val projectedTotal = dailyAvg * daysInMonth
+                    tvInsightDailyAvg.text = "• Rata-rata pengeluaran harian: ${formatRupiah.format(dailyAvg)}"
+                    tvInsightProjection.text = "• Proyeksi pengeluaran akhir bulan: ${formatRupiah.format(projectedTotal)}"
+                } else {
+                    tvInsightDailyAvg.text = "• Rata-rata pengeluaran harian: Rp 0"
+                    tvInsightProjection.text = "• Proyeksi pengeluaran akhir bulan: Rp 0"
+                }
             }
-        }
-    }
-
-    // ✅ FUNGSI NAVIGASI YANG DIKEMBALIKAN (Silakan sesuaikan dengan Activity/Routing asli Anda)
-    private fun navigateToTransactionsMenu() {
-        // Contoh implementasi jika menggunakan FragmentManager biasa:
-        // parentFragmentManager.beginTransaction()
-        //     .replace(R.id.fragment_container, TransactionsFragment()) 
-        //     .addToBackStack(null)
-        //     .commit()
-        
-        Toast.makeText(context, "Membuka Menu Semua Transaksi...", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun navigateToCategoryDetailMenu(categoryName: String) {
-        // Contoh implementasi passing argument ke detail kategori Anda:
-        // val fragment = CategoryDetailFragment.newInstance(categoryName)
-        // parentFragmentManager.beginTransaction().replace(R.id.fragment_container, fragment).addToBackStack(null).commit()
-        
-        Toast.makeText(context, "Membuka Detail Kategori: $categoryName", Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {
