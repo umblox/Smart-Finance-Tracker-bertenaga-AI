@@ -16,7 +16,8 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^
+```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -27,7 +28,6 @@ class FinancialAssistant(private val context: Context) {
             val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
             val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
 
-            // 1. Eksekusi Konfirmasi "Ya" dari Pending Transaksi Sebelumnya
             if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT") || cleanAiResponseUpper.contains("BENAR") || cleanAiResponseUpper.contains("CATAT")) {
                 val savedTxStr = prefs.getString("pending_tx", null)
                 if (savedTxStr != null) {
@@ -41,7 +41,6 @@ class FinancialAssistant(private val context: Context) {
                 }
             }
 
-            // 2. Chat Biasa atau Penahanan Konfirmasi (Hanya Pending jika fieldnya valid)
             if (actionType == "CHAT_ONLY") {
                 val pendingJson = json.optJSONObject("pending_transaction")
                 if (pendingJson != null && pendingJson.length() > 0) {
@@ -53,11 +52,9 @@ class FinancialAssistant(private val context: Context) {
                 return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
             }
 
-            // 3. Laporan Spesifik & Kategori
             if (actionType == "VIEW_CATEGORIES") return renderBeautifulCategoryList()
             if (actionType == "VIEW_REPORT") return compileAiReport(cleanJsonStr)
 
-            // 4. Eksekusi Pembuatan Kategori Baru
             if (actionType == "CREATE_CATEGORY") {
                 val newCat = json.optJSONObject("new_category")
                 if (newCat != null) {
@@ -76,7 +73,6 @@ class FinancialAssistant(private val context: Context) {
                 return "❌ Gagal membuat kategori, format instruksi kurang lengkap."
             }
 
-            // 5. Eksekusi Mutasi/Transaksi Langsung
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
                 for (i in 0 until txArray.length()) {
@@ -98,7 +94,11 @@ class FinancialAssistant(private val context: Context) {
                             val isReceivableFlow = item.optString("debt_type", "DEBT").uppercase(Locale.ROOT) == "RECEIVABLE"
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                         }
-                        "DEBT_PAYMENT" -> { return executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp) }
+                        "DEBT_PAYMENT" -> { 
+                            val msg = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp) 
+                            // Return pesan dari pelunasan hutang langsung ke layar
+                            if (i == txArray.length() - 1) return msg
+                        }
                     }
                 }
                 return aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
