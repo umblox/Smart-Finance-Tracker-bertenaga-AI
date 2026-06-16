@@ -9,11 +9,15 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
@@ -81,6 +85,21 @@ class MainActivity : AppCompatActivity() {
             else if (FirebaseApp.getApps(this).isEmpty()) {
                 FirebaseApp.initializeApp(this)
             }
+            
+            // 🔥 FITUR BARU: Sinkronisasi Status Biometrik dari Cloud (Untuk Re-install)
+            val db = FirebaseFirestore.getInstance()
+            db.collection("app_config").document("security").get().addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    val cloudBiometric = doc.getBoolean("use_biometric") ?: false
+                    prefs.edit().putBoolean("use_biometric", cloudBiometric).apply()
+                }
+            }
+
+            // 🔥 FITUR BARU: Jalankan Mesin Pengecek Transaksi Berkala di Background
+            CoroutineScope(Dispatchers.IO).launch {
+                com.smartfinance.tracker.utils.RecurringTxWorker.checkAndExecuteDueTransactions()
+            }
+            
         } catch (e: Exception) {
             e.printStackTrace()
             // Fallback aman jika parsing JSON kustom gagal
