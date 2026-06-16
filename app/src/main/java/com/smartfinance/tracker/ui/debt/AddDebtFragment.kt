@@ -1,6 +1,6 @@
 package com.smartfinance.tracker.ui.debt
 
-import android.content.Context // ✅ FIX MUTLAK: Import Context ditanam agar terbebas dari unresolved reference
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -169,7 +169,6 @@ class AddDebtFragment : Fragment() {
         return root
     }
 
-    // ✅ FIX PERKALIAN AMBIGU: Semua dimensi diubah murni ke format Float 'f' agar lolos kompilasi kaku Gradle
     private fun createPremiumSummaryCard(ctx: Context, title: String, valueColorHex: String): MaterialCardView {
         val density = ctx.resources.displayMetrics.density
         return MaterialCardView(ctx).apply {
@@ -256,6 +255,7 @@ class AddDebtFragment : Fragment() {
                 sortedList.forEach { debtItem ->
                     val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
                     val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
+                    val originalAmount = (debtItem["amount"] as? Number)?.toDouble() ?: 0.0
                     val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
                     val debtTime = (debtItem["timestamp"] as? Long) ?: System.currentTimeMillis()
 
@@ -275,26 +275,56 @@ class AddDebtFragment : Fragment() {
                         setPadding((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt())
                     }
 
-                    val leftLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                    leftLayout.addView(TextView(context).apply { text = contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
-                    
-                    val dateAndStatusLabel = "📅 ${sdfDisplayPremium.format(Date(debtTime))} \nSisa Tagihan: ${formatRupiah.format(remainingAmount)}"
-                    val statusLabel = if (isPaid) "LUNAS SEPENUHNYA ✅" else dateAndStatusLabel
+                    // 🔥 SISI KIRI: Nama, Tanggal, dan Total Pinjaman Awal
+                    val leftLayout = LinearLayout(context).apply { 
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) 
+                    }
                     
                     leftLayout.addView(TextView(context).apply { 
-                        text = statusLabel; textSize = 11.5f
-                        setTextColor(if (isPaid) Color.parseColor("#10B981") else Color.parseColor("#64748B"))
+                        text = contactName
+                        textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) 
+                    })
+                    
+                    leftLayout.addView(TextView(context).apply { 
+                        text = "📅 ${sdfDisplayPremium.format(Date(debtTime))}"
+                        textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8"))
                         setPadding(0, (4f * density).toInt(), 0, 0) 
                     })
+                    
+                    leftLayout.addView(TextView(context).apply {
+                        text = "Total Pinjaman: ${formatRupiah.format(originalAmount)}"
+                        textSize = 12f; setTextColor(Color.parseColor("#64748B"))
+                        setPadding(0, (2f * density).toInt(), 0, 0)
+                    })
+                    
                     rowLayout.addView(leftLayout)
 
-                    val tvOriginalAmount = TextView(context).apply {
-                        text = formatRupiah.format((debtItem["amount"] as? Number)?.toDouble() ?: 0.0)
-                        textSize = 14.5f; setTypeface(null, Typeface.BOLD)
-                        setTextColor(if (currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
-                        gravity = Gravity.END
+                    // 🔥 SISI KANAN: Sisa Tagihan (Tebal) atau Status Lunas
+                    val rightLayout = LinearLayout(context).apply { 
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.END 
                     }
-                    rowLayout.addView(tvOriginalAmount)
+                    
+                    if (isPaid) {
+                        rightLayout.addView(TextView(context).apply {
+                            text = "LUNAS ✅"
+                            textSize = 14f; setTypeface(null, Typeface.BOLD)
+                            setTextColor(Color.parseColor("#10B981"))
+                        })
+                    } else {
+                        rightLayout.addView(TextView(context).apply {
+                            text = "Sisa Tagihan"
+                            textSize = 11f; setTextColor(Color.parseColor("#94A3B8"))
+                        })
+                        rightLayout.addView(TextView(context).apply {
+                            text = formatRupiah.format(remainingAmount)
+                            textSize = 15f; setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
+                        })
+                    }
+                    
+                    rowLayout.addView(rightLayout)
                     
                     itemCard.addView(rowLayout)
                     listContainer.addView(itemCard)
