@@ -38,13 +38,19 @@ class ReportFragment : Fragment() {
     private lateinit var tvReportNet: TextView
     
     private lateinit var topBorosContainer: LinearLayout
-    
-    // 🔥 Komponen AI Review
     private lateinit var tvAiRecommendation: TextView
     private lateinit var btnTriggerAi: Button
     private lateinit var pbAiLoading: ProgressBar
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    private val sdfPremiumDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
+
+    // 🌟 KUNCI KECERDASAN: Properti Kelas untuk Sinkronisasi Data Riil Dashboard dengan AI
+    private var incomeThisMonth = 0.0
+    private var expenseThisMonth = 0.0
+    private var incomeLastMonth = 0.0
+    private var expenseLastMonth = 0.0
+    private var topBorosDataText = ""
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -52,80 +58,266 @@ class ReportFragment : Fragment() {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
-        val nsv = NestedScrollView(context).apply { isFillViewport = true }
-        val root = LinearLayout(context).apply {
+        val root = RelativeLayout(context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.parseColor("#F8FAFC"))
+        }
+
+        val nsv = NestedScrollView(context).apply {
+            isFillViewport = true
+            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
+        }
+
+        val mainLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
 
-        // --- VISUAL ASLI LU (TIDAK ADA YANG DIHAPUS) ---
-        root.addView(TextView(context).apply { text = "Laporan Keuangan"; textSize = 22f; setTypeface(null, Typeface.BOLD) })
-        
-        // Card Summary
-        val cardSummary = MaterialCardView(context).apply { radius = 14 * density; layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20 } }
-        val sumL = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(30, 30, 30, 30) }
-        tvReportIncome = TextView(context).apply { text = "Pemasukan: Rp 0" }
-        tvReportExpense = TextView(context).apply { text = "Pengeluaran: Rp 0" }
-        tvReportNet = TextView(context).apply { text = "Sisa: Rp 0"; setTypeface(null, Typeface.BOLD) }
-        sumL.addView(tvReportIncome); sumL.addView(tvReportExpense); sumL.addView(tvReportNet)
-        cardSummary.addView(sumL)
-        root.addView(cardSummary)
+        mainLayout.addView(TextView(context).apply {
+            text = "Analisis Laporan & Rekomendasi AI"
+            textSize = 20f
+            setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
+            setTextColor(Color.parseColor("#1E293B"))
+            setPadding(0, (8 * density).toInt(), 0, (16 * density).toInt())
+        })
 
-        // Chart Container
-        chartContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20 } }
-        root.addView(chartContainer)
+        val cardSummary = MaterialCardView(context).apply {
+            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
+            setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
+        }
+        val summaryInside = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+        tvReportIncome = TextView(context).apply { text = "Pemasukan: Rp 0"; setTextColor(Color.parseColor("#10B981")); textSize = 14.5f; setPadding(0, 0, 0, (4 * density).toInt()); setTypeface(null, Typeface.BOLD) }
+        tvReportExpense = TextView(context).apply { text = "Pengeluaran: Rp 0"; setTextColor(Color.parseColor("#F43F5E")); textSize = 14.5f; setPadding(0, 0, 0, (8 * density).toInt()); setTypeface(null, Typeface.BOLD) }
+        tvReportNet = TextView(context).apply { text = "Selisih Bersih: Rp 0"; setTextColor(Color.parseColor("#1E293B")); textSize = 16f; setTypeface(null, Typeface.BOLD) }
+        summaryInside.addView(tvReportIncome)
+        summaryInside.addView(tvReportExpense)
+        summaryInside.addView(View(context).apply { setBackgroundColor(Color.parseColor("#E2E8F0")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply { bottomMargin = (8 * density).toInt() } })
+        summaryInside.addView(tvReportNet)
+        cardSummary.addView(summaryInside)
+        mainLayout.addView(cardSummary)
 
-        // Top Boros
-        topBorosContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20 } }
-        root.addView(topBorosContainer)
+        mainLayout.addView(TextView(context).apply { text = "Grafik Komparasi Arus Kas"; textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) })
+        val cardChart = MaterialCardView(context).apply {
+            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
+            setCardBackgroundColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
+        }
+        chartContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+        cardChart.addView(chartContainer)
+        mainLayout.addView(cardChart)
 
-        // --- 🔥 INTEGRASI OTAK AI (TAMBAHAN) ---
-        val cardAi = MaterialCardView(context).apply { radius = 16 * density; layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = 40 } }
-        val aiLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(30, 30, 30, 30) }
-        aiLayout.addView(TextView(context).apply { text = "🤖 Rekomendasi AI"; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#0D9488")) })
-        tvAiRecommendation = TextView(context).apply { text = "Klik tombol untuk analisis cerdas..."; textSize = 13f; setPadding(0, 10, 0, 20) }
-        aiLayout.addView(tvAiRecommendation)
-        pbAiLoading = ProgressBar(context).apply { visibility = View.GONE }
-        aiLayout.addView(pbAiLoading)
-        btnTriggerAi = Button(context).apply { text = "MINTA ANALISIS CERDAS"; setOnClickListener { triggerAiFinancialReview() } }
-        aiLayout.addView(btnTriggerAi)
-        cardAi.addView(aiLayout)
-        root.addView(cardAi)
+        mainLayout.addView(TextView(context).apply { text = "Alokasi Kategori Terboros Bulan Ini"; textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) })
+        topBorosContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
+        }
+        mainLayout.addView(topBorosContainer)
 
-        nsv.addView(root)
-        fetchReportData()
-        return nsv
+        mainLayout.addView(TextView(context).apply { text = "Asisten Rekomendasi Finansial AI"; textSize = 13.5f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#64748B")); setPadding((4 * density).toInt(), 0, 0, (8 * density).toInt()) })
+        val cardAi = MaterialCardView(context).apply {
+            radius = 16 * density; cardElevation = 2 * density; strokeWidth = 0
+            setCardBackgroundColor(Color.parseColor("#0F172A"))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (24 * density).toInt() }
+        }
+        val aiInside = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+
+        tvAiRecommendation = TextView(context).apply {
+            text = "Klik tombol di bawah ini untuk mengizinkan AI menganalisis riwayat transaksi Cloud Anda dan memberikan rekomendasi penghematan finansial terpusat."
+            setTextColor(Color.parseColor("#94A3B8")); textSize = 13f; setLineSpacing(3f, 1.1f)
+        }
+        aiInside.addView(tvAiRecommendation)
+
+        pbAiLoading = ProgressBar(context, null, android.R.style.Widget_Material_ProgressBar_Small).apply {
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { 
+                gravity = Gravity.CENTER; topMargin = (12 * density).toInt(); bottomMargin = (12 * density).toInt() 
+            }
+        }
+        aiInside.addView(pbAiLoading)
+
+        btnTriggerAi = Button(context).apply {
+            text = "✨ ANALISIS KEUANGAN SAYA"
+            textSize = 12f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 12 * density
+                setColor(Color.parseColor("#0D9488"))
+            }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42 * density).toInt()).apply { topMargin = (14 * density).toInt() }
+            setOnClickListener { triggerAiFinancialReview() }
+        }
+        aiInside.addView(btnTriggerAi)
+        cardAi.addView(aiInside)
+        mainLayout.addView(cardAi)
+
+        nsv.addView(mainLayout)
+        root.addView(nsv)
+
+        observeCloudReportLive()
+        return root
     }
 
-    // --- FUNGSI VISUAL ASLI LU ---
-    private fun fetchReportData() {
-        // (Di sini lu panggil logika fetch data asli lu yang sudah berjalan baik)
-        // Pastikan memanggil renderCharts() dan renderTopBoros()
+    private fun observeCloudReportLive() {
+        if (!isAdded) return
+        val context = requireContext()
+        val density = context.resources.displayMetrics.density
+
+        reportListenerRegistration?.remove()
+        reportListenerRegistration = firestore.collection("transactions")
+            .addSnapshotListener { snapshots, e ->
+                if (e != null || snapshots == null) return@addSnapshotListener
+
+                val calToday = Calendar.getInstance()
+                val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+
+                // 🌟 Mengisi Properti Kelas Langsung (Bukan variabel lokal terisolasi lagi)
+                incomeThisMonth = 0.0
+                expenseThisMonth = 0.0
+                incomeLastMonth = 0.0
+                expenseLastMonth = 0.0
+
+                val currentMonthExpenses = ArrayList<HashMap<String, Any>>()
+
+                for (doc in snapshots.documents) {
+                    val data = doc.data ?: continue
+                    val amount = (data["amount"] as? Number)?.toDouble() ?: 0.0
+                    val typeRaw = (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
+                    val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    val categoryName = data["categoryName"] as? String ?: "Umum"
+
+                    val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                    val isThisMonth = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                    val isLastMonth = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
+
+                    if (isThisMonth) {
+                        if (typeRaw == "INCOME" || typeRaw == "DEBT") incomeThisMonth += amount
+                        if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") {
+                            expenseThisMonth += amount
+                            val itemMap = HashMap<String, Any>().apply {
+                                put("amount", amount)
+                                put("categoryName", categoryName)
+                            }
+                            currentMonthExpenses.add(itemMap)
+                        }
+                    }
+                    if (isLastMonth) {
+                        if (typeRaw == "INCOME" || typeRaw == "DEBT") incomeLastMonth += amount
+                        if (typeRaw == "EXPENSE" || typeRaw == "RECEIVABLE") expenseLastMonth += amount
+                    }
+                }
+
+                tvReportIncome.text = "🟢 Total Pemasukan Bulan Ini: ${formatRupiah.format(incomeThisMonth)}"
+                tvReportExpense.text = "🔴 Total Pengeluaran Bulan Ini: ${formatRupiah.format(expenseThisMonth)}"
+                tvReportNet.text = "💰 Surplus Bersih Bulan Ini: ${formatRupiah.format(incomeThisMonth - expenseThisMonth)}"
+
+                chartContainer.removeAllViews()
+                val barChartView = QuadVerticalBarChartView(context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat())
+                chartContainer.addView(barChartView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (140 * density).toInt()))
+
+                topBorosContainer.removeAllViews()
+                val groupedExpenses = currentMonthExpenses.groupBy { it["categoryName"] as String }
+                    .mapValues { entry -> entry.value.sumOf { (it["amount"] as Double) } }
+                    .toList()
+                    .sortedByDescending { it.second }
+                    .take(3)
+
+                val sbBoros = java.lang.StringBuilder()
+                if (groupedExpenses.isEmpty()) {
+                    topBorosDataText = "Belum ada pengeluaran terdeteksi bulan ini."
+                    topBorosContainer.addView(TextView(context).apply {
+                        text = "Belum ada pengeluaran terdeteksi bulan ini."; textSize = 13f
+                        setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
+                        setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
+                    })
+                } else {
+                    groupedExpenses.forEach { (categoryName, totalAmount) ->
+                        val pct = if (expenseThisMonth > 0) ((totalAmount / expenseThisMonth) * 100).toInt() else 0
+                        
+                        // 🌟 Rekam data kategori terboros ke teks untuk dibaca AI
+                        sbBoros.append("- Kategori: $categoryName | Total: ${formatRupiah.format(totalAmount)} ($pct% dari total pengeluaran sebulan)\n")
+
+                        val rowCard = MaterialCardView(context).apply {
+                            radius = 12 * density; strokeWidth = 0; setCardBackgroundColor(Color.WHITE)
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
+                        }
+                        val rowLayout = LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                            setPadding((12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt())
+                        }
+                        rowLayout.addView(TextView(context).apply { text = "🔥"; textSize = 15f; setPadding(0, 0, (10 * density).toInt(), 0) })
+                        
+                        val txtLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+                        txtLayout.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 13.5f })
+                        txtLayout.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#64748B")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
+                        rowLayout.addView(txtLayout)
+                        
+                        rowLayout.addView(TextView(context).apply { text = "$pct%"; setTextColor(Color.parseColor("#F43F5E")); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                        rowCard.addView(rowLayout)
+                        topBorosContainer.addView(rowCard)
+                    }
+                    topBorosDataText = sbBoros.toString()
+                }
+            }
     }
 
-    // --- 🔥 FUNGSI OTAK AI (PENGGUNAAN GROQCLIENT) ---
     private fun triggerAiFinancialReview() {
         val context = context ?: return
         btnTriggerAi.visibility = View.GONE
         pbAiLoading.visibility = View.VISIBLE
-        
+        tvAiRecommendation.text = "Menghubungi server Groq Cloud Premium..."
+
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val assistant = FinancialAssistant(context)
                 val groqClient = GroqClient(context, assistant)
+
+                // 🧠 SINKRONISASI LOGIKA PROMPT: Suapi AI dengan angka-angka riil & kalkulasi mutlak dashboard Anda!
+                val topBorosInfo = if (topBorosDataText.isEmpty()) "Belum ada pengeluaran besar terdeteksi bulan ini." else topBorosDataText
+                val sisaBersih = incomeThisMonth - expenseThisMonth
                 
-                // Prompt yang memanggil data context yang sudah disiapkan GroqClient
-                val aiPromptRequest = "Berikan analisis tajam mengenai pengeluaran saya bulan ini berdasarkan data riwayat yang ada, dan beri saran penghematan."
+                val aiPromptRequest = """
+                    Mam meminta analisis evaluasi penghematan keuangan singkat terperinci untuk akunnya bulan ini.
+                    Berdasarkan perhitungan riil database laporan saat ini, berikut adalah metrik mutlaknya:
+                    
+                    [METRIK KEUANGAN BULAN INI]
+                    - Total Pemasukan Riil: ${formatRupiah.format(incomeThisMonth)}
+                    - Total Pengeluaran Riil: ${formatRupiah.format(expenseThisMonth)}
+                    - Sisa Bersih Finansial: ${formatRupiah.format(sisaBersih)} (${if (sisaBersih >= 0) "Surplus Arus Kas" else "Defisit Finansial"})
+                    
+                    [PERBANDINGAN KINERJA BULAN LALU]
+                    - Total Pemasukan Bulan Lalu: ${formatRupiah.format(incomeLastMonth)}
+                    - Total Pengeluaran Bulan Lalu: ${formatRupiah.format(expenseLastMonth)}
+                    
+                    [KATEGORI ALOKASI TERBOROS SEBULAN PENUH (URUTAN TERTINGGI)]
+                    $topBorosInfo
+                    
+                    INSTRUKSI EVALUASI MANDAT KECERDASAN:
+                    1. Cross-reference data statistik di atas dengan struktur database kategori/sub-kategori dan daftar hutang/piutang yang Anda terima di system prompt.
+                    2. Berikan kritik tajam, logis, dan solutif khusus untuk alokasi rumpun kategori terboros di atas agar Mam bisa memangkas anggaran.
+                    3. Lakukan komparasi performa pengeluaran dan pemasukan apakah bulan ini memburuk atau membaik dibandingkan bulan lalu.
+                    4. Gunakan gaya bahasa natural yang cerdas, bersahabat, panggil dengan sebutan "Mam", dan gunakan titik pemisah ribuan pada penulisan uang (Contoh: Rp 1.500.000).
+                    5. Kembalikan balasan natural Anda di field 'ai_response' dengan 'action_type': 'CHAT_ONLY'. Dilarang memanipulasi angka atau nominal yang telah disediakan di atas!
+                """.trimIndent()
                 
                 val response = withContext(Dispatchers.IO) {
                     groqClient.sendMessageToAI(aiPromptRequest)
                 }
                 tvAiRecommendation.text = response
             } catch (e: Exception) {
-                tvAiRecommendation.text = "Error: ${e.message}"
+                tvAiRecommendation.text = "⚠️ Gagal memuat recommendation AI: ${e.localizedMessage ?: "Timeout"}"
             } finally {
                 pbAiLoading.visibility = View.GONE
                 btnTriggerAi.visibility = View.VISIBLE
+                btnTriggerAi.text = "🔄 RE-ANALISIS KEUANGAN"
             }
         }
     }
