@@ -45,15 +45,8 @@ class ReportFragment : Fragment() {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val sdfPremiumDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
-    // 🌟 KUNCI KECERDASAN: Properti Kelas untuk Sinkronisasi Data Riil Dashboard dengan AI
-    private var incomeThisMonth = 0.0
-    private var expenseThisMonth = 0.0
-    private var incomeLastMonth = 0.0
-    private var expenseLastMonth = 0.0
-    private var topBorosDataText = ""
-
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -64,7 +57,7 @@ class ReportFragment : Fragment() {
         }
 
         val nsv = NestedScrollView(context).apply {
-            isFillViewport = true
+             isFillViewport = true
             layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
         }
 
@@ -82,9 +75,14 @@ class ReportFragment : Fragment() {
         })
 
         val cardSummary = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
+             radius = 14 * density; cardElevation = 2 * density; strokeWidth = 0
             setCardBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
+            
+            // ✅ KEMBALIKAN TOMBOL KLIKABLE: Klik Ringkasan untuk lari ke menu semua transaksi
+            setOnClickListener {
+                navigateToTransactionsMenu()
+            }
         }
         val summaryInside = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -153,6 +151,7 @@ class ReportFragment : Fragment() {
                 setColor(Color.parseColor("#0D9488"))
             }
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42 * density).toInt()).apply { topMargin = (14 * density).toInt() }
+           
             setOnClickListener { triggerAiFinancialReview() }
         }
         aiInside.addView(btnTriggerAi)
@@ -179,11 +178,10 @@ class ReportFragment : Fragment() {
                 val calToday = Calendar.getInstance()
                 val calLastMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
 
-                // 🌟 Mengisi Properti Kelas Langsung (Bukan variabel lokal terisolasi lagi)
-                incomeThisMonth = 0.0
-                expenseThisMonth = 0.0
-                incomeLastMonth = 0.0
-                expenseLastMonth = 0.0
+                var incomeThisMonth = 0.0
+                var expenseThisMonth = 0.0
+                var incomeLastMonth = 0.0
+                var expenseLastMonth = 0.0
 
                 val currentMonthExpenses = ArrayList<HashMap<String, Any>>()
 
@@ -230,10 +228,8 @@ class ReportFragment : Fragment() {
                     .sortedByDescending { it.second }
                     .take(3)
 
-                val sbBoros = java.lang.StringBuilder()
                 if (groupedExpenses.isEmpty()) {
-                    topBorosDataText = "Belum ada pengeluaran terdeteksi bulan ini."
-                    topBorosContainer.addView(TextView(context).apply {
+                     topBorosContainer.addView(TextView(context).apply {
                         text = "Belum ada pengeluaran terdeteksi bulan ini."; textSize = 13f
                         setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
                         setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
@@ -241,16 +237,18 @@ class ReportFragment : Fragment() {
                 } else {
                     groupedExpenses.forEach { (categoryName, totalAmount) ->
                         val pct = if (expenseThisMonth > 0) ((totalAmount / expenseThisMonth) * 100).toInt() else 0
-                        
-                        // 🌟 Rekam data kategori terboros ke teks untuk dibaca AI
-                        sbBoros.append("- Kategori: $categoryName | Total: ${formatRupiah.format(totalAmount)} ($pct% dari total pengeluaran sebulan)\n")
 
                         val rowCard = MaterialCardView(context).apply {
                             radius = 12 * density; strokeWidth = 0; setCardBackgroundColor(Color.WHITE)
                             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
+                            
+                            // ✅ KEMBALIKAN TOMBOL KLIKABLE: Klik list item kategori boros untuk melihat detailnya
+                            setOnClickListener {
+                                navigateToCategoryDetailMenu(categoryName)
+                            }
                         }
                         val rowLayout = LinearLayout(context).apply {
-                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                             setPadding((12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt())
                         }
                         rowLayout.addView(TextView(context).apply { text = "🔥"; textSize = 15f; setPadding(0, 0, (10 * density).toInt(), 0) })
@@ -258,13 +256,14 @@ class ReportFragment : Fragment() {
                         val txtLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
                         txtLayout.addView(TextView(context).apply { text = categoryName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 13.5f })
                         txtLayout.addView(TextView(context).apply { text = formatRupiah.format(totalAmount); setTextColor(Color.parseColor("#64748B")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
+                       
                         rowLayout.addView(txtLayout)
                         
                         rowLayout.addView(TextView(context).apply { text = "$pct%"; setTextColor(Color.parseColor("#F43F5E")); setTypeface(null, Typeface.BOLD); textSize = 14f })
                         rowCard.addView(rowLayout)
-                        topBorosContainer.addView(rowCard)
+                
+                         topBorosContainer.addView(rowCard)
                     }
-                    topBorosDataText = sbBoros.toString()
                 }
             }
     }
@@ -279,47 +278,42 @@ class ReportFragment : Fragment() {
             try {
                 val assistant = FinancialAssistant(context)
                 val groqClient = GroqClient(context, assistant)
-
-                // 🧠 SINKRONISASI LOGIKA PROMPT: Suapi AI dengan angka-angka riil & kalkulasi mutlak dashboard Anda!
-                val topBorosInfo = if (topBorosDataText.isEmpty()) "Belum ada pengeluaran besar terdeteksi bulan ini." else topBorosDataText
-                val sisaBersih = incomeThisMonth - expenseThisMonth
                 
-                val aiPromptRequest = """
-                    Mam meminta analisis evaluasi penghematan keuangan singkat terperinci untuk akunnya bulan ini.
-                    Berdasarkan perhitungan riil database laporan saat ini, berikut adalah metrik mutlaknya:
-                    
-                    [METRIK KEUANGAN BULAN INI]
-                    - Total Pemasukan Riil: ${formatRupiah.format(incomeThisMonth)}
-                    - Total Pengeluaran Riil: ${formatRupiah.format(expenseThisMonth)}
-                    - Sisa Bersih Finansial: ${formatRupiah.format(sisaBersih)} (${if (sisaBersih >= 0) "Surplus Arus Kas" else "Defisit Finansial"})
-                    
-                    [PERBANDINGAN KINERJA BULAN LALU]
-                    - Total Pemasukan Bulan Lalu: ${formatRupiah.format(incomeLastMonth)}
-                    - Total Pengeluaran Bulan Lalu: ${formatRupiah.format(expenseLastMonth)}
-                    
-                    [KATEGORI ALOKASI TERBOROS SEBULAN PENUH (URUTAN TERTINGGI)]
-                    $topBorosInfo
-                    
-                    INSTRUKSI EVALUASI MANDAT KECERDASAN:
-                    1. Cross-reference data statistik di atas dengan struktur database kategori/sub-kategori dan daftar hutang/piutang yang Anda terima di system prompt.
-                    2. Berikan kritik tajam, logis, dan solutif khusus untuk alokasi rumpun kategori terboros di atas agar Mam bisa memangkas anggaran.
-                    3. Lakukan komparasi performa pengeluaran dan pemasukan apakah bulan ini memburuk atau membaik dibandingkan bulan lalu.
-                    4. Gunakan gaya bahasa natural yang cerdas, bersahabat, panggil dengan sebutan "Mam", dan gunakan titik pemisah ribuan pada penulisan uang (Contoh: Rp 1.500.000).
-                    5. Kembalikan balasan natural Anda di field 'ai_response' dengan 'action_type': 'CHAT_ONLY'. Dilarang memanipulasi angka atau nominal yang telah disediakan di atas!
-                """.trimIndent()
+                // 🔥 OPTIMALISASI PROMPT: Meminta hasil yang sangat singkat, to-the-point, maksimal 3 poin pendek & bervariasi
+                val aiPromptRequest = "Berikan analisis evaluasi penghematan keuangan yang SANGAT SINGKAT, padat, langsung ke inti masalah (maksimal 2-3 poin pendek). Sebutkan kategori terboros bulan ini dan aksi solusinya secara tajam tanpa bertele-tele. Berikan tips unik yang bervariasi dari analisis sebelumnya."
                 
                 val response = withContext(Dispatchers.IO) {
                     groqClient.sendMessageToAI(aiPromptRequest)
                 }
-                tvAiRecommendation.text = response
+           
+                 tvAiRecommendation.text = response
             } catch (e: Exception) {
                 tvAiRecommendation.text = "⚠️ Gagal memuat recommendation AI: ${e.localizedMessage ?: "Timeout"}"
             } finally {
                 pbAiLoading.visibility = View.GONE
                 btnTriggerAi.visibility = View.VISIBLE
-                btnTriggerAi.text = "🔄 RE-ANALISIS KEUANGAN"
+                 btnTriggerAi.text = "🔄 RE-ANALISIS KEUANGAN"
             }
         }
+    }
+
+    // ✅ FUNGSI NAVIGASI YANG DIKEMBALIKAN (Silakan sesuaikan dengan Activity/Routing asli Anda)
+    private fun navigateToTransactionsMenu() {
+        // Contoh implementasi jika menggunakan FragmentManager biasa:
+        // parentFragmentManager.beginTransaction()
+        //     .replace(R.id.fragment_container, TransactionsFragment()) 
+        //     .addToBackStack(null)
+        //     .commit()
+        
+        Toast.makeText(context, "Membuka Menu Semua Transaksi...", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun navigateToCategoryDetailMenu(categoryName: String) {
+        // Contoh implementasi passing argument ke detail kategori Anda:
+        // val fragment = CategoryDetailFragment.newInstance(categoryName)
+        // parentFragmentManager.beginTransaction().replace(R.id.fragment_container, fragment).addToBackStack(null).commit()
+        
+        Toast.makeText(context, "Membuka Detail Kategori: $categoryName", Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {
