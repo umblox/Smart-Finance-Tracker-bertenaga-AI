@@ -1,5 +1,6 @@
 package com.smartfinance.tracker
 
+import android.app.AlertDialog
 import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -43,14 +44,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        // Panggil pengunci Biometrik sebelum data lain diload
-        checkBiometric()
-
-        // 🔥 KUNCI UTAMA: Inisialisasi Firebase Dinamis (White-Label Support)
+    // 🔥 FUNGSI BARU: Inisialisasi Firebase MURNI dari data custom (BYOK)
+    private fun initializeFirebaseDynamic(): Boolean {
         try {
             // Bersihkan instance lama agar JSON baru bisa masuk tanpa konflik
             val existingApps = FirebaseApp.getApps(this)
@@ -63,31 +58,40 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
             val customFirebaseJson = prefs.getString("custom_firebase_json", null)
 
-            // Jika user pernah upload google-services.json dari Settings
-            if (customFirebaseJson != null && FirebaseApp.getApps(this).isEmpty()) {
-                val jsonObj = JSONObject(customFirebaseJson)
-                val projectInfo = jsonObj.getJSONObject("project_info")
-                val clientInfo = jsonObj.getJSONArray("client").getJSONObject(0).getJSONObject("client_info")
-                val apiKey = jsonObj.getJSONArray("client").getJSONObject(0).getJSONArray("api_key").getJSONObject(0).getString("current_key")
-                
-                val projectId = projectInfo.getString("project_id")
-                val appId = clientInfo.getString("mobilesdk_app_id")
-                
-                val options = FirebaseOptions.Builder()
-                    .setProjectId(projectId)
-                    .setApplicationId(appId)
-                    .setApiKey(apiKey)
-                    .build()
+            if (!customFirebaseJson.isNullOrEmpty()) {
+                if (FirebaseApp.getApps(this).isEmpty()) {
+                    val jsonObj = JSONObject(customFirebaseJson)
+                    val projectInfo = jsonObj.getJSONObject("project_info")
+                    val clientInfo = jsonObj.getJSONArray("client").getJSONObject(0).getJSONObject("client_info")
+                    val apiKey = jsonObj.getJSONArray("client").getJSONObject(0).getJSONArray("api_key").getJSONObject(0).getString("current_key")
+                    
+                    val projectId = projectInfo.getString("project_id")
+                    val appId = clientInfo.getString("mobilesdk_app_id")
+                    
+                    val options = FirebaseOptions.Builder()
+                        .setProjectId(projectId)
+                        .setApplicationId(appId)
+                        .setApiKey(apiKey)
+                        .build()
 
-                FirebaseApp.initializeApp(this, options)
-            } 
-            // Jika tidak ada JSON kustom, inisialisasi default dari bawaan aplikasi
-            else if (FirebaseApp.getApps(this).isEmpty()) {
-                FirebaseApp.initializeApp(this)
+                    FirebaseApp.initializeApp(this, options)
+                }
+                return true // Firebase sukses diinisialisasi dari setting lokal
             }
-            
-            // 🔥 FITUR BARU: Sinkronisasi Status Biometrik dari Cloud (Untuk Re-install)
+            return false // Tidak ada konfigurasi Firebase lokal
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false // JSON rusak atau tidak valid
+        }
+    }
+
+    // 🔥 FUNGSI BARU: Menjalankan fitur yang butuh koneksi Cloud HANYA JIKA Firebase sudah siap
+    private fun runFirebaseDependentTasks() {
+        try {
+            val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
             val db = FirebaseFirestore.getInstance()
+            
+            // Sinkronisasi Status Biometrik dari Cloud (Untuk Re-install)
             db.collection("app_config").document("security").get().addOnSuccessListener { doc ->
                 if (doc.exists()) {
                     val cloudBiometric = doc.getBoolean("use_biometric") ?: false
@@ -95,17 +99,47 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // 🔥 FITUR BARU: Jalankan Mesin Pengecek Transaksi Berkala di Background
+            // Jalankan Mesin Pengecek Transaksi Berkala di Background
             CoroutineScope(Dispatchers.IO).launch {
                 com.smartfinance.tracker.utils.RecurringTxWorker.checkAndExecuteDueTransactions()
             }
-            
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback aman jika parsing JSON kustom gagal
-            if (FirebaseApp.getApps(this).isEmpty()) {
-                FirebaseApp.initializeApp(this)
+        }
+    }
+
+    // 🔥 FUNGSI BARU: Paksa user pindah ke Setting jika belum BYOK
+    private fun showSetupRequiredDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("⚙️ Persiapan Aplikasi")
+            .setMessage("Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan File Database (google-services.json) dan API Key Mesin AI terlebih dahulu.\n\nKlik tombol di bawah untuk menuju ke Pengaturan.")
+            .setCancelable(false) // Tidak bisa di-cancel dengan tombol back atau tap di luar area
+            .setPositiveButton("Buka Pengaturan") { _, _ ->
+                // Arahkan otomatis ke Menu Settings
+                findViewById<BottomNavigationView>(R.id.bottomNavigation).selectedItemId = R.id.menu_settings
             }
+            .show()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // Panggil pengunci Biometrik sebelum data lain diload
+        checkBiometric()
+
+        val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        val isFirebaseConfigured = initializeFirebaseDynamic()
+        
+        // Kita ngecek API key lama (groq) dan key baru (ai_api_key) sebagai transisi
+        val isAiConfigured = !prefs.getString("ai_api_key", "").isNullOrEmpty() || !prefs.getString("groq_key_override", "").isNullOrEmpty()
+
+        if (!isFirebaseConfigured || !isAiConfigured) {
+            // Jika salah satu dari JSON atau API Key belum diisi, panggil popup pencegat
+            showSetupRequiredDialog()
+        } else {
+            // Jika sudah terisi semua, jalankan proses background Firestore
+            runFirebaseDependentTasks()
         }
 
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
