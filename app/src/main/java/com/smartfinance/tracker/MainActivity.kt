@@ -9,20 +9,22 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
-import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
+import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
+
+    // 🔥 GUARD SYSTEM: Digunakan oleh Fragment untuk mengecek apakah database sudah siap
+    companion object {
+        var isFirebaseReady = false
+    }
 
     private fun checkBiometric() {
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
@@ -41,52 +43,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Fungsi inisialisasi yang lebih aman
+    // 🔥 Fungsi inisialisasi yang sekarang tersentralisasi ke FirebaseManager
     fun reinitializeFirebase(): Boolean {
-        return try {
-            val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-            val customFirebaseJson = prefs.getString("custom_firebase_json", null)
-            
-            // Hapus instance non-default jika ada
-            val existingApps = FirebaseApp.getApps(this)
-            for (app in existingApps) {
-                if (app.name != FirebaseApp.DEFAULT_APP_NAME) {
-                    app.delete()
-                }
-            }
-
-            if (!customFirebaseJson.isNullOrEmpty()) {
-                val jsonObj = JSONObject(customFirebaseJson)
-                val projectInfo = jsonObj.getJSONObject("project_info")
-                val clientInfo = jsonObj.getJSONArray("client").getJSONObject(0).getJSONObject("client_info")
-                val apiKey = jsonObj.getJSONArray("client").getJSONObject(0).getJSONArray("api_key").getJSONObject(0).getString("current_key")
-                
-                val options = FirebaseOptions.Builder()
-                    .setProjectId(projectInfo.getString("project_id"))
-                    .setApplicationId(clientInfo.getString("mobilesdk_app_id"))
-                    .setApiKey(apiKey)
-                    .build()
-
-                // Inisialisasi Firebase kustom jika belum ada
-                if (FirebaseApp.getApps(this).isEmpty()) {
-                    FirebaseApp.initializeApp(this, options)
-                }
-                
-                runFirebaseDependentTasks()
-                true
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
+        val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        val customFirebaseJson = prefs.getString("custom_firebase_json", null)
+        
+        if (customFirebaseJson.isNullOrEmpty()) {
+            isFirebaseReady = false
+            return false
         }
+
+        // Panggil manager untuk mengurus instance-nya
+        isFirebaseReady = FirebaseManager.init(this, customFirebaseJson)
+        
+        if (isFirebaseReady) {
+            runFirebaseDependentTasks()
+        }
+        
+        return isFirebaseReady
     }
 
     private fun runFirebaseDependentTasks() {
         try {
             val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-            val db = FirebaseFirestore.getInstance()
+            
+            // 🔥 WAJIB MENGGUNAKAN MANAGER, BUKAN GETINSTANCE LAMA
+            val db = FirebaseManager.getFirestore()
             
             db.collection("app_config").document("security").get().addOnSuccessListener { doc ->
                 if (doc.exists()) {
@@ -120,7 +102,7 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
-        // Inisialisasi Firebase setelah super.onCreate agar konteks aman
+        // Inisialisasi Firebase
         val isFirebaseConfigured = reinitializeFirebase()
         val isAiConfigured = !prefs.getString("ai_api_key", "").isNullOrEmpty() || !prefs.getString("groq_key_override", "").isNullOrEmpty()
 
