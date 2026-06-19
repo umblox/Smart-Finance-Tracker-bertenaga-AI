@@ -171,6 +171,7 @@ class SettingsFragment : Fragment() {
                         .putString("ai_model", selectedValue)
                         .putString("ai_api_key", etInput.text.toString().trim())
                         .apply()
+                    (requireActivity() as MainActivity).reinitializeFirebase()
                     Toast.makeText(context, "Konfigurasi Mesin AI Tersimpan!", Toast.LENGTH_LONG).show()
                     d.dismiss()
                 }.setNegativeButton("Batal", null).show()
