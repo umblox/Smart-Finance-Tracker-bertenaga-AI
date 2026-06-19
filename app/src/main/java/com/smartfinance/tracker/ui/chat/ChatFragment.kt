@@ -13,7 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.ai.FinancialAssistant
-import com.smartfinance.tracker.ai.GroqClient
+import com.smartfinance.tracker.ai.AIClient
 import com.smartfinance.tracker.data.model.ChatMessage
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
@@ -24,7 +24,7 @@ class ChatFragment : Fragment() {
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
     
-    private lateinit var groqClient: GroqClient
+    private lateinit var aiClient: AIClient
     private lateinit var assistant: FinancialAssistant
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
@@ -42,7 +42,7 @@ class ChatFragment : Fragment() {
 
         val contextRef = requireContext()
         assistant = FinancialAssistant(contextRef)
-        groqClient = GroqClient(contextRef, assistant)
+        aiClient = AIClient(contextRef, assistant)
 
         chatAdapter = ChatAdapter(messageList)
         binding.rvChatHistory.layoutManager = LinearLayoutManager(contextRef)
@@ -124,7 +124,7 @@ class ChatFragment : Fragment() {
         chatAdapter.notifyItemInserted(messageList.size - 1)
 
         lifecycleScope.launch {
-            val finalResponseText = groqClient.sendMessageToAI(message)
+            val finalResponseText = aiClient.sendMessageToAI(message)
             
             if (messageList.isNotEmpty()) { messageList.removeAt(messageList.size - 1) }
 
