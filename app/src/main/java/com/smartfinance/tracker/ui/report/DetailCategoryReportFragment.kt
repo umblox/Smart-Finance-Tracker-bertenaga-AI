@@ -17,10 +17,11 @@ import com.google.firebase.firestore.ListenerRegistration
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class DetailCategoryReportFragment : Fragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var txListener: ListenerRegistration? = null
     
     private lateinit var tvMonthLabel: TextView
