@@ -22,10 +22,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class AddDebtFragment : Fragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     
     private val sdfDisplayPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
