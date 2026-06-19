@@ -18,6 +18,7 @@ import com.smartfinance.tracker.data.model.ChatMessage
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class ChatFragment : Fragment() {
 
@@ -28,7 +29,7 @@ class ChatFragment : Fragment() {
     private lateinit var assistant: FinancialAssistant
     private val messageList = ArrayList<ChatMessage>()
     private lateinit var chatAdapter: ChatAdapter
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
