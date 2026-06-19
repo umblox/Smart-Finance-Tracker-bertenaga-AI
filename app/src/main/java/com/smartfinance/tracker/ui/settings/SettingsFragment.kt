@@ -7,8 +7,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
-import android.widget.Toast
+import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -16,7 +15,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.ai.GroqClient
+import com.smartfinance.tracker.ai.GroqClient // Jangan diubah dulu sebelum file GroqClient di-rename
 import com.smartfinance.tracker.ui.category.CategoryManagerDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,15 +87,91 @@ class SettingsFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val db = FirebaseFirestore.getInstance()
 
-        view.findViewById<MaterialCardView>(R.id.menuApiGroq).setOnClickListener {
-            val etInput = EditText(requireContext()).apply { 
-                hint = "Token API..." 
-                setText(prefs.getString("groq_key_override", ""))
+        // 🔥 FITUR BARU: MENU KONFIGURASI MULTI-AI
+        view.findViewById<MaterialCardView>(R.id.menuApiConfig).setOnClickListener {
+            val context = requireContext()
+            val density = context.resources.displayMetrics.density
+
+            val layout = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt())
             }
-            AlertDialog.Builder(requireContext()).setTitle("Konfigurasi API Groq").setView(etInput)
+
+            layout.addView(TextView(context).apply {
+                text = "Pilih Mesin AI Server:"
+                setTextColor(Color.parseColor("#64748B"))
+                textSize = 13f
+                setPadding(0, 0, 0, (8 * density).toInt())
+            })
+
+            // Daftar Model AI Super Lengkap
+            val aiModelsDisplay = listOf(
+                "Groq: llama-3.3-70b-versatile (Super Cepat/Gratis)",
+                "Groq: mixtral-8x7b-32768 (Cepat/Gratis)",
+                "Groq: gemma2-9b-it (Ringan/Gratis)",
+                "OpenAI: gpt-4o (Paling Cerdas/Pro)",
+                "OpenAI: gpt-4-turbo (Cerdas/Pro)",
+                "OpenAI: gpt-3.5-turbo (Standar/Pro)",
+                "Google: gemini-1.5-pro (Super Cerdas/Pro)",
+                "Google: gemini-1.5-flash (Cepat/Pro & Gratis Tier)",
+                "Anthropic: claude-3-opus-20240229 (Super Cerdas/Pro)",
+                "Anthropic: claude-3-sonnet-20240229 (Cerdas/Pro)",
+                "Anthropic: claude-3-haiku-20240307 (Cepat/Pro)",
+                "DeepSeek: deepseek-chat (Cerdas/Sangat Murah)"
+            )
+            
+            val aiModelsValue = listOf(
+                "llama-3.3-70b-versatile",
+                "mixtral-8x7b-32768",
+                "gemma2-9b-it",
+                "gpt-4o",
+                "gpt-4-turbo",
+                "gpt-3.5-turbo",
+                "gemini-1.5-pro",
+                "gemini-1.5-flash",
+                "claude-3-opus-20240229",
+                "claude-3-sonnet-20240229",
+                "claude-3-haiku-20240307",
+                "deepseek-chat"
+            )
+
+            val spinnerModel = Spinner(context)
+            val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item, aiModelsDisplay)
+            spinnerModel.adapter = adapter
+            
+            // Set ke model yang pernah disimpan (default llama-3.3)
+            val savedModel = prefs.getString("ai_model", "llama-3.3-70b-versatile")
+            val selectedIndex = aiModelsValue.indexOf(savedModel).takeIf { it >= 0 } ?: 0
+            spinnerModel.setSelection(selectedIndex)
+            
+            layout.addView(spinnerModel)
+
+            layout.addView(TextView(context).apply {
+                text = "Kunci API (API Key):"
+                setTextColor(Color.parseColor("#64748B"))
+                textSize = 13f
+                setPadding(0, (16 * density).toInt(), 0, (8 * density).toInt())
+            })
+
+            val etInput = EditText(context).apply { 
+                hint = "Masukkan API Key yang sesuai..." 
+                // Logika Migrasi: Ambil dari ai_api_key, jika kosong ambil dari groq_key_override lama
+                val savedKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", ""))
+                setText(savedKey)
+                textSize = 14f
+            }
+            layout.addView(etInput)
+
+            AlertDialog.Builder(context)
+                .setTitle("⚙️ Konfigurasi Mesin AI")
+                .setView(layout)
                 .setPositiveButton("Simpan") { d, _ ->
-                    prefs.edit().putString("groq_key_override", etInput.text.toString().trim()).apply()
-                    Toast.makeText(context, "API Key Groq Tersimpan!", Toast.LENGTH_SHORT).show()
+                    val selectedValue = aiModelsValue[spinnerModel.selectedItemPosition]
+                    prefs.edit()
+                        .putString("ai_model", selectedValue)
+                        .putString("ai_api_key", etInput.text.toString().trim())
+                        .apply()
+                    Toast.makeText(context, "Konfigurasi Mesin AI Tersimpan!", Toast.LENGTH_LONG).show()
                     d.dismiss()
                 }.setNegativeButton("Batal", null).show()
         }
@@ -141,7 +216,7 @@ class SettingsFragment : Fragment() {
             val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale("id", "ID"))
             val fileName = "SmartFinance_Backup_${sdf.format(Date())}.csv"
             exportCsvLauncher.launch(fileName)
-        } // 🔥 KURUNG KURAWAL INI YANG KEMARIN HILANG BIKIN ERROR SE-RT!
+        }
 
         view.findViewById<MaterialCardView>(R.id.menuRecurringTx)?.setOnClickListener {
             RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog")
