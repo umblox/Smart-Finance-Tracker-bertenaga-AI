@@ -7,10 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import org.json.JSONObject
 
 object FirebaseManager {
-    var isInitialized = false
-        private set
 
-    // Mengembalikan True jika berhasil, False jika gagal
     fun init(context: Context, jsonString: String): Boolean {
         return try {
             val jsonObj = JSONObject(jsonString)
@@ -24,27 +21,32 @@ object FirebaseManager {
                 .setApiKey(apiKey)
                 .build()
 
-            // Hapus instance lama secara paksa agar instance baru bisa masuk
-            val apps = FirebaseApp.getApps(context)
-            for (app in apps) { app.delete() }
+            // 🔥 RAHASIA UTAMA: Jangan pernah ganggu/delete [DEFAULT] app.
+            // Kita buat Jalur VIP dengan nama "SmartFinanceApp"
+            try {
+                val oldApp = FirebaseApp.getInstance("SmartFinanceApp")
+                oldApp.delete() // Bersihkan hanya jika user upload JSON yang beda lagi
+            } catch (e: Exception) {
+                // Belum ada instance VIP, abaikan.
+            }
             
-            FirebaseApp.initializeApp(context, options)
-            isInitialized = true
+            // Inisialisasi Database murni dari JSON lu!
+            FirebaseApp.initializeApp(context, options, "SmartFinanceApp")
             true
         } catch (e: Exception) {
             e.printStackTrace()
-            isInitialized = false
             false
         }
     }
 
     fun getFirestore(): FirebaseFirestore {
         return try {
-            // Ambil dari instance yang aktif saat ini
-            FirebaseFirestore.getInstance()
+            // 🔥 PAKSA semua fragment untuk pakai Jalur VIP ini
+            val app = FirebaseApp.getInstance("SmartFinanceApp")
+            FirebaseFirestore.getInstance(app)
         } catch (e: Exception) {
-            e.printStackTrace()
-            // Fallback (hanya terpanggil jika ada error parah di library)
+            // Jika user baru instal & belum upload JSON, 
+            // kasih koneksi tumbal biar aplikasi nggak Force Close
             FirebaseFirestore.getInstance()
         }
     }
