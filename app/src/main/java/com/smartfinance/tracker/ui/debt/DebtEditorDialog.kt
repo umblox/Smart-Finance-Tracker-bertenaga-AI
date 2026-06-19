@@ -20,13 +20,14 @@ import kotlinx.coroutines.tasks.await
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class DebtEditorDialog(
     private val debtItemData: HashMap<String, Any>,
     private val onUpdateAction: () -> Unit
 ) : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
