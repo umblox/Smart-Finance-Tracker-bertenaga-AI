@@ -21,10 +21,11 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.LinkedHashMap
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class HistoryTransactionFragment : Fragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var historyListenerRegistration: ListenerRegistration? = null
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
