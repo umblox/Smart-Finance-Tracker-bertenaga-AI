@@ -30,13 +30,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class DebtManualDialog(
     private val initialTabFilter: String,
     private val onSavedAction: () -> Unit
 ) : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
     private var activeContactEditText: EditText? = null
 
