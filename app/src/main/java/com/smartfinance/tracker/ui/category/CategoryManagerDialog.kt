@@ -20,10 +20,11 @@ import com.smartfinance.tracker.R
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.Locale
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class CategoryManagerDialog : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var categoryListenerRegistration: ListenerRegistration? = null
     
     private lateinit var containerList: LinearLayout
