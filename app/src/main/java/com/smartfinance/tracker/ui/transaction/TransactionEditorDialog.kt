@@ -31,13 +31,14 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class TransactionEditorDialog(
     private val transactionData: HashMap<String, Any>,
     private val onUpdateAction: () -> Unit
 ) : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var currentType = "EXPENSE"
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
