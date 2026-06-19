@@ -19,10 +19,11 @@ import java.text.NumberFormat
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class ReportFragment : Fragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var reportListenerRegistration: ListenerRegistration? = null
 
     private lateinit var chartContainer: LinearLayout
