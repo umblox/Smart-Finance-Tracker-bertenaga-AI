@@ -2,8 +2,6 @@ package com.smartfinance.tracker.ai
 
 import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.smartfinance.tracker.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -18,7 +16,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class GroqClient(private val context: Context, private val assistant: FinancialAssistant) {
+class AIClient(private val context: Context, private val assistant: FinancialAssistant) {
 
     private val firestore = FirebaseFirestore.getInstance()
 
@@ -61,9 +59,12 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
 
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        var apiKey = prefs.getString("groq_key_override", "") ?: ""
-        if (apiKey.isEmpty()) apiKey = BuildConfig.GROQ_API_KEY
-        if (apiKey.isEmpty()) return@withContext "⚠️ API Key Groq aman tidak ditemukan dalam sistem build."
+        
+        // 🔥 BYOK (Bring Your Own Key) - Ambil dari Settings
+        val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
+        val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
+        
+        if (apiKey.isEmpty()) return@withContext "⚠️ Sistem dikunci! Silakan masukkan API Key AI di menu Pengaturan (Kecerdasan & Server) terlebih dahulu."
 
         val catContext = java.lang.StringBuilder()
         val myDebtContext = java.lang.StringBuilder()
@@ -72,7 +73,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
         var currentBalanceStr = "Rp 0"
 
         try {
-            // Kalkulasi Saldo Cerdas
             val allTxSnapshot = firestore.collection("transactions").get().await()
             var totalInc = 0.0
             var totalExp = 0.0
@@ -86,7 +86,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
             val formatter = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
             currentBalanceStr = formatter.format(totalInc - totalExp)
 
-            // Mengisi Riwayat (Limit 50)
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
             for (doc in sortedTx.take(50)) {
                 val amt = doc.getDouble("amount") ?: 0.0
@@ -97,7 +96,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 txContext.append("- [${sdfTx.format(Date(ts))}] $note | Kategori: $catName | Tipe: $type | Nominal: Rp$amt\n")
             }
 
-            // Kategori
             val categorySnapshot = firestore.collection("categories").get().await()
             val allCats = categorySnapshot.documents.mapNotNull { it.data }
             val parents = allCats.filter { it["parentCategoryId"] == null }
@@ -116,7 +114,6 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 }
             }
 
-            // Hutang Piutang
             val debtSnapshot = firestore.collection("debts").get().await()
             for (doc in debtSnapshot.documents) {
                 val isPaid = doc.getBoolean("isPaid") ?: false
@@ -143,42 +140,126 @@ class GroqClient(private val context: Context, private val assistant: FinancialA
                 .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
         }
 
+        // 🔥 MESIN ROUTER MULTI-AI
         try {
-            val url = URI("https://api.groq.com/openai/v1/chat/completions").toURL()
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            conn.doOutput = true
-
-            val messagesArray = JSONArray().apply {
-                put(JSONObject().apply { put("role", "system"); put("content", finalSystemPrompt) })
-                put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
+            val rawResponse = when {
+                aiModel.startsWith("gpt-") -> callOpenAICompatible("https://api.openai.com/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage)
+                aiModel.startsWith("deepseek") -> callOpenAICompatible("https://api.deepseek.com/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage)
+                aiModel.startsWith("gemini") -> callGemini(aiModel, apiKey, finalSystemPrompt, userMessage)
+                aiModel.startsWith("claude") -> callAnthropic(aiModel, apiKey, finalSystemPrompt, userMessage)
+                else -> callOpenAICompatible("https://api.groq.com/openai/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage) // Groq Default
             }
-
-            val jsonBody = JSONObject().apply {
-                put("model", "llama-3.3-70b-versatile")
-                put("messages", messagesArray)
-                put("temperature", 0.7) 
-                put("response_format", JSONObject().apply { put("type", "json_object") })
-            }
-
-            conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
-            if (conn.responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val rawResponse = reader.readText()
-                val extractedContent = JSONObject(rawResponse).getJSONArray("choices")
-                    .getJSONObject(0).getJSONObject("message").getString("content").trim()
-                
-                return@withContext assistant.parseAndExecuteRawAiResponse(extractedContent)
-            } else {
-                val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-                val errorText = errorReader.readText()
-                return@withContext "⚠️ Hubungan ke Groq terputus (HTTP ${conn.responseCode}): $errorText"
-            }
+            
+            if (rawResponse.startsWith("⚠️")) return@withContext rawResponse // Ada error jaringan dari mesin AI
+            
+            return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
+            
         } catch (e: Exception) {
             return@withContext "⚠️ Gangguan Jaringan Lokal: ${e.localizedMessage ?: "Timeout"}"
+        }
+    }
+
+    // 1️⃣ MESIN OPENAI-COMPATIBLE (Dipakai oleh OpenAI, Groq, dan DeepSeek)
+    private fun callOpenAICompatible(endpoint: String, model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
+        val url = URI(endpoint).toURL()
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Authorization", "Bearer $apiKey")
+        conn.doOutput = true
+
+        val messagesArray = JSONArray().apply {
+            put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+            put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
+        }
+
+        val jsonBody = JSONObject().apply {
+            put("model", model)
+            put("messages", messagesArray)
+            put("temperature", 0.7)
+            put("response_format", JSONObject().apply { put("type", "json_object") })
+        }
+
+        conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
+
+        if (conn.responseCode == 200) {
+            val reader = BufferedReader(InputStreamReader(conn.inputStream))
+            return JSONObject(reader.readText()).getJSONArray("choices")
+                .getJSONObject(0).getJSONObject("message").getString("content").trim()
+        } else {
+            val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
+            return "⚠️ Server Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+        }
+    }
+
+    // 2️⃣ MESIN GOOGLE GEMINI REST API
+    private fun callGemini(model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
+        val url = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey").toURL()
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+
+        val jsonBody = JSONObject().apply {
+            put("systemInstruction", JSONObject().apply {
+                put("parts", JSONArray().apply { put(JSONObject().apply { put("text", systemPrompt) }) })
+            })
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().apply { put(JSONObject().apply { put("text", userMessage) }) })
+                })
+            })
+            put("generationConfig", JSONObject().apply {
+                put("responseMimeType", "application/json")
+                put("temperature", 0.7)
+            })
+        }
+
+        conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
+
+        if (conn.responseCode == 200) {
+            val reader = BufferedReader(InputStreamReader(conn.inputStream))
+            return JSONObject(reader.readText()).getJSONArray("candidates")
+                .getJSONObject(0).getJSONObject("content").getJSONArray("parts")
+                .getJSONObject(0).getString("text").trim()
+        } else {
+            val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
+            return "⚠️ Gemini Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+        }
+    }
+
+    // 3️⃣ MESIN ANTHROPIC CLAUDE REST API
+    private fun callAnthropic(model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
+        val url = URI("https://api.anthropic.com/v1/messages").toURL()
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("x-api-key", apiKey)
+        conn.setRequestProperty("anthropic-version", "2023-06-01")
+        conn.doOutput = true
+
+        val messagesArray = JSONArray().apply {
+            put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
+        }
+
+        val jsonBody = JSONObject().apply {
+            put("model", model)
+            put("max_tokens", 4096)
+            put("temperature", 0.7)
+            put("system", systemPrompt) // Claude nerima JSON Schema langsung dari System Prompt
+            put("messages", messagesArray)
+        }
+
+        conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
+
+        if (conn.responseCode == 200) {
+            val reader = BufferedReader(InputStreamReader(conn.inputStream))
+            return JSONObject(reader.readText()).getJSONArray("content")
+                .getJSONObject(0).getString("text").trim()
+        } else {
+            val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
+            return "⚠️ Claude Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
         }
     }
 }
