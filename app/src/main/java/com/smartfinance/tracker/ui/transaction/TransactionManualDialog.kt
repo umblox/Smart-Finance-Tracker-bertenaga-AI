@@ -31,10 +31,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var currentType = "EXPENSE"
     
     private var allCategoriesCloud = listOf<Map<String, Any>>()
