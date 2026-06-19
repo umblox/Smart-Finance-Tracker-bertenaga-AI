@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.HashMap
 import java.util.Locale
+import com.smartfinance.tracker.utils.FirebaseManager
 
 class CategoryEditorDialog(
     private val categoryData: HashMap<String, Any>?,
@@ -27,7 +28,7 @@ class CategoryEditorDialog(
     private val onSavedAction: () -> Unit
 ) : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseManager.getFirestore()
     private var allCategoriesCache = ArrayList<Map<String, Any>>()
     private var availableParents = ArrayList<Map<String, Any>>()
 
