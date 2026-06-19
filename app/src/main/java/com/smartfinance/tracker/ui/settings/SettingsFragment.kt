@@ -15,7 +15,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.ai.GroqClient // Jangan diubah dulu sebelum file GroqClient di-rename
+import com.smartfinance.tracker.ai.AIClient
 import com.smartfinance.tracker.ui.category.CategoryManagerDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -182,7 +182,7 @@ class SettingsFragment : Fragment() {
 
         view.findViewById<MaterialCardView>(R.id.menuExpertMode).setOnClickListener {
             val etPrompt = EditText(requireContext()).apply {
-                setText(prefs.getString("expert_system_prompt", GroqClient.DEFAULT_PROMPT))
+                setText(prefs.getString("expert_system_prompt", AIClient.DEFAULT_PROMPT))
                 textSize = 12f
                 setTextColor(Color.parseColor("#334155"))
                 setBackgroundColor(Color.parseColor("#F1F5F9"))
