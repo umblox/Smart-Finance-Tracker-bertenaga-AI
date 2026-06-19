@@ -31,14 +31,14 @@
             android:layout_marginBottom="8dp"/>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/menuApiGroq"
+            android:id="@+id/menuApiConfig"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
             app:cardBackgroundColor="#FFFFFF"
             app:cardCornerRadius="14dp"
             app:cardElevation="1dp">
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="🔑 Integrasi API Key Groq" android:textColor="#334155" android:textSize="15sp" android:textStyle="bold" app:drawableEndCompat="@android:drawable/ic_menu_edit" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="🔑 Konfigurasi Mesin AI" android:textColor="#334155" android:textSize="15sp" android:textStyle="bold" app:drawableEndCompat="@android:drawable/ic_menu_edit" />
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
