@@ -41,16 +41,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 FIX: Inisialisasi Firebase yang memaksa penghapusan instance default agar konfigurasi kustom selalu menang
+    // Fungsi inisialisasi yang lebih aman
     fun reinitializeFirebase(): Boolean {
         return try {
             val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
             val customFirebaseJson = prefs.getString("custom_firebase_json", null)
             
-            // Hapus semua instance yang ada secara paksa, termasuk yang default
+            // Hapus instance non-default jika ada
             val existingApps = FirebaseApp.getApps(this)
             for (app in existingApps) {
-                app.delete()
+                if (app.name != FirebaseApp.DEFAULT_APP_NAME) {
+                    app.delete()
+                }
             }
 
             if (!customFirebaseJson.isNullOrEmpty()) {
@@ -65,8 +67,10 @@ class MainActivity : AppCompatActivity() {
                     .setApiKey(apiKey)
                     .build()
 
-                // Inisialisasi ulang dengan opsi kustom
-                FirebaseApp.initializeApp(this, options)
+                // Inisialisasi Firebase kustom jika belum ada
+                if (FirebaseApp.getApps(this).isEmpty()) {
+                    FirebaseApp.initializeApp(this, options)
+                }
                 
                 runFirebaseDependentTasks()
                 true
@@ -109,16 +113,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // 🔥 FIX PENTING: Jalankan inisialisasi SEBELUM super.onCreate untuk menghindari default Firebase ter-load
-        reinitializeFirebase()
-        
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         checkBiometric()
 
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val isFirebaseConfigured = FirebaseApp.getApps(this).isNotEmpty()
+        
+        // Inisialisasi Firebase setelah super.onCreate agar konteks aman
+        val isFirebaseConfigured = reinitializeFirebase()
         val isAiConfigured = !prefs.getString("ai_api_key", "").isNullOrEmpty() || !prefs.getString("groq_key_override", "").isNullOrEmpty()
 
         if (!isFirebaseConfigured || !isAiConfigured) {
