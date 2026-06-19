@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.ui.settings
 
+import com.smartfinance.tracker.MainActivity
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
@@ -29,22 +30,28 @@ import java.util.Locale
 
 class SettingsFragment : Fragment() {
 
-    private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            try {
-                val inputStream = requireContext().contentResolver.openInputStream(it)
-                val reader = BufferedReader(InputStreamReader(inputStream))
-                val jsonString = reader.use { r -> r.readText() }
-                
-                requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-                    .edit().putString("custom_firebase_json", jsonString).apply()
-                
-                Toast.makeText(requireContext(), "Firebase JSON dimuat! Harap restart aplikasi.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Gagal membaca file JSON.", Toast.LENGTH_SHORT).show()
+private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    uri?.let {
+        try {
+            val inputStream = requireContext().contentResolver.openInputStream(it)
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            val jsonString = reader.use { r -> r.readText() }
+            
+            requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                .edit().putString("custom_firebase_json", jsonString).apply()
+            
+            // 🔥 FIX: Casting activity ke MainActivity dengan benar
+            val activity = requireActivity()
+            if (activity is com.smartfinance.tracker.MainActivity) {
+                activity.reinitializeFirebase()
             }
+            
+            Toast.makeText(requireContext(), "✅ Database berhasil di-load otomatis!", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "❌ Gagal membaca file JSON.", Toast.LENGTH_SHORT).show()
         }
     }
+}
 
     private val exportCsvLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         uri?.let { fileUri ->
