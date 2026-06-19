@@ -57,7 +57,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
         uri?.let { fileUri ->
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val db = FirebaseFirestore.getInstance()
+                    val db = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
                     val txSnap = db.collection("transactions").orderBy("timestamp").get().await()
                     
                     val sb = StringBuilder()
@@ -92,7 +92,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val view = inflater.inflate(R.layout.fragment_settings, container, false)
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val db = FirebaseFirestore.getInstance()
+            val db = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
 
         // 🔥 FITUR BARU: MENU KONFIGURASI MULTI-AI
         view.findViewById<MaterialCardView>(R.id.menuApiConfig).setOnClickListener {
