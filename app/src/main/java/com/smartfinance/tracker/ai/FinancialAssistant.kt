@@ -41,17 +41,6 @@ class FinancialAssistant(private val context: Context) {
                 }
             }
 
-            if (actionType == "CHAT_ONLY") {
-                val pendingJson = json.optJSONObject("pending_transaction")
-                if (pendingJson != null && pendingJson.length() > 0) {
-                    val pAmt = parseAmount(pendingJson)
-                    if (pAmt > 0.0) {
-                        prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
-                    }
-                }
-                return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
-            }
-
             if (actionType == "VIEW_CATEGORIES") return renderBeautifulCategoryList()
             if (actionType == "VIEW_REPORT") return compileAiReport(cleanJsonStr)
 
@@ -73,6 +62,9 @@ class FinancialAssistant(private val context: Context) {
                 return "❌ Gagal membuat kategori, format instruksi kurang lengkap."
             }
 
+            // ========================================================
+            // EKSEKUSI ARRAY TRANSAKSI (Mode Normal/Hutang Piutang)
+            // ========================================================
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
                 var isSuccess = false 
@@ -80,7 +72,8 @@ class FinancialAssistant(private val context: Context) {
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     val customDateStr = item.optString("transaction_date", "").trim()
-                    val targetTimestamp = parseTransactionDateTime(customDateStr)
+                    // 🔥 Tambahkan 'i' millisecond agar jika ada 2 transaksi, urutannya presisi
+                    val targetTimestamp = parseTransactionDateTime(customDateStr) + i
                     
                     val finalAmount = parseAmount(item)
                     if (finalAmount <= 0.0) continue
@@ -108,14 +101,29 @@ class FinancialAssistant(private val context: Context) {
                     }
                 }
                 
-                return if (isSuccess) {
-                    aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
-                } else {
-                    "⚠️ Peringatan: Transaksi gagal dicatat karena AI mengembalikan nominal yang tidak valid (Rp 0)."
-                }
+                if (isSuccess) return aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
             }
 
-            // 🔥 INI BAGIAN YANG TADI HILANG (Penutup eksekusi dan blok Catch)
+            // ========================================================
+            // 🔥 FALLBACK SUPER AGRESIF: AI Malas Pakai Array
+            // ========================================================
+            val isIntentionalTransaction = actionType.contains("TRANSACTION") || actionType.contains("EXPENSE") || actionType.contains("INCOME")
+            
+            // Coba rogoh data dari pending_transaction atau dari luar (root json)
+            val fallbackItem = json.optJSONObject("pending_transaction") ?: json
+            val fallbackAmount = parseAmount(fallbackItem)
+            
+            if (fallbackAmount > 0.0 && isIntentionalTransaction) {
+                val customDateStr = fallbackItem.optString("transaction_date", "").trim()
+                val targetTimestamp = parseTransactionDateTime(customDateStr)
+                
+                executePureTransaction(fallbackItem, fallbackAmount, targetTimestamp)
+                return aiResponse.ifEmpty { "✅ Transaksi berhasil dicatat, Mam!" }
+            } else if (actionType == "CHAT_ONLY" && fallbackAmount > 0.0) {
+                // Jika AI nanya balik "Apakah ini mau dicatat?"
+                prefs.edit().putString("pending_tx", fallbackItem.toString()).apply()
+            }
+
             return aiResponse
         } catch (e: Exception) {
             e.printStackTrace()
@@ -164,7 +172,7 @@ class FinancialAssistant(private val context: Context) {
 
     suspend fun executeDirectDebtRecord(name: String, amountValue: Double, isReceivable: Boolean, timestampValue: Long) {
         val selectedType = if (isReceivable) "RECEIVABLE" else "DEBT"
-        val debtId = "debt_${System.currentTimeMillis()}"
+        val debtId = "debt_${System.currentTimeMillis()}_${(1000..9999).random()}"
         val sanitizedName = name.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
 
         val debtMap = hashMapOf("id" to debtId, "contactName" to sanitizedName, "contactPhoneNumber" to "0812", "amount" to amountValue, "remainingAmount" to amountValue, "type" to selectedType, "note" to "Dicatat Otomatis oleh AI", "timestamp" to timestampValue, "isPaid" to false)
@@ -173,7 +181,7 @@ class FinancialAssistant(private val context: Context) {
         val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
-        val txId = "tx_${System.currentTimeMillis()}"
+        val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
         val standardizedNote = if (selectedType == "RECEIVABLE") "MEMBERIKAN PINJAMAN KEPADA $sanitizedName" else "MENERIMA PINJAMAN DARI $sanitizedName"
 
         val txMap = hashMapOf("id" to txId, "amount" to amountValue, "type" to flowType, "categoryId" to catId, "categoryName" to catName, "note" to standardizedNote, "timestamp" to timestampValue, "debtId" to debtId)
@@ -211,7 +219,7 @@ class FinancialAssistant(private val context: Context) {
             val txType = if (matchType == "DEBT") "EXPENSE" else "INCOME"
             val catId = if (matchType == "DEBT") 102L else 103L
             val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
-            val txId = "tx_${System.currentTimeMillis()}"
+            val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
             val standardizedNote = if (matchType == "DEBT") "MEMBAYAR CICILAN UTANG KE $matchContactName" else "MENERIMA CICILAN PIUTANG DARI $matchContactName"
 
             val payTxMap = hashMapOf("id" to txId, "amount" to targetPayAmount, "type" to txType, "categoryId" to catId, "categoryName" to catName, "note" to standardizedNote, "timestamp" to targetTimestamp, "debtId" to matchDocId)
@@ -242,7 +250,7 @@ class FinancialAssistant(private val context: Context) {
             firestore.collection("categories").document("cat_$catId").set(newCatMap).await()
         }
 
-        val txId = "tx_${System.currentTimeMillis()}"
+        val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
         val finalNoteStr = cleanNote.ifEmpty { "TRANSAKSI $catName" }.uppercase(Locale.ROOT)
         val txMap = hashMapOf("id" to txId, "amount" to finalAmount, "type" to type, "categoryId" to catId, "categoryName" to catName, "note" to finalNoteStr, "timestamp" to targetTimestamp)
         firestore.collection("transactions").document(txId).set(txMap).await()
@@ -391,12 +399,22 @@ class FinancialAssistant(private val context: Context) {
                "_(Data akurat ditarik dari Cloud)_"
     }
 
+    // 🔥 FIX: Waktu dinamis yang kebal bentrok dan mengunci detik aktual
     private fun parseTransactionDateTime(dateStr: String): Long {
-        if (dateStr.trim().isEmpty()) return System.currentTimeMillis()
-        return try { 
-            if (dateStr.contains(":")) { SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() } 
-            else { SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")).parse(dateStr.trim())?.time ?: System.currentTimeMillis() }
-        } catch (e: Exception) { System.currentTimeMillis() }
+        val now = System.currentTimeMillis()
+        if (dateStr.trim().isEmpty()) return now
+        return try {
+            val formatStr = if (dateStr.contains(":")) "dd-MM-yyyy HH:mm" else "dd-MM-yyyy"
+            val parsedDate = SimpleDateFormat(formatStr, Locale("id", "ID")).parse(dateStr.trim())
+            if (parsedDate != null) {
+                val cal = Calendar.getInstance().apply { time = parsedDate }
+                val nowCal = Calendar.getInstance().apply { timeInMillis = now }
+                // Suntikkan detik dan milidetik asli agar urutannya tidak terbalik di UI
+                cal.set(Calendar.SECOND, nowCal.get(Calendar.SECOND))
+                cal.set(Calendar.MILLISECOND, nowCal.get(Calendar.MILLISECOND))
+                cal.timeInMillis
+            } else now
+        } catch (e: Exception) { now }
     }
 
     private fun parseAmount(item: JSONObject): Double {
