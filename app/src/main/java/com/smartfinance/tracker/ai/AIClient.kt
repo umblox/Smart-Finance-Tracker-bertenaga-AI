@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ai
 
 import android.content.Context
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -15,12 +14,13 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.smartfinance.tracker.utils.FirebaseManager // Import Manager yang baru kita buat
 
 class AIClient(private val context: Context, private val assistant: FinancialAssistant) {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    // 🔥 FIX: Gunakan FirebaseManager agar tidak nabrak instance kosong
+    private val firestore = FirebaseManager.getFirestore()
 
-    // 🔥 SENTRALISASI PROMPT (DIBACA OLEH SETTINGS)
     companion object {
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam).
@@ -60,7 +60,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     suspend fun sendMessageToAI(userMessage: String): String = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
-        // 🔥 BYOK (Bring Your Own Key) - Ambil dari Settings
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
         val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
         
@@ -73,6 +72,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         var currentBalanceStr = "Rp 0"
 
         try {
+            // 🔥 TAHAP 1: EKSTRAKSI DATA DARI FIRESTORE UNTUK "MEMBERI MAKAN" OTAK AI
             val allTxSnapshot = firestore.collection("transactions").get().await()
             var totalInc = 0.0
             var totalExp = 0.0
@@ -130,6 +130,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
+        // 🔥 TAHAP 2: MERAKIT PROMPT RAKSASA
         var finalSystemPrompt = prefs.getString("expert_system_prompt", DEFAULT_PROMPT) ?: DEFAULT_PROMPT
         if (finalSystemPrompt.contains("{TODAY_DATE}")) {
             finalSystemPrompt = finalSystemPrompt.replace("{TODAY_DATE}", todayString)
@@ -140,7 +141,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
         }
 
-        // 🔥 MESIN ROUTER MULTI-AI
+        // 🔥 TAHAP 3: MESIN ROUTER MULTI-AI YANG MERESPON JSON
         try {
             val rawResponse = when {
                 aiModel.startsWith("gpt-") -> callOpenAICompatible("https://api.openai.com/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage)
@@ -150,8 +151,9 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 else -> callOpenAICompatible("https://api.groq.com/openai/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage) // Groq Default
             }
             
-            if (rawResponse.startsWith("⚠️")) return@withContext rawResponse // Ada error jaringan dari mesin AI
+            if (rawResponse.startsWith("⚠️")) return@withContext rawResponse 
             
+            // 🔥 TAHAP 4: MENYERAHKAN RESPON MENTAH AI KE FINANCIAL ASSISTANT UNTUK DIEKSEKUSI
             return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             
         } catch (e: Exception) {
@@ -159,7 +161,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         }
     }
 
-    // 1️⃣ MESIN OPENAI-COMPATIBLE (Dipakai oleh OpenAI, Groq, dan DeepSeek)
     private fun callOpenAICompatible(endpoint: String, model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI(endpoint).toURL()
         val conn = url.openConnection() as HttpURLConnection
@@ -177,6 +178,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             put("model", model)
             put("messages", messagesArray)
             put("temperature", 0.7)
+            // 🔥 WAJIB: Memaksa server merespon dalam format JSON Strict
             put("response_format", JSONObject().apply { put("type", "json_object") })
         }
 
@@ -192,7 +194,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         }
     }
 
-    // 2️⃣ MESIN GOOGLE GEMINI REST API
     private fun callGemini(model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey").toURL()
         val conn = url.openConnection() as HttpURLConnection
@@ -211,6 +212,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 })
             })
             put("generationConfig", JSONObject().apply {
+                // 🔥 WAJIB: Memaksa Gemini merespon dengan format JSON
                 put("responseMimeType", "application/json")
                 put("temperature", 0.7)
             })
@@ -229,7 +231,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         }
     }
 
-    // 3️⃣ MESIN ANTHROPIC CLAUDE REST API
     private fun callAnthropic(model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI("https://api.anthropic.com/v1/messages").toURL()
         val conn = url.openConnection() as HttpURLConnection
@@ -240,14 +241,15 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.doOutput = true
 
         val messagesArray = JSONArray().apply {
-            put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
+            // Claude tidak punya param JSON strict, jadi kita suntikkan di user message agar dia mengerti
+            put(JSONObject().apply { put("role", "user"); put("content", "$userMessage\n\n[RESPOND STRICTLY IN JSON FORMAT]") })
         }
 
         val jsonBody = JSONObject().apply {
             put("model", model)
             put("max_tokens", 4096)
             put("temperature", 0.7)
-            put("system", systemPrompt) // Claude nerima JSON Schema langsung dari System Prompt
+            put("system", systemPrompt)
             put("messages", messagesArray)
         }
 
