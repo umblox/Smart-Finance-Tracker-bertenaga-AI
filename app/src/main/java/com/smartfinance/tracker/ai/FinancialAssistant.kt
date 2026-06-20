@@ -74,14 +74,17 @@ class FinancialAssistant(private val context: Context) {
                 return "❌ Gagal membuat kategori, format instruksi kurang lengkap."
             }
 
-            val txArray = json.optJSONArray("transactions")
+                val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
+                var isSuccess = false // Jaring pengaman untuk mendeteksi apakah data benar-benar tersimpan
+                
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     val customDateStr = item.optString("transaction_date", "").trim()
                     val targetTimestamp = parseTransactionDateTime(customDateStr)
+                    
+                    // Tarik nominal dengan fungsi baru yang lebih kebal
                     val finalAmount = parseAmount(item)
-
                     if (finalAmount <= 0.0) continue
                     
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
@@ -89,28 +92,32 @@ class FinancialAssistant(private val context: Context) {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
                     }
 
-                    when (actionType) {
-                        "TRANSACTION" -> { executePureTransaction(item, finalAmount, targetTimestamp) }
-                        "DEBT_RECORD" -> {
+                    // 🔥 FIX: Evaluasi super longgar. Apapun actionType-nya, kalau bukan hutang, PAKSA CATAT!
+                    when {
+                        actionType.contains("DEBT_RECORD") -> {
                             val isReceivableFlow = item.optString("debt_type", "DEBT").uppercase(Locale.ROOT) == "RECEIVABLE"
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
+                            isSuccess = true
                         }
-                        "DEBT_PAYMENT" -> { 
+                        actionType.contains("DEBT_PAYMENT") -> { 
                             val msg = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp) 
-                            // Return pesan dari pelunasan hutang langsung ke layar
+                            isSuccess = true
                             if (i == txArray.length() - 1) return msg
+                        }
+                        else -> { 
+                            // 🚀 JARING PENGAMAN: Walau AI halusinasi ngasih actionType "EXPENSE", "ADD_TX", dll
+                            executePureTransaction(item, finalAmount, targetTimestamp)
+                            isSuccess = true
                         }
                     }
                 }
-                return aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
+                
+                return if (isSuccess) {
+                    aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
+                } else {
+                    "⚠️ Peringatan: Transaksi gagal dicatat karena AI mengembalikan nominal yang tidak valid (Rp 0)."
+                }
             }
-            
-            return aiResponse
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return "❌ Maaf Mam, sistem AI mengalami error pemahaman. (Bisa cek menu Expert Mode)."
-        }
-    }
 
     private suspend fun renderBeautifulCategoryList(): String {
         val snapshot = firestore.collection("categories").get().await()
@@ -390,25 +397,30 @@ class FinancialAssistant(private val context: Context) {
 
     private fun parseAmount(item: JSONObject): Double {
         return try {
-            val rawValue = item.get("amount")
-            
+            var rawValue: Any? = null
+            // Cari berbagai kemungkinan kunci yang sering dihalusinasikan AI
+            val possibleKeys = listOf("amount", "nominal", "harga", "total", "value")
+            for (key in possibleKeys) {
+                if (item.has(key)) {
+                    rawValue = item.get(key)
+                    break
+                }
+            }
+
+            if (rawValue == null) return 0.0
+
             // Jika AI sudah memberikannya dalam bentuk angka murni
-            if (rawValue is Number) {
-                return rawValue.toDouble()
-            } 
-            
-            // Jika AI berhalusinasi memberikannya dalam bentuk Teks/String (Misal: "Rp 20.000" atau "20,000")
+            if (rawValue is Number) return rawValue.toDouble()
+
+            // Jika AI memberikan String ("Rp 20.000", "20.000", "20 ribu")
             val stringValue = rawValue.toString()
-            
-            // Hapus semua karakter yang bukan angka (buang titik, koma, Rp, spasi, huruf)
             val cleanDigitsOnly = stringValue.replace(Regex("[^0-9]"), "")
-            
             cleanDigitsOnly.toDoubleOrNull() ?: 0.0
         } catch (e: Exception) {
             0.0
         }
     }
-
+    
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
         val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH")
         val textUpper = text.uppercase(Locale.ROOT)
