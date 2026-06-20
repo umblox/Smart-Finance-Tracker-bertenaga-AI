@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.text.InputType
@@ -30,14 +31,12 @@ class RecurringTxListDialog : DialogFragment() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private val allCategories = mutableListOf<Map<String, Any>>()
-    private val filteredCategories = mutableListOf<Map<String, Any>>()
     
     private var startDateCal = Calendar.getInstance()
     private var endDateCal = Calendar.getInstance().apply { add(Calendar.YEAR, 1) }
 
-    // State untuk mode Edit
+    // State
     private var editingDocId: String? = null
-    // State untuk kategori yang dipilih dari Dialog Picker
     private var selectedCategoryMap: Map<String, Any>? = null
 
     // UI Komponen
@@ -48,13 +47,8 @@ class RecurringTxListDialog : DialogFragment() {
     private lateinit var etNote: EditText
     private lateinit var etAmount: EditText
     private lateinit var etContact: EditText
-    private lateinit var btnSelectCategory: MaterialButton // Pengganti Spinner
+    private lateinit var btnSelectCategory: MaterialButton // Master Penentu Type
     private lateinit var spinnerInterval: Spinner
-    private lateinit var rbExpense: RadioButton
-    private lateinit var rbIncome: RadioButton
-    private lateinit var rbDebt: RadioButton
-    private lateinit var rbReceivable: RadioButton
-    private lateinit var typeRadios: List<RadioButton>
     private lateinit var switchEnd: SwitchMaterial
     private lateinit var btnStartDate: MaterialButton
     private lateinit var btnEndDate: MaterialButton
@@ -127,31 +121,15 @@ class RecurringTxListDialog : DialogFragment() {
         headerForm.addView(tvFormTitle)
         formRoot.addView(headerForm)
 
-        // RADIO BUTTONS
-        val typeGroup1 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT) }
-        val typeGroup2 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
-        rbExpense = RadioButton(context).apply { text = "Pengeluaran"; isChecked = true; setTextColor(Color.parseColor("#F43F5E")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
-        rbIncome = RadioButton(context).apply { text = "Pemasukan"; setTextColor(Color.parseColor("#10B981")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
-        rbDebt = RadioButton(context).apply { text = "Utang"; setTextColor(Color.parseColor("#EAB308")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
-        rbReceivable = RadioButton(context).apply { text = "Piutang"; setTextColor(Color.parseColor("#3B82F6")); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
-        typeRadios = listOf(rbExpense, rbIncome, rbDebt, rbReceivable)
-        typeRadios.forEach { rb ->
-            rb.setOnClickListener { 
-                typeRadios.forEach { if (it != rb) it.isChecked = false }
-                val targetType = when (rb.text.toString()) { "Pemasukan" -> "INCOME"; "Utang" -> "DEBT"; "Piutang" -> "RECEIVABLE"; else -> "EXPENSE" }
-                updateCategoryList(targetType) 
-            }
-        }
-        typeGroup1.addView(rbExpense); typeGroup1.addView(rbIncome); typeGroup2.addView(rbDebt); typeGroup2.addView(rbReceivable)
-        formRoot.addView(typeGroup1); formRoot.addView(typeGroup2)
+        // 🔥 RADIO BUTTON DIMUSNAHKAN! Form jadi jauh lebih clean.
 
-        etNote = EditText(context).apply { hint = "Catatan (cth: Langganan)"; textSize = 14f; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
+        etNote = EditText(context).apply { hint = "Catatan (cth: Langganan WiFi)"; textSize = 14f; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
         etAmount = EditText(context).apply { hint = "Nominal (Rp)"; textSize = 14f; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
         formRoot.addView(etNote); formRoot.addView(etAmount)
 
         formRoot.addView(TextView(context).apply { text = "Kategori:"; textSize = 12f; setTextColor(Color.GRAY) })
         
-        // 🔥 TOMBOL KATEGORI (PENGGANTI SPINNER)
+        // 🔥 TOMBOL KATEGORI MEWAH
         btnSelectCategory = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "Pilih Kategori"
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
@@ -181,7 +159,6 @@ class RecurringTxListDialog : DialogFragment() {
         switchEnd.setOnCheckedChangeListener { _, isChecked -> btnEndDate.visibility = if (isChecked) View.GONE else View.VISIBLE }
         formRoot.addView(switchEnd); formRoot.addView(btnEndDate)
 
-        // BUTTON DELETE
         btnDelete = MaterialButton(context).apply {
             text = "HAPUS JADWAL INI"
             setBackgroundColor(Color.parseColor("#EF4444"))
@@ -192,7 +169,6 @@ class RecurringTxListDialog : DialogFragment() {
         }
         formRoot.addView(btnDelete)
 
-        // BUTTON SAVE
         formRoot.addView(MaterialButton(context).apply {
             text = "SIMPAN JADWAL"
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = (8 * density).toInt() }
@@ -214,7 +190,7 @@ class RecurringTxListDialog : DialogFragment() {
         layoutForm.visibility = View.VISIBLE
 
         if (doc == null) {
-            // MODE TAMBAH BARU
+            // MODE BARU
             editingDocId = null
             tvFormTitle.text = "Buat Jadwal Baru"
             btnDelete.visibility = View.GONE
@@ -225,14 +201,13 @@ class RecurringTxListDialog : DialogFragment() {
             
             selectedCategoryMap = null
             btnSelectCategory.text = "Pilih Kategori"
-            rbExpense.isChecked = true; updateCategoryList("EXPENSE")
             
             startDateCal = Calendar.getInstance()
             endDateCal = Calendar.getInstance().apply { add(Calendar.YEAR, 1) }
             btnStartDate.text = "Mulai: ${sdf.format(startDateCal.time)}"
             btnEndDate.text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"
             switchEnd.isChecked = true
-            spinnerInterval.setSelection(2) // Default Bulanan
+            spinnerInterval.setSelection(2) // Bulanan
         } else {
             // MODE EDIT
             editingDocId = doc.id
@@ -245,17 +220,9 @@ class RecurringTxListDialog : DialogFragment() {
             etContact.setText(doc.getString("contactName") ?: "")
 
             val catId = doc.getLong("categoryId")
+            selectedCategoryMap = allCategories.find { it["id"] == catId }
             val catName = doc.getString("categoryName") ?: "Pilih Kategori"
             btnSelectCategory.text = catName
-            selectedCategoryMap = allCategories.find { it["id"] == catId }
-
-            val typeRaw = doc.getString("type") ?: "EXPENSE"
-            when (typeRaw) {
-                "INCOME" -> { rbIncome.isChecked = true; updateCategoryList("INCOME") }
-                "DEBT" -> { rbDebt.isChecked = true; updateCategoryList("DEBT") }
-                "RECEIVABLE" -> { rbReceivable.isChecked = true; updateCategoryList("RECEIVABLE") }
-                else -> { rbExpense.isChecked = true; updateCategoryList("EXPENSE") }
-            }
 
             val intervalCode = doc.getString("interval") ?: "MONTHLY"
             val intervalIndex = intervals.indexOfFirst { it.second == intervalCode }
@@ -273,91 +240,141 @@ class RecurringTxListDialog : DialogFragment() {
         }
     }
 
-    // 🔥 LOGIK MENU PICKER KATEGORI
+    // 🔥 LOGIK MENU PICKER KATEGORI (BERJEJER 3 TAB LUXURY)
     private fun showCategoryPickerDialog() {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
 
+        val dialogLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#F8FAFC"))
+        }
+
+        // TABS 3 Jari
+        val tabOuterBox = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42f * density).toInt()).apply {
+                setMargins((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (8f * density).toInt())
+            }
+            background = GradientDrawable().apply { cornerRadius = 12f * density; setColor(Color.parseColor("#E2E8F0")) }
+            weightSum = 3f
+        }
+
+        val btnTabExpense = MaterialButton(context).apply { text = "Pengeluaran"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabIncome = MaterialButton(context).apply { text = "Pemasukan"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabDebt = MaterialButton(context).apply { text = "Hutang/Piutang"; textSize = 10f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+
+        tabOuterBox.addView(btnTabExpense); tabOuterBox.addView(btnTabIncome); tabOuterBox.addView(btnTabDebt)
+        dialogLayout.addView(tabOuterBox)
+
+        // AREA LIST KATEGORI
         val scrollView = ScrollView(context)
         val containerList = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
         }
         scrollView.addView(containerList)
+        dialogLayout.addView(scrollView)
 
         val dialog = AlertDialog.Builder(context)
-            .setTitle("Pilih Kategori")
-            .setView(scrollView)
-            .setNegativeButton("Batal", null)
+            .setView(dialogLayout)
             .create()
 
-        val parentCategories = filteredCategories.filter { it["parentCategoryId"] == null }.sortedBy { it["name"] as? String ?: "" }
-        val subCategories = filteredCategories.filter { it["parentCategoryId"] != null }
+        // FUNGSI RENDER LIST SAAT TAB DIKLIK
+        fun renderList(typeFilter: String) {
+            containerList.removeAllViews()
 
-        if (parentCategories.isEmpty()) {
-            containerList.addView(TextView(context).apply { text = "Belum ada kategori."; setPadding(0, 20, 0, 20) })
-        }
+            // Warna Tab Aktif/Tidak Aktif
+            val activeBg = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
+            val inactiveBg = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
+            
+            btnTabExpense.apply { backgroundTintList = if(typeFilter == "EXPENSE") activeBg else inactiveBg; setTextColor(if(typeFilter == "EXPENSE") Color.WHITE else Color.parseColor("#64748B")) }
+            btnTabIncome.apply { backgroundTintList = if(typeFilter == "INCOME") activeBg else inactiveBg; setTextColor(if(typeFilter == "INCOME") Color.WHITE else Color.parseColor("#64748B")) }
+            btnTabDebt.apply { backgroundTintList = if(typeFilter == "DEBT") activeBg else inactiveBg; setTextColor(if(typeFilter == "DEBT") Color.WHITE else Color.parseColor("#64748B")) }
 
-        parentCategories.forEach { parent ->
-            val blockCard = MaterialCardView(context).apply {
-                radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0
-                setCardBackgroundColor(Color.WHITE)
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
+            // 🔥 Filter Kategori Sesuai Tab (Tab ke-3 menggabungkan DEBT & RECEIVABLE)
+            val targetTypes = if (typeFilter == "DEBT") listOf("DEBT", "RECEIVABLE") else listOf(typeFilter)
+            val filteredList = allCategories.filter { targetTypes.contains((it["type"] as? String)?.uppercase(Locale.ROOT)) }
+            
+            val parentCategories = filteredList.filter { it["parentCategoryId"] == null }.sortedBy { it["name"] as? String ?: "" }
+            val subCategories = filteredList.filter { it["parentCategoryId"] != null }
+
+            if (parentCategories.isEmpty()) {
+                containerList.addView(TextView(context).apply { text = "Belum ada kategori terdaftar."; setTextColor(Color.GRAY); gravity = Gravity.CENTER; setPadding(0, 40, 0, 40) })
+                return
             }
-            val cardContentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
-            val parentRow = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
-                setOnClickListener {
-                    selectedCategoryMap = parent
-                    btnSelectCategory.text = parent["name"] as? String ?: ""
-                    dialog.dismiss()
+            parentCategories.forEach { parent ->
+                val blockCard = MaterialCardView(context).apply {
+                    radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0
+                    setCardBackgroundColor(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
                 }
-            }
-            parentRow.addView(TextView(context).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
-            parentRow.addView(TextView(context).apply {
-                text = parent["name"] as? String ?: ""
-                setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            })
-            cardContentContainer.addView(parentRow)
+                val cardContentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
-            val parentId = parent["id"] as? Long ?: 0L
-            val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }.sortedBy { it["name"] as? String ?: "" }
-
-            if (kids.isNotEmpty()) {
-                cardContentContainer.addView(View(context).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
-            }
-
-            kids.forEach { child ->
-                val childRow = LinearLayout(context).apply {
+                val parentRow = LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt())
-                    setBackgroundColor(Color.parseColor("#FAFAFA"))
+                    setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
                     setOnClickListener {
-                        selectedCategoryMap = child
-                        btnSelectCategory.text = child["name"] as? String ?: ""
-                        dialog.dismiss()
+                        selectedCategoryMap = parent
+                        btnSelectCategory.text = parent["name"] as? String ?: ""
+                        dialog.dismiss() // Tutup pop-up
                     }
                 }
-                val treeLine = View(context).apply {
-                    setBackgroundColor(Color.parseColor("#CBD5E0"))
-                    layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16 * density).toInt()).apply { rightMargin = (12 * density).toInt(); leftMargin = (6 * density).toInt() }
-                }
-                childRow.addView(treeLine)
-                childRow.addView(TextView(context).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10 * density).toInt(), 0) })
-                childRow.addView(TextView(context).apply {
-                    text = child["name"] as? String ?: ""
-                    setTextColor(Color.parseColor("#475569")); textSize = 13.5f
+                parentRow.addView(TextView(context).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
+                parentRow.addView(TextView(context).apply {
+                    text = parent["name"] as? String ?: ""
+                    setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 })
-                cardContentContainer.addView(childRow)
+                cardContentContainer.addView(parentRow)
+
+                val parentId = parent["id"] as? Long ?: 0L
+                val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }.sortedBy { it["name"] as? String ?: "" }
+
+                if (kids.isNotEmpty()) {
+                    cardContentContainer.addView(View(context).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
+                }
+
+                kids.forEach { child ->
+                    val childRow = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                        setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt())
+                        setBackgroundColor(Color.parseColor("#FAFAFA"))
+                        setOnClickListener {
+                            selectedCategoryMap = child
+                            btnSelectCategory.text = child["name"] as? String ?: ""
+                            dialog.dismiss() // Tutup pop-up
+                        }
+                    }
+                    val treeLine = View(context).apply {
+                        setBackgroundColor(Color.parseColor("#CBD5E0"))
+                        layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16 * density).toInt()).apply { rightMargin = (12 * density).toInt(); leftMargin = (6 * density).toInt() }
+                    }
+                    childRow.addView(treeLine)
+                    childRow.addView(TextView(context).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10 * density).toInt(), 0) })
+                    childRow.addView(TextView(context).apply {
+                        text = child["name"] as? String ?: ""
+                        setTextColor(Color.parseColor("#475569")); textSize = 13.5f
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    })
+                    cardContentContainer.addView(childRow)
+                }
+                blockCard.addView(cardContentContainer)
+                containerList.addView(blockCard)
             }
-            blockCard.addView(cardContentContainer)
-            containerList.addView(blockCard)
         }
+
+        btnTabExpense.setOnClickListener { renderList("EXPENSE") }
+        btnTabIncome.setOnClickListener { renderList("INCOME") }
+        btnTabDebt.setOnClickListener { renderList("DEBT") }
+
+        // Buka Tab Awal Berdasarkan Kategori yang Sedang Dipilih (Default: Expense)
+        val currentType = (selectedCategoryMap?.get("type") as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
+        val initialTab = if (currentType == "RECEIVABLE") "DEBT" else currentType
+        renderList(initialTab)
+
         dialog.show()
     }
 
@@ -365,11 +382,12 @@ class RecurringTxListDialog : DialogFragment() {
         val amountText = etAmount.text.toString()
         val noteText = etNote.text.toString()
         
-        // Cek jika user belum pilih kategori
+        // ⚠️ VALIDASI MASTER: Harus pilih kategori!
         if (selectedCategoryMap == null) { Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show(); return }
         if (amountText.isEmpty() || noteText.isEmpty()) { Toast.makeText(context, "Harap isi Catatan dan Nominal!", Toast.LENGTH_SHORT).show(); return }
 
-        val typeCode = when { rbExpense.isChecked -> "EXPENSE"; rbIncome.isChecked -> "INCOME"; rbDebt.isChecked -> "DEBT"; else -> "RECEIVABLE" }
+        // 🔥 Tarik Type Transaksi langsung dari data Kategori yang dipilih
+        val typeCode = (selectedCategoryMap!!["type"] as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
         
         val finalData = hashMapOf(
             "note" to noteText, "amount" to (amountText.toDoubleOrNull() ?: 0.0), "type" to typeCode,
@@ -418,33 +436,14 @@ class RecurringTxListDialog : DialogFragment() {
                 allCategories.clear()
                 for (doc in snap.documents) { doc.data?.let { allCategories.add(it) } }
                 
-                // Kembalikan nama kategori jika data baru saja diload (Mode Edit)
+                // Set data pas buka Mode Edit
                 if (editingDocId != null && selectedCategoryMap == null) {
                     val currentText = btnSelectCategory.text.toString()
                     if (currentText != "Pilih Kategori") {
                          selectedCategoryMap = allCategories.find { it["name"] == currentText }
                     }
                 }
-
-                val targetType = when { rbExpense.isChecked -> "EXPENSE"; rbIncome.isChecked -> "INCOME"; rbDebt.isChecked -> "DEBT"; else -> "RECEIVABLE" }
-                updateCategoryList(targetType) 
             } catch (e: Exception) {}
-        }
-    }
-
-    private fun updateCategoryList(targetType: String) {
-        filteredCategories.clear()
-        filteredCategories.addAll(allCategories.filter { (it["type"] as? String)?.uppercase(Locale.ROOT) == targetType })
-        
-        // Reset pilihan jika user berpindah tab radio (Misal dari Pengeluaran ke Pemasukan)
-        if (selectedCategoryMap != null) {
-            val currentType = (selectedCategoryMap!!["type"] as? String)?.uppercase(Locale.ROOT)
-            if (currentType != targetType) {
-                selectedCategoryMap = null
-                btnSelectCategory.text = "Pilih Kategori"
-            }
-        } else {
-             btnSelectCategory.text = "Pilih Kategori"
         }
     }
 
