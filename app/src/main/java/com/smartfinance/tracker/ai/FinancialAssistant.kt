@@ -389,8 +389,24 @@ class FinancialAssistant(private val context: Context) {
     }
 
     private fun parseAmount(item: JSONObject): Double {
-        val amount = item.optDouble("amount", 0.0)
-        return if (amount == 0.0) item.optString("amount", "0").toDoubleOrNull() ?: 0.0 else amount
+        return try {
+            val rawValue = item.get("amount")
+            
+            // Jika AI sudah memberikannya dalam bentuk angka murni
+            if (rawValue is Number) {
+                return rawValue.toDouble()
+            } 
+            
+            // Jika AI berhalusinasi memberikannya dalam bentuk Teks/String (Misal: "Rp 20.000" atau "20,000")
+            val stringValue = rawValue.toString()
+            
+            // Hapus semua karakter yang bukan angka (buang titik, koma, Rp, spasi, huruf)
+            val cleanDigitsOnly = stringValue.replace(Regex("[^0-9]"), "")
+            
+            cleanDigitsOnly.toDoubleOrNull() ?: 0.0
+        } catch (e: Exception) {
+            0.0
+        }
     }
 
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
