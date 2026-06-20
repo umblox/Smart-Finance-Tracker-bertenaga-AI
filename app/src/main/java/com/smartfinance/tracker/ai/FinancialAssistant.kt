@@ -10,7 +10,7 @@ import java.util.*
 
 class FinancialAssistant(private val context: Context) {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String {
