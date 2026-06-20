@@ -83,16 +83,16 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 var isSuccess = false 
                 
-                // 🔥 FIX: Kunci waktu di awal batch agar tidak tersalip oleh jeda server (.await())
                 val batchBaseTime = System.currentTimeMillis()
                 
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     val customDateStr = item.optString("transaction_date", "").trim()
                     
-                    // 🔥 FIX: Gunakan waktu terkunci, dan kurangi 'i' detik agar transaksi pertama 
-                    // punya timestamp tertinggi (paling atas di UI, tidak terbalik)
-                    val targetTimestamp = parseTransactionDateTime(customDateStr, batchBaseTime) - (i * 1000L)
+                    // 🔥 FIX: Waktu DITAMBAH 'i' detik.
+                    // Transaksi pertama (i=0) +0 detik. Transaksi kedua (i=1) +1 detik.
+                    // Hasilnya transaksi kedua jadi lebih baru dari yang pertama (urutan kronologis yang benar).
+                    val targetTimestamp = parseTransactionDateTime(customDateStr, batchBaseTime) + (i * 1000L)
                     
                     val finalAmount = parseAmount(item)
                     if (finalAmount <= 0.0) continue
@@ -128,7 +128,6 @@ class FinancialAssistant(private val context: Context) {
             // ========================================================
             val isIntentionalTransaction = actionType.contains("TRANSACTION") || actionType.contains("EXPENSE") || actionType.contains("INCOME")
             
-            // Coba rogoh data dari pending_transaction atau dari luar (root json)
             val fallbackItem = json.optJSONObject("pending_transaction") ?: json
             val fallbackAmount = parseAmount(fallbackItem)
             
@@ -140,7 +139,6 @@ class FinancialAssistant(private val context: Context) {
                 return aiResponse.ifEmpty { "✅ Transaksi berhasil dicatat, Mam!" }
             }
 
-            // Jika semua gagal, return pesan dari AI
             return aiResponse
         } catch (e: Exception) {
             e.printStackTrace()
@@ -416,18 +414,29 @@ class FinancialAssistant(private val context: Context) {
                "_(Data akurat ditarik dari Cloud)_"
     }
 
-    // 🔥 FIX: Tambahkan parameter baseTime agar waktu tidak bergeser gara-gara delay .await()
+    // 🔥 FIX: Perbaikan Parse DateTime agar detik di-lock (tidak melompat menit)
     private fun parseTransactionDateTime(dateStr: String, baseTime: Long = System.currentTimeMillis()): Long {
         if (dateStr.trim().isEmpty()) return baseTime
         return try {
-            val formatStr = if (dateStr.contains(":")) "dd-MM-yyyy HH:mm" else "dd-MM-yyyy"
+            val hasTime = dateStr.contains(":")
+            val formatStr = if (hasTime) "dd-MM-yyyy HH:mm" else "dd-MM-yyyy"
             val parsedDate = SimpleDateFormat(formatStr, Locale("id", "ID")).parse(dateStr.trim())
+            
             if (parsedDate != null) {
                 val cal = Calendar.getInstance().apply { time = parsedDate }
                 val nowCal = Calendar.getInstance().apply { timeInMillis = baseTime }
-                // Suntikkan detik dan milidetik asli agar urutannya tidak terbalik di UI
-                cal.set(Calendar.SECOND, nowCal.get(Calendar.SECOND))
-                cal.set(Calendar.MILLISECOND, nowCal.get(Calendar.MILLISECOND))
+                
+                if (hasTime) {
+                    // Jika AI menyertakan jam, paksa detik ke 0 agar waktu aman dan murni (tidak rollover)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                } else {
+                    // Jika AI hanya memberikan tanggal, ambil jam & menit dari waktu HP pengguna sekarang
+                    cal.set(Calendar.HOUR_OF_DAY, nowCal.get(Calendar.HOUR_OF_DAY))
+                    cal.set(Calendar.MINUTE, nowCal.get(Calendar.MINUTE))
+                    cal.set(Calendar.SECOND, nowCal.get(Calendar.SECOND))
+                    cal.set(Calendar.MILLISECOND, nowCal.get(Calendar.MILLISECOND))
+                }
                 cal.timeInMillis
             } else baseTime
         } catch (e: Exception) { baseTime }
