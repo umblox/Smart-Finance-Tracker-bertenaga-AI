@@ -18,6 +18,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.ai.AIClient
 import com.smartfinance.tracker.ui.category.CategoryManagerDialog
+import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -57,7 +58,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
         uri?.let { fileUri ->
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val db = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
+                    val db = FirebaseManager.getFirestore()
                     val txSnap = db.collection("transactions").orderBy("timestamp").get().await()
                     
                     val sb = StringBuilder()
@@ -92,7 +93,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val view = inflater.inflate(R.layout.fragment_settings, container, false)
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-            val db = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
+            val db = FirebaseManager.getFirestore()
 
         // 🔥 FITUR BARU: MENU KONFIGURASI MULTI-AI
         view.findViewById<MaterialCardView>(R.id.menuApiConfig).setOnClickListener {
