@@ -83,11 +83,16 @@ class FinancialAssistant(private val context: Context) {
             if (txArray != null && txArray.length() > 0) {
                 var isSuccess = false 
                 
+                // 🔥 FIX: Kunci waktu di awal batch agar tidak tersalip oleh jeda server (.await())
+                val batchBaseTime = System.currentTimeMillis()
+                
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     val customDateStr = item.optString("transaction_date", "").trim()
-                    // 🔥 Tambahkan 'i' millisecond agar jika ada 2 transaksi, urutannya presisi
-                    val targetTimestamp = parseTransactionDateTime(customDateStr) + i
+                    
+                    // 🔥 FIX: Gunakan waktu terkunci, dan kurangi 'i' detik agar transaksi pertama 
+                    // punya timestamp tertinggi (paling atas di UI, tidak terbalik)
+                    val targetTimestamp = parseTransactionDateTime(customDateStr, batchBaseTime) - (i * 1000L)
                     
                     val finalAmount = parseAmount(item)
                     if (finalAmount <= 0.0) continue
@@ -288,7 +293,7 @@ class FinancialAssistant(private val context: Context) {
             try {
                 if (startDateStr.isNotEmpty()) {
                     val cal = Calendar.getInstance().apply { time = sdfDate.parse(startDateStr)!! }
-                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISE শুটিং, 0)
                     startTs = cal.timeInMillis
                 }
                 if (endDateStr.isNotEmpty()) {
@@ -411,22 +416,21 @@ class FinancialAssistant(private val context: Context) {
                "_(Data akurat ditarik dari Cloud)_"
     }
 
-    // 🔥 FIX: Waktu dinamis yang kebal bentrok dan mengunci detik aktual
-    private fun parseTransactionDateTime(dateStr: String): Long {
-        val now = System.currentTimeMillis()
-        if (dateStr.trim().isEmpty()) return now
+    // 🔥 FIX: Tambahkan parameter baseTime agar waktu tidak bergeser gara-gara delay .await()
+    private fun parseTransactionDateTime(dateStr: String, baseTime: Long = System.currentTimeMillis()): Long {
+        if (dateStr.trim().isEmpty()) return baseTime
         return try {
             val formatStr = if (dateStr.contains(":")) "dd-MM-yyyy HH:mm" else "dd-MM-yyyy"
             val parsedDate = SimpleDateFormat(formatStr, Locale("id", "ID")).parse(dateStr.trim())
             if (parsedDate != null) {
                 val cal = Calendar.getInstance().apply { time = parsedDate }
-                val nowCal = Calendar.getInstance().apply { timeInMillis = now }
+                val nowCal = Calendar.getInstance().apply { timeInMillis = baseTime }
                 // Suntikkan detik dan milidetik asli agar urutannya tidak terbalik di UI
                 cal.set(Calendar.SECOND, nowCal.get(Calendar.SECOND))
                 cal.set(Calendar.MILLISECOND, nowCal.get(Calendar.MILLISECOND))
                 cal.timeInMillis
-            } else now
-        } catch (e: Exception) { now }
+            } else baseTime
+        } catch (e: Exception) { baseTime }
     }
 
     private fun parseAmount(item: JSONObject): Double {
