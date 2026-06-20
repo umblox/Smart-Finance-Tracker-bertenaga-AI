@@ -293,7 +293,7 @@ class FinancialAssistant(private val context: Context) {
             try {
                 if (startDateStr.isNotEmpty()) {
                     val cal = Calendar.getInstance().apply { time = sdfDate.parse(startDateStr)!! }
-                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISE শুটিং, 0)
+                    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
                     startTs = cal.timeInMillis
                 }
                 if (endDateStr.isNotEmpty()) {
