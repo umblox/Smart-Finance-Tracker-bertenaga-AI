@@ -20,7 +20,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FirebaseFirestore
+// 🔥 IMPORT FIREBASE MANAGER YANG BENAR
+import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.NumberFormat
@@ -29,7 +30,8 @@ import java.util.*
 
 class RecurringTxListDialog : DialogFragment() {
 
-    private val firestore = FirebaseFirestore.getInstance()
+    // 🔥 FIX 1: GUNAKAN JALUR VIP!
+    private val firestore = FirebaseManager.getFirestore()
     private val allCategories = mutableListOf<Map<String, Any>>()
     
     private var startDateCal = Calendar.getInstance()
@@ -47,7 +49,7 @@ class RecurringTxListDialog : DialogFragment() {
     private lateinit var etNote: EditText
     private lateinit var etAmount: EditText
     private lateinit var etContact: EditText
-    private lateinit var btnSelectCategory: MaterialButton // Master Penentu Type
+    private lateinit var btnSelectCategory: MaterialButton 
     private lateinit var spinnerInterval: Spinner
     private lateinit var switchEnd: SwitchMaterial
     private lateinit var btnStartDate: MaterialButton
@@ -121,15 +123,12 @@ class RecurringTxListDialog : DialogFragment() {
         headerForm.addView(tvFormTitle)
         formRoot.addView(headerForm)
 
-        // 🔥 RADIO BUTTON DIMUSNAHKAN! Form jadi jauh lebih clean.
-
         etNote = EditText(context).apply { hint = "Catatan (cth: Langganan WiFi)"; textSize = 14f; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
         etAmount = EditText(context).apply { hint = "Nominal (Rp)"; textSize = 14f; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
         formRoot.addView(etNote); formRoot.addView(etAmount)
 
         formRoot.addView(TextView(context).apply { text = "Kategori:"; textSize = 12f; setTextColor(Color.GRAY) })
         
-        // 🔥 TOMBOL KATEGORI MEWAH
         btnSelectCategory = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "Pilih Kategori"
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
@@ -154,8 +153,9 @@ class RecurringTxListDialog : DialogFragment() {
         btnStartDate = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply { text = "Mulai: ${sdf.format(startDateCal.time)}"; gravity = Gravity.START or Gravity.CENTER_VERTICAL; setOnClickListener { DatePickerDialog(context, { _, y, m, d -> startDateCal.set(y, m, d, 0, 0, 0); text = "Mulai: ${sdf.format(startDateCal.time)}" }, startDateCal.get(Calendar.YEAR), startDateCal.get(Calendar.MONTH), startDateCal.get(Calendar.DAY_OF_MONTH)).show() } }
         formRoot.addView(btnStartDate)
 
-        switchEnd = SwitchMaterial(context).apply { text = "Ulangi Terus Tanpa Batas"; isChecked = true; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = (8 * density).toInt() } }
-        btnEndDate = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply { text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"; visibility = View.GONE; gravity = Gravity.START or Gravity.CENTER_VERTICAL; setOnClickListener { DatePickerDialog(context, { _, y, m, d -> endDateCal.set(y, m, d, 23, 59, 59); text = "Berhenti Pada: ${sdf.format(endDateCal.time)}" }, endDateCal.get(Calendar.YEAR), endDateCal.get(Calendar.MONTH), endDateCal.get(Calendar.DAY_OF_MONTH)).show() } }
+        // 🔥 FIX 2: DEFAULT OFF! isChecked di-set false, btnEndDate visibility di-set VISIBLE.
+        switchEnd = SwitchMaterial(context).apply { text = "Ulangi Terus Tanpa Batas"; isChecked = false; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = (8 * density).toInt() } }
+        btnEndDate = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply { text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"; visibility = View.VISIBLE; gravity = Gravity.START or Gravity.CENTER_VERTICAL; setOnClickListener { DatePickerDialog(context, { _, y, m, d -> endDateCal.set(y, m, d, 23, 59, 59); text = "Berhenti Pada: ${sdf.format(endDateCal.time)}" }, endDateCal.get(Calendar.YEAR), endDateCal.get(Calendar.MONTH), endDateCal.get(Calendar.DAY_OF_MONTH)).show() } }
         switchEnd.setOnCheckedChangeListener { _, isChecked -> btnEndDate.visibility = if (isChecked) View.GONE else View.VISIBLE }
         formRoot.addView(switchEnd); formRoot.addView(btnEndDate)
 
@@ -190,7 +190,6 @@ class RecurringTxListDialog : DialogFragment() {
         layoutForm.visibility = View.VISIBLE
 
         if (doc == null) {
-            // MODE BARU
             editingDocId = null
             tvFormTitle.text = "Buat Jadwal Baru"
             btnDelete.visibility = View.GONE
@@ -206,10 +205,13 @@ class RecurringTxListDialog : DialogFragment() {
             endDateCal = Calendar.getInstance().apply { add(Calendar.YEAR, 1) }
             btnStartDate.text = "Mulai: ${sdf.format(startDateCal.time)}"
             btnEndDate.text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"
-            switchEnd.isChecked = true
+            
+            // 🔥 Kunci OFF saat buat jadwal baru
+            switchEnd.isChecked = false
+            btnEndDate.visibility = View.VISIBLE
+            
             spinnerInterval.setSelection(2) // Bulanan
         } else {
-            // MODE EDIT
             editingDocId = doc.id
             tvFormTitle.text = "Edit Jadwal"
             btnDelete.visibility = View.VISIBLE
@@ -220,7 +222,7 @@ class RecurringTxListDialog : DialogFragment() {
             etContact.setText(doc.getString("contactName") ?: "")
 
             val catId = doc.getLong("categoryId")
-            selectedCategoryMap = allCategories.find { it["id"] == catId }
+            selectedCategoryMap = allCategories.find { (it["id"] as? Number)?.toLong() == catId }
             val catName = doc.getString("categoryName") ?: "Pilih Kategori"
             btnSelectCategory.text = catName
 
@@ -231,8 +233,10 @@ class RecurringTxListDialog : DialogFragment() {
             startDateCal.timeInMillis = doc.getLong("nextExecutionTime") ?: System.currentTimeMillis()
             btnStartDate.text = "Mulai: ${sdf.format(startDateCal.time)}"
 
-            val hasEndDate = doc.getBoolean("hasEndDate") ?: false
+            val hasEndDate = doc.getBoolean("hasEndDate") ?: true
             switchEnd.isChecked = !hasEndDate
+            btnEndDate.visibility = if (switchEnd.isChecked) View.GONE else View.VISIBLE
+            
             if (hasEndDate) {
                 endDateCal.timeInMillis = doc.getLong("endDate") ?: System.currentTimeMillis()
                 btnEndDate.text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"
@@ -240,7 +244,6 @@ class RecurringTxListDialog : DialogFragment() {
         }
     }
 
-    // 🔥 LOGIK MENU PICKER KATEGORI (BERJEJER 3 TAB LUXURY)
     private fun showCategoryPickerDialog() {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
@@ -250,7 +253,6 @@ class RecurringTxListDialog : DialogFragment() {
             setBackgroundColor(Color.parseColor("#F8FAFC"))
         }
 
-        // TABS 3 Jari
         val tabOuterBox = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
@@ -268,7 +270,6 @@ class RecurringTxListDialog : DialogFragment() {
         tabOuterBox.addView(btnTabExpense); tabOuterBox.addView(btnTabIncome); tabOuterBox.addView(btnTabDebt)
         dialogLayout.addView(tabOuterBox)
 
-        // AREA LIST KATEGORI
         val scrollView = ScrollView(context)
         val containerList = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -281,11 +282,9 @@ class RecurringTxListDialog : DialogFragment() {
             .setView(dialogLayout)
             .create()
 
-        // FUNGSI RENDER LIST SAAT TAB DIKLIK
         fun renderList(typeFilter: String) {
             containerList.removeAllViews()
 
-            // Warna Tab Aktif/Tidak Aktif
             val activeBg = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
             val inactiveBg = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
             
@@ -293,7 +292,6 @@ class RecurringTxListDialog : DialogFragment() {
             btnTabIncome.apply { backgroundTintList = if(typeFilter == "INCOME") activeBg else inactiveBg; setTextColor(if(typeFilter == "INCOME") Color.WHITE else Color.parseColor("#64748B")) }
             btnTabDebt.apply { backgroundTintList = if(typeFilter == "DEBT") activeBg else inactiveBg; setTextColor(if(typeFilter == "DEBT") Color.WHITE else Color.parseColor("#64748B")) }
 
-            // 🔥 Filter Kategori Sesuai Tab (Tab ke-3 menggabungkan DEBT & RECEIVABLE)
             val targetTypes = if (typeFilter == "DEBT") listOf("DEBT", "RECEIVABLE") else listOf(typeFilter)
             val filteredList = allCategories.filter { targetTypes.contains((it["type"] as? String)?.uppercase(Locale.ROOT)) }
             
@@ -319,7 +317,7 @@ class RecurringTxListDialog : DialogFragment() {
                     setOnClickListener {
                         selectedCategoryMap = parent
                         btnSelectCategory.text = parent["name"] as? String ?: ""
-                        dialog.dismiss() // Tutup pop-up
+                        dialog.dismiss() 
                     }
                 }
                 parentRow.addView(TextView(context).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
@@ -330,7 +328,7 @@ class RecurringTxListDialog : DialogFragment() {
                 })
                 cardContentContainer.addView(parentRow)
 
-                val parentId = parent["id"] as? Long ?: 0L
+                val parentId = (parent["id"] as? Number)?.toLong() ?: 0L
                 val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }.sortedBy { it["name"] as? String ?: "" }
 
                 if (kids.isNotEmpty()) {
@@ -345,7 +343,7 @@ class RecurringTxListDialog : DialogFragment() {
                         setOnClickListener {
                             selectedCategoryMap = child
                             btnSelectCategory.text = child["name"] as? String ?: ""
-                            dialog.dismiss() // Tutup pop-up
+                            dialog.dismiss() 
                         }
                     }
                     val treeLine = View(context).apply {
@@ -370,7 +368,6 @@ class RecurringTxListDialog : DialogFragment() {
         btnTabIncome.setOnClickListener { renderList("INCOME") }
         btnTabDebt.setOnClickListener { renderList("DEBT") }
 
-        // Buka Tab Awal Berdasarkan Kategori yang Sedang Dipilih (Default: Expense)
         val currentType = (selectedCategoryMap?.get("type") as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
         val initialTab = if (currentType == "RECEIVABLE") "DEBT" else currentType
         renderList(initialTab)
@@ -382,19 +379,25 @@ class RecurringTxListDialog : DialogFragment() {
         val amountText = etAmount.text.toString()
         val noteText = etNote.text.toString()
         
-        // ⚠️ VALIDASI MASTER: Harus pilih kategori!
         if (selectedCategoryMap == null) { Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show(); return }
         if (amountText.isEmpty() || noteText.isEmpty()) { Toast.makeText(context, "Harap isi Catatan dan Nominal!", Toast.LENGTH_SHORT).show(); return }
 
-        // 🔥 Tarik Type Transaksi langsung dari data Kategori yang dipilih
         val typeCode = (selectedCategoryMap!!["type"] as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
+        val catId = (selectedCategoryMap!!["id"] as? Number)?.toLong() ?: 15L
         
+        // Memastikan tipe datanya 100% kompatibel dengan RecurringTxWorker
         val finalData = hashMapOf(
-            "note" to noteText, "amount" to (amountText.toDoubleOrNull() ?: 0.0), "type" to typeCode,
-            "categoryId" to (selectedCategoryMap!!["id"] as? Long ?: 15L), "categoryName" to (selectedCategoryMap!!["name"] as? String ?: "Umum"),
-            "contactName" to etContact.text.toString().trim(), "interval" to intervals[spinnerInterval.selectedItemPosition].second,
-            "nextExecutionTime" to startDateCal.timeInMillis, "hasEndDate" to !switchEnd.isChecked,
-            "endDate" to if (!switchEnd.isChecked) endDateCal.timeInMillis else null, "isActive" to true
+            "note" to noteText, 
+            "amount" to (amountText.toDoubleOrNull() ?: 0.0), 
+            "type" to typeCode,
+            "categoryId" to catId, 
+            "categoryName" to (selectedCategoryMap!!["name"] as? String ?: "Umum"),
+            "contactName" to etContact.text.toString().trim(), 
+            "interval" to intervals[spinnerInterval.selectedItemPosition].second,
+            "nextExecutionTime" to startDateCal.timeInMillis, 
+            "hasEndDate" to !switchEnd.isChecked,
+            "endDate" to if (!switchEnd.isChecked) endDateCal.timeInMillis else null, 
+            "isActive" to true
         )
 
         val task = if (editingDocId == null) {
@@ -436,7 +439,6 @@ class RecurringTxListDialog : DialogFragment() {
                 allCategories.clear()
                 for (doc in snap.documents) { doc.data?.let { allCategories.add(it) } }
                 
-                // Set data pas buka Mode Edit
                 if (editingDocId != null && selectedCategoryMap == null) {
                     val currentText = btnSelectCategory.text.toString()
                     if (currentText != "Pilih Kategori") {
