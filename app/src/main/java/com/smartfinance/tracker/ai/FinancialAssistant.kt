@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ai
 
 import android.content.Context
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.text.NumberFormat
@@ -74,16 +73,15 @@ class FinancialAssistant(private val context: Context) {
                 return "❌ Gagal membuat kategori, format instruksi kurang lengkap."
             }
 
-                val txArray = json.optJSONArray("transactions")
+            val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
-                var isSuccess = false // Jaring pengaman untuk mendeteksi apakah data benar-benar tersimpan
+                var isSuccess = false 
                 
                 for (i in 0 until txArray.length()) {
                     val item = txArray.getJSONObject(i)
                     val customDateStr = item.optString("transaction_date", "").trim()
                     val targetTimestamp = parseTransactionDateTime(customDateStr)
                     
-                    // Tarik nominal dengan fungsi baru yang lebih kebal
                     val finalAmount = parseAmount(item)
                     if (finalAmount <= 0.0) continue
                     
@@ -92,7 +90,6 @@ class FinancialAssistant(private val context: Context) {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
                     }
 
-                    // 🔥 FIX: Evaluasi super longgar. Apapun actionType-nya, kalau bukan hutang, PAKSA CATAT!
                     when {
                         actionType.contains("DEBT_RECORD") -> {
                             val isReceivableFlow = item.optString("debt_type", "DEBT").uppercase(Locale.ROOT) == "RECEIVABLE"
@@ -105,7 +102,6 @@ class FinancialAssistant(private val context: Context) {
                             if (i == txArray.length() - 1) return msg
                         }
                         else -> { 
-                            // 🚀 JARING PENGAMAN: Walau AI halusinasi ngasih actionType "EXPENSE", "ADD_TX", dll
                             executePureTransaction(item, finalAmount, targetTimestamp)
                             isSuccess = true
                         }
@@ -118,6 +114,14 @@ class FinancialAssistant(private val context: Context) {
                     "⚠️ Peringatan: Transaksi gagal dicatat karena AI mengembalikan nominal yang tidak valid (Rp 0)."
                 }
             }
+
+            // 🔥 INI BAGIAN YANG TADI HILANG (Penutup eksekusi dan blok Catch)
+            return aiResponse
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return "❌ Maaf Mam, sistem AI mengalami error pemahaman. (Bisa cek menu Expert Mode)."
+        }
+    }
 
     private suspend fun renderBeautifulCategoryList(): String {
         val snapshot = firestore.collection("categories").get().await()
@@ -398,7 +402,7 @@ class FinancialAssistant(private val context: Context) {
     private fun parseAmount(item: JSONObject): Double {
         return try {
             var rawValue: Any? = null
-            // Cari berbagai kemungkinan kunci yang sering dihalusinasikan AI
+            
             val possibleKeys = listOf("amount", "nominal", "harga", "total", "value")
             for (key in possibleKeys) {
                 if (item.has(key)) {
@@ -409,10 +413,8 @@ class FinancialAssistant(private val context: Context) {
 
             if (rawValue == null) return 0.0
 
-            // Jika AI sudah memberikannya dalam bentuk angka murni
             if (rawValue is Number) return rawValue.toDouble()
 
-            // Jika AI memberikan String ("Rp 20.000", "20.000", "20 ribu")
             val stringValue = rawValue.toString()
             val cleanDigitsOnly = stringValue.replace(Regex("[^0-9]"), "")
             cleanDigitsOnly.toDoubleOrNull() ?: 0.0
