@@ -28,6 +28,7 @@ class FinancialAssistant(private val context: Context) {
             val cleanAiResponseUpper = aiResponse.uppercase(Locale.ROOT)
             val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
 
+            // 1. CEK KONFIRMASI (Jika user bilang "Ya/Lanjut" untuk transaksi yang tertunda)
             if (cleanAiResponseUpper.contains("YA") || cleanAiResponseUpper.contains("LANJUT") || cleanAiResponseUpper.contains("BENAR") || cleanAiResponseUpper.contains("CATAT")) {
                 val savedTxStr = prefs.getString("pending_tx", null)
                 if (savedTxStr != null) {
@@ -41,6 +42,19 @@ class FinancialAssistant(private val context: Context) {
                 }
             }
 
+            // 2. 🔥 PINTU TOL KHUSUS NGOBROL (Blok yang lu minta dikembalikan)
+            if (actionType == "CHAT_ONLY") {
+                val pendingJson = json.optJSONObject("pending_transaction")
+                if (pendingJson != null && pendingJson.length() > 0) {
+                    val pAmt = parseAmount(pendingJson)
+                    if (pAmt > 0.0) {
+                        prefs.edit().putString("pending_tx", pendingJson.toString()).apply()
+                    }
+                }
+                return aiResponse.ifEmpty { "Ada yang bisa dibantu lagi, Mam?" }
+            }
+
+            // 3. CEK LAPORAN / KATEGORI
             if (actionType == "VIEW_CATEGORIES") return renderBeautifulCategoryList()
             if (actionType == "VIEW_REPORT") return compileAiReport(cleanJsonStr)
 
@@ -63,7 +77,7 @@ class FinancialAssistant(private val context: Context) {
             }
 
             // ========================================================
-            // EKSEKUSI ARRAY TRANSAKSI (Mode Normal/Hutang Piutang)
+            // 4. EKSEKUSI ARRAY TRANSAKSI (Mode Normal/Hutang Piutang)
             // ========================================================
             val txArray = json.optJSONArray("transactions")
             if (txArray != null && txArray.length() > 0) {
@@ -105,7 +119,7 @@ class FinancialAssistant(private val context: Context) {
             }
 
             // ========================================================
-            // 🔥 FALLBACK SUPER AGRESIF: AI Malas Pakai Array
+            // 5. 🔥 FALLBACK SUPER AGRESIF: AI Malas Pakai Array
             // ========================================================
             val isIntentionalTransaction = actionType.contains("TRANSACTION") || actionType.contains("EXPENSE") || actionType.contains("INCOME")
             
@@ -119,11 +133,9 @@ class FinancialAssistant(private val context: Context) {
                 
                 executePureTransaction(fallbackItem, fallbackAmount, targetTimestamp)
                 return aiResponse.ifEmpty { "✅ Transaksi berhasil dicatat, Mam!" }
-            } else if (actionType == "CHAT_ONLY" && fallbackAmount > 0.0) {
-                // Jika AI nanya balik "Apakah ini mau dicatat?"
-                prefs.edit().putString("pending_tx", fallbackItem.toString()).apply()
             }
 
+            // Jika semua gagal, return pesan dari AI
             return aiResponse
         } catch (e: Exception) {
             e.printStackTrace()
