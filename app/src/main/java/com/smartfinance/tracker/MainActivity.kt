@@ -8,6 +8,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
@@ -15,6 +19,8 @@ import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.utils.FirebaseManager
+// Pastikan import Worker sesuai dengan lokasi file yang lu buat sebelumnya
+import com.smartfinance.tracker.worker.RecurringTxWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -77,6 +83,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            // Ini tetap dibiarkan sebagai "Instant Trigger" saat aplikasi baru dibuka
             CoroutineScope(Dispatchers.IO).launch {
                 com.smartfinance.tracker.utils.RecurringTxWorker.checkAndExecuteDueTransactions()
             }
@@ -97,6 +104,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // ==========================================
+        // 🔥 ALARM WORKER DIAKTIFKAN DI SINI
+        // ==========================================
+        val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "RecurringTransactionWorker",
+            ExistingPeriodicWorkPolicy.KEEP, 
+            workRequest
+        )
+        // ==========================================
 
         checkBiometric()
 
