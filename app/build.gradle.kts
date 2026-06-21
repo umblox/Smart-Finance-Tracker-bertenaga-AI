@@ -67,4 +67,7 @@ dependencies {
     // ========================================================
     implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
     implementation("com.google.firebase:firebase-firestore")
+
+    // 🔥 TAMBAHAN MESIN WORKMANAGER UNTUK TRANSAKSI BERKALA
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 }
