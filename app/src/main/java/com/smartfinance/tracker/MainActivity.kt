@@ -19,11 +19,12 @@ import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.utils.FirebaseManager
-import com.smartfinance.tracker.utils.RecurringTxWorker
+
+// 🔥 INI JALUR IMPORT YANG BENAR (MENGARAH KE FOLDER UTILS)
+import com.smartfinance.tracker.utils.RecurringTxWorker 
 
 class MainActivity : AppCompatActivity() {
 
-    // 🔥 GUARD SYSTEM: Digunakan oleh Fragment untuk mengecek apakah database sudah siap
     companion object {
         var isFirebaseReady = false
     }
@@ -45,7 +46,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 Fungsi inisialisasi yang sekarang tersentralisasi ke FirebaseManager
     fun reinitializeFirebase(): Boolean {
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val customFirebaseJson = prefs.getString("custom_firebase_json", null)
@@ -55,7 +55,6 @@ class MainActivity : AppCompatActivity() {
             return false
         }
 
-        // Panggil manager untuk mengurus instance-nya
         isFirebaseReady = FirebaseManager.init(this, customFirebaseJson)
         
         if (isFirebaseReady) {
@@ -68,8 +67,6 @@ class MainActivity : AppCompatActivity() {
     private fun runFirebaseDependentTasks() {
         try {
             val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-            
-            // 🔥 WAJIB MENGGUNAKAN MANAGER, BUKAN GETINSTANCE LAMA
             val db = FirebaseManager.getFirestore()
             
             db.collection("app_config").document("security").get().addOnSuccessListener { doc ->
@@ -78,11 +75,7 @@ class MainActivity : AppCompatActivity() {
                     prefs.edit().putBoolean("use_biometric", cloudBiometric).apply()
                 }
             }
-
-            // Ini tetap dibiarkan sebagai "Instant Trigger" saat aplikasi baru dibuka
-            CoroutineScope(Dispatchers.IO).launch {
-                com.smartfinance.tracker.utils.RecurringTxWorker.checkAndExecuteDueTransactions()
-            }
+            // 🔥 SISA KODE LAMA YANG BIKIN ERROR SUDAH DIBERSIHKAN
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -102,7 +95,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // ==========================================
-        // 🔥 ALARM WORKER DIAKTIFKAN DI SINI
+        // 🔥 ALARM WORKMANAGER (AKAN BEKERJA OTOMATIS)
         // ==========================================
         val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
@@ -116,7 +109,6 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
-        // Inisialisasi Firebase
         val isFirebaseConfigured = reinitializeFirebase()
         val isAiConfigured = !prefs.getString("ai_api_key", "").isNullOrEmpty() || !prefs.getString("groq_key_override", "").isNullOrEmpty()
 
