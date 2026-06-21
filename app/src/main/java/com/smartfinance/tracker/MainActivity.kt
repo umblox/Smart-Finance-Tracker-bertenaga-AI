@@ -19,10 +19,7 @@ import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.utils.FirebaseManager
-import com.smartfinance.tracker.ui.settings.RecurringTxWorker
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.smartfinance.tracker.utils.RecurringTxWorker
 
 class MainActivity : AppCompatActivity() {
 
