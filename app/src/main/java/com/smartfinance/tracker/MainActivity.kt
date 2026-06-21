@@ -19,8 +19,7 @@ import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.utils.FirebaseManager
-// Pastikan import Worker sesuai dengan lokasi file yang lu buat sebelumnya
-import com.smartfinance.tracker.worker.RecurringTxWorker
+import com.smartfinance.tracker.ui.settings.RecurringTxWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
