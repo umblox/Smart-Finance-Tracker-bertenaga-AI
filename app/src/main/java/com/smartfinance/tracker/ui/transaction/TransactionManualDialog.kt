@@ -3,12 +3,12 @@ package com.smartfinance.tracker.ui.transaction
 import android.Manifest
 import android.app.AlertDialog
 import android.app.Dialog
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
@@ -22,8 +22,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputEditText
-import com.google.firebase.firestore.FirebaseFirestore
 import com.smartfinance.tracker.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -36,19 +36,17 @@ import com.smartfinance.tracker.utils.FirebaseManager
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
 
     private val firestore = FirebaseManager.getFirestore()
-    private var currentType = "EXPENSE"
     
     private var allCategoriesCloud = listOf<Map<String, Any>>()
-    private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
+    // State to hold the currently selected category from the picker dialog
+    private var selectedCategoryMap: Map<String, Any>? = null
 
     private lateinit var etAmount: TextInputEditText
     private lateinit var etNote: TextInputEditText
     private lateinit var etDate: TextInputEditText
     private lateinit var etContact: TextInputEditText
-    private lateinit var spinnerCategory: Spinner
-    private lateinit var rbExpense: RadioButton
-    private lateinit var rbIncome: RadioButton
-    private lateinit var rbDebt: RadioButton
+    // Replacing Spinner with a Button to trigger the custom picker dialog
+    private lateinit var btnSelectCategory: MaterialButton
 
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
@@ -74,6 +72,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
+        val density = context.resources.displayMetrics.density
 
         val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_manual_premium, null, false)
         val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
@@ -82,12 +81,34 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         etNote = viewInflated.findViewById(R.id.etManualPremiumNote)
         etDate = viewInflated.findViewById(R.id.etManualPremiumDate)
         etContact = viewInflated.findViewById(R.id.etManualPremiumContact)
-        spinnerCategory = viewInflated.findViewById(R.id.spinnerManualPremiumCategory)
-        rbExpense = viewInflated.findViewById(R.id.rbManualPremiumExpense)
-        rbIncome = viewInflated.findViewById(R.id.rbManualPremiumIncome)
-        rbDebt = viewInflated.findViewById(R.id.rbManualPremiumDebt)
-        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgManualPremiumType)
         val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnManualPremiumPick)
+
+        // Find the RadioGroup and remove it entirely to implement the clean UI design
+        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgManualPremiumType)
+        rgType?.visibility = View.GONE
+
+        // Replace Spinner with MaterialButton in the layout dynamically if it exists
+        val oldSpinner = viewInflated.findViewById<Spinner>(R.id.spinnerManualPremiumCategory)
+        if (oldSpinner != null) {
+            val parent = oldSpinner.parent as ViewGroup
+            val index = parent.indexOfChild(oldSpinner)
+            parent.removeView(oldSpinner)
+
+            btnSelectCategory = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "Pilih Kategori"
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    bottomMargin = (12 * density).toInt()
+                }
+                setOnClickListener { showCategoryPickerDialog() }
+            }
+            parent.addView(btnSelectCategory, index)
+        } else {
+             btnSelectCategory = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "Pilih Kategori"
+                setOnClickListener { showCategoryPickerDialog() }
+            }
+        }
 
         etDate.setText(sdfPremium.format(Date()))
 
@@ -122,15 +143,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
         btnPickContact.setOnClickListener { checkContactPermissionAndOpen() }
 
-        rgType.setOnCheckedChangeListener { _, checkedId ->
-            currentType = when (checkedId) {
-                rbExpense.id -> "EXPENSE"
-                rbIncome.id -> "INCOME"
-                else -> "DEBT"
-            }
-            mapSpinnerHierarchyCloud()
-        }
-
+        // Fetch categories directly from Cloud Firestore
         lifecycleScope.launch {
             try {
                 val snapshot = firestore.collection("categories").get().await()
@@ -142,14 +155,13 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     list.add(mutableData)
                 }
                 allCategoriesCloud = list
-                mapSpinnerHierarchyCloud()
             } catch (e: Exception) {
+                // Fallback mechanism if fetch fails
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
                     mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
                     mapOf("id" to 15L, "name" to "Lain-lain / Umum", "type" to "EXPENSE")
                 )
-                mapSpinnerHierarchyCloud()
             }
         }
 
@@ -159,32 +171,43 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val dateVal = etDate.text.toString().trim()
             val contactVal = etContact.text.toString().trim()
 
-            if (rbDebt.isChecked && contactVal.isEmpty()) {
+            // Essential validation: Ensure a category is selected
+            if (selectedCategoryMap == null) {
+                Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val catId = (selectedCategoryMap!!["id"] as? Number)?.toLong() ?: 15L
+            val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
+            val typeRaw = (selectedCategoryMap!!["type"] as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
+
+            // Validation for Debt/Receivable transactions requiring a contact name
+            val isDebtTransaction = typeRaw == "DEBT" || typeRaw == "RECEIVABLE" || catId == 101L || catId == 102L || catId == 103L || catId == 104L
+
+            if (isDebtTransaction && contactVal.isEmpty()) {
                 Toast.makeText(context, "Nama kontak wajib diisi untuk transaksi Utang-Piutang!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            if (amountVal > 0.0 && noteVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty()) {
+            if (amountVal > 0.0 && noteVal.isNotEmpty()) {
                 lifecycleScope.launch {
                     val targetTime = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
-                    val selectedCat = filteredCategoriesCloud[spinnerCategory.selectedItemPosition]
-                    val catId = selectedCat["id"] as Long
-                    val catName = selectedCat["name"] as String
 
+                    // Determine the flow type correctly based on the selected category
                     val finalType = when (catId) {
                         101L, 103L -> "INCOME"     
                         102L, 104L -> "EXPENSE"    
-                        else -> if (rbIncome.isChecked) "INCOME" else "EXPENSE"
+                        else -> if (typeRaw == "INCOME") "INCOME" else "EXPENSE"
                     }
 
-                    val finalNote = if (rbDebt.isChecked) {
+                    val finalNote = if (isDebtTransaction) {
                         "[$catName] $contactVal - $noteVal".uppercase(Locale.ROOT)
                     } else {
                         noteVal.uppercase(Locale.ROOT)
                     }
 
                     val txId = "tx_${System.currentTimeMillis()}"
-                    val generatedDebtId = if (rbDebt.isChecked) "debt_${System.currentTimeMillis()}" else null
+                    val generatedDebtId = if (isDebtTransaction) "debt_${System.currentTimeMillis()}" else null
 
                     val txMap = hashMapOf(
                         "id" to txId,
@@ -199,10 +222,9 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     
                     firestore.collection("transactions").document(txId).set(txMap).await()
 
-                    if (rbDebt.isChecked && generatedDebtId != null) {
-                        val selectedDebtType = if (catId == 104L) "RECEIVABLE" else "DEBT"
+                    if (isDebtTransaction && generatedDebtId != null) {
+                        val selectedDebtType = if (catId == 104L || typeRaw == "RECEIVABLE") "RECEIVABLE" else "DEBT"
                         
-                        // ✅ FIX SINKRONISASI VARIABEL: Mengubah amountValue menjadi nominal input manual amountVal yang sah
                         val debtMap = hashMapOf(
                             "id" to generatedDebtId,
                             "contactName" to contactVal.uppercase(Locale.ROOT),
@@ -229,37 +251,136 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    private fun mapSpinnerHierarchyCloud() {
-        filteredCategoriesCloud.clear()
-        val displayNames = mutableListOf<String>()
+    // This function builds the custom, luxury hierarchical category picker dialog
+    private fun showCategoryPickerDialog() {
+        val context = requireContext()
+        val density = context.resources.displayMetrics.density
 
-        if (currentType == "DEBT") {
-            val debtSystemCategories = allCategoriesCloud.filter { (it["type"] as? String) == "DEBT" }
-            debtSystemCategories.forEach { cat ->
-                filteredCategoriesCloud.add(cat)
-                displayNames.add("🔒 ${cat["name"] as String}")
+        val dialogLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#F8FAFC"))
+        }
+
+        val tabOuterBox = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42f * density).toInt()).apply {
+                setMargins((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (8f * density).toInt())
             }
-        } else {
-            val typedList = allCategoriesCloud.filter { (it["type"] as? String) == currentType }
-            val parents = typedList.filter { it["parentCategoryId"] == null }
-            val subs = typedList.filter { it["parentCategoryId"] != null }
+            background = GradientDrawable().apply { cornerRadius = 12f * density; setColor(Color.parseColor("#E2E8F0")) }
+            weightSum = 3f
+        }
 
-            parents.forEach { parent ->
-                filteredCategoriesCloud.add(parent)
-                displayNames.add("📁 ${parent["name"] as String}")
+        val btnTabExpense = MaterialButton(context).apply { text = "Pengeluaran"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabIncome = MaterialButton(context).apply { text = "Pemasukan"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabDebt = MaterialButton(context).apply { text = "Hutang/Piutang"; textSize = 10f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
 
-                val parentId = parent["id"] as Long
-                val children = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }
-                children.forEach { child ->
-                    filteredCategoriesCloud.add(child)
-                    displayNames.add("    └── 💰 ${child["name"] as String}")
+        tabOuterBox.addView(btnTabExpense); tabOuterBox.addView(btnTabIncome); tabOuterBox.addView(btnTabDebt)
+        dialogLayout.addView(tabOuterBox)
+
+        val scrollView = ScrollView(context)
+        val containerList = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+        scrollView.addView(containerList)
+        dialogLayout.addView(scrollView)
+
+        val dialog = AlertDialog.Builder(context)
+            .setView(dialogLayout)
+            .create()
+
+        fun renderList(typeFilter: String) {
+            containerList.removeAllViews()
+
+            val activeBg = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
+            val inactiveBg = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
+            
+            btnTabExpense.apply { backgroundTintList = if(typeFilter == "EXPENSE") activeBg else inactiveBg; setTextColor(if(typeFilter == "EXPENSE") Color.WHITE else Color.parseColor("#64748B")) }
+            btnTabIncome.apply { backgroundTintList = if(typeFilter == "INCOME") activeBg else inactiveBg; setTextColor(if(typeFilter == "INCOME") Color.WHITE else Color.parseColor("#64748B")) }
+            btnTabDebt.apply { backgroundTintList = if(typeFilter == "DEBT") activeBg else inactiveBg; setTextColor(if(typeFilter == "DEBT") Color.WHITE else Color.parseColor("#64748B")) }
+
+            val targetTypes = if (typeFilter == "DEBT") listOf("DEBT", "RECEIVABLE") else listOf(typeFilter)
+            val filteredList = allCategoriesCloud.filter { targetTypes.contains((it["type"] as? String)?.uppercase(Locale.ROOT)) }
+            
+            val parentCategories = filteredList.filter { it["parentCategoryId"] == null }.sortedBy { it["name"] as? String ?: "" }
+            val subCategories = filteredList.filter { it["parentCategoryId"] != null }
+
+            if (parentCategories.isEmpty()) {
+                containerList.addView(TextView(context).apply { text = "Belum ada kategori terdaftar."; setTextColor(Color.GRAY); gravity = Gravity.CENTER; setPadding(0, 40, 0, 40) })
+                return
+            }
+
+            parentCategories.forEach { parent ->
+                val blockCard = MaterialCardView(context).apply {
+                    radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0
+                    setCardBackgroundColor(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
                 }
+                val cardContentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+                val parentRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
+                    setOnClickListener {
+                        selectedCategoryMap = parent
+                        btnSelectCategory.text = parent["name"] as? String ?: ""
+                        dialog.dismiss() 
+                    }
+                }
+                parentRow.addView(TextView(context).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
+                parentRow.addView(TextView(context).apply {
+                    text = parent["name"] as? String ?: ""
+                    setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                cardContentContainer.addView(parentRow)
+
+                val parentId = (parent["id"] as? Number)?.toLong() ?: 0L
+                val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }.sortedBy { it["name"] as? String ?: "" }
+
+                if (kids.isNotEmpty()) {
+                    cardContentContainer.addView(View(context).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
+                }
+
+                kids.forEach { child ->
+                    val childRow = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                        setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt())
+                        setBackgroundColor(Color.parseColor("#FAFAFA"))
+                        setOnClickListener {
+                            selectedCategoryMap = child
+                            btnSelectCategory.text = child["name"] as? String ?: ""
+                            dialog.dismiss() 
+                        }
+                    }
+                    val treeLine = View(context).apply {
+                        setBackgroundColor(Color.parseColor("#CBD5E0"))
+                        layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16 * density).toInt()).apply { rightMargin = (12 * density).toInt(); leftMargin = (6 * density).toInt() }
+                    }
+                    childRow.addView(treeLine)
+                    childRow.addView(TextView(context).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10 * density).toInt(), 0) })
+                    childRow.addView(TextView(context).apply {
+                        text = child["name"] as? String ?: ""
+                        setTextColor(Color.parseColor("#475569")); textSize = 13.5f
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    })
+                    cardContentContainer.addView(childRow)
+                }
+                blockCard.addView(cardContentContainer)
+                containerList.addView(blockCard)
             }
         }
 
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, displayNames)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerCategory.adapter = adapter
+        btnTabExpense.setOnClickListener { renderList("EXPENSE") }
+        btnTabIncome.setOnClickListener { renderList("INCOME") }
+        btnTabDebt.setOnClickListener { renderList("DEBT") }
+
+        val currentType = (selectedCategoryMap?.get("type") as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
+        val initialTab = if (currentType == "RECEIVABLE") "DEBT" else currentType
+        renderList(initialTab)
+
+        dialog.show()
     }
 
     private fun checkContactPermissionAndOpen() {
