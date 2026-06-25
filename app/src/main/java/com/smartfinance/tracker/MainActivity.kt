@@ -109,11 +109,14 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
-        val isFirebaseConfigured = reinitializeFirebase()
+        val hasFirebaseJson = !prefs.getString("custom_firebase_json", "").isNullOrEmpty()
         val isAiConfigured = !prefs.getString("ai_api_key", "").isNullOrEmpty() || !prefs.getString("groq_key_override", "").isNullOrEmpty()
 
-        if (!isFirebaseConfigured || !isAiConfigured) {
-            showSetupRequiredDialog()
+        if (!hasFirebaseJson || !isAiConfigured) {
+        showSetupRequiredDialog()
+        } else {
+        // Inisialisasi Firebase di background, jangan pakai hasilnya untuk blokir UI
+        reinitializeFirebase()
         }
 
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
