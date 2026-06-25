@@ -1,4 +1,4 @@
-name: Android Release
+name: Release Signed APK
 
 on:
   workflow_dispatch:
@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # ⬅️ TAMBAHAN INI: Izin untuk buat release
 
     steps:
     - uses: actions/checkout@v4
@@ -51,4 +53,3 @@ jobs:
         files: app/build/outputs/apk/release/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
