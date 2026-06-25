@@ -39,7 +39,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
             val jsonString = reader.use { r -> r.readText() }
             
             requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-                .edit().putString("custom_firebase_json", jsonString).apply()
+                .edit().putString("custom_firebase_json", jsonString).commit()
             
             // 🔥 FIX: Casting activity ke MainActivity dengan benar
             val activity = requireActivity()
@@ -178,7 +178,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
                     prefs.edit()
                         .putString("ai_model", selectedValue)
                         .putString("ai_api_key", etInput.text.toString().trim())
-                        .apply()
+                        .commit()
                     (requireActivity() as MainActivity).reinitializeFirebase()
                     Toast.makeText(context, "Konfigurasi Mesin AI Tersimpan!", Toast.LENGTH_LONG).show()
                     d.dismiss()
@@ -204,7 +204,7 @@ private val filePickerLauncher = registerForActivityResult(ActivityResultContrac
                 .setMessage("Ubah instruksi kaku AI di bawah ini dengan hati-hati. Jika AI bertingkah aneh, tekan 'Reset ke Default'.")
                 .setView(etPrompt)
                 .setPositiveButton("Simpan Prompt") { d, _ ->
-                    prefs.edit().putString("expert_system_prompt", etPrompt.text.toString()).apply()
+                    prefs.edit().putString("expert_system_prompt", etPrompt.text.toString()).commit()
                     Toast.makeText(context, "Prompt Expert Tersimpan!", Toast.LENGTH_SHORT).show()
                     d.dismiss()
                 }
