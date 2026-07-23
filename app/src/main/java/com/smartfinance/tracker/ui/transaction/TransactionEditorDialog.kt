@@ -28,7 +28,7 @@ class TransactionEditorDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var viewModel: TransactionActionViewModel
+    private lateinit var viewModel: TransactionViewModel
 
     private var currentType = "EXPENSE"
     private var allCategoriesCloud = listOf<Map<String, Any>>()
@@ -55,7 +55,7 @@ class TransactionEditorDialog(
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
+        viewModel = ViewModelProvider(this)[TransactionViewModel::class.java]
 
         binding.tvDialogTitle.text = "Edit Transaksi"
         binding.btnDelete.visibility = View.VISIBLE
@@ -110,7 +110,7 @@ class TransactionEditorDialog(
 
         lifecycleScope.launch {
             try {
-                allCategoriesCloud = viewModel.getCategoriesCloud()
+                allCategoriesCloud = viewModel.getCategoriesForDropdown()
                 mapSpinnerHierarchyCloud(currentCategoryId)
             } catch (e: Exception) {
                 allCategoriesCloud = listOf(
@@ -167,21 +167,21 @@ class TransactionEditorDialog(
                         finalTxType = if (isReceivableSelected) "EXPENSE" else "INCOME"
                         finalNote = "[$catName] $contactNameVal - $finalNote"
 
-                        viewModel.updateDebt(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
+                        viewModel.updateDebtFields(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
                     }
 
-                    val updatedTxMap = hashMapOf(
-                        "id" to docId,
-                        "amount" to amountVal,
-                        "note" to finalNote,
-                        "timestamp" to parsedDate,
-                        "categoryId" to catId,
-                        "categoryName" to catName,
-                        "type" to finalTxType,
-                        "debtId" to targetDebtId
-                    )
+                    val updatedTxMap = HashMap<String, Any>()
+                    updatedTxMap["id"] = docId
+                    updatedTxMap["amount"] = amountVal
+                    updatedTxMap["note"] = finalNote
+                    updatedTxMap["timestamp"] = parsedDate
+                    updatedTxMap["categoryId"] = catId
+                    updatedTxMap["categoryName"] = catName
+                    updatedTxMap["type"] = finalTxType
+                    updatedTxMap["debtId"] = targetDebtId
 
                     viewModel.saveTransaction(docId, updatedTxMap)
+                    
                     Toast.makeText(context, "Perubahan sukses disimpan!", Toast.LENGTH_SHORT).show()
                     onUpdateAction()
                     dialog.dismiss()
