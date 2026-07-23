@@ -9,10 +9,10 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
-import com.smartfinance.tracker.ui.transaction.TransactionActionViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.HashMap
 
 class DebtEditorDialog(
     private val debtItemData: HashMap<String, Any>,
@@ -22,7 +22,8 @@ class DebtEditorDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var viewModel: TransactionActionViewModel
+    // Menggunakan ViewModel
+    private lateinit var viewModel: DebtViewModel
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -37,7 +38,7 @@ class DebtEditorDialog(
         val dialogWrapper = builder.create()
 
         // Inisialisasi ViewModel
-        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
+        viewModel = ViewModelProvider(this)[DebtViewModel::class.java]
 
         builder.setItems(options) { _, which ->
             if (which == 0) {
@@ -73,25 +74,23 @@ class DebtEditorDialog(
                             val payTimestamp = try { sdfPremium.parse(payDateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
                             val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
                             
-                            viewModel.updateDebtPayment(docId, newRemaining, newRemaining <= 0.0)
-
                             val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
                             val targetCatId = if (debtType == "DEBT") 102L else 103L
                             val targetCatName = if (debtType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
                             val txId = "tx_${System.currentTimeMillis()}"
 
-                            val payTransactionMap = hashMapOf(
-                                "id" to txId,
-                                "amount" to payValue,
-                                "type" to flowType,
-                                "categoryId" to targetCatId,
-                                "categoryName" to targetCatName,
-                                "note" to "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL CLOUD" }.uppercase(Locale.ROOT)}",
-                                "timestamp" to payTimestamp,
-                                "debtId" to docId
-                            )
+                            val payTransactionMap = HashMap<String, Any>()
+                            payTransactionMap["id"] = txId
+                            payTransactionMap["amount"] = payValue
+                            payTransactionMap["type"] = flowType
+                            payTransactionMap["categoryId"] = targetCatId
+                            payTransactionMap["categoryName"] = targetCatName
+                            payTransactionMap["note"] = "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL CLOUD" }.uppercase(Locale.ROOT)}"
+                            payTransactionMap["timestamp"] = payTimestamp
+                            payTransactionMap["debtId"] = docId
                             
-                            viewModel.saveTransaction(txId, payTransactionMap)
+                            // Diserahkan ke ViewModel
+                            viewModel.processDebtInstallment(docId, newRemaining, newRemaining <= 0.0, txId, payTransactionMap)
                             
                             Toast.makeText(context, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
                             onUpdateAction()
@@ -109,7 +108,8 @@ class DebtEditorDialog(
                     setMessage("Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari $contactName?")
                     setPositiveButton("Hapus") { _, _ ->
                         lifecycleScope.launch {
-                            viewModel.deleteDebt(docId)
+                            // Diserahkan ke ViewModel
+                            viewModel.deleteDebtPermanently(docId)
                             Toast.makeText(context, "Catatan berhasil dihapus dari awan!", Toast.LENGTH_SHORT).show()
                             onUpdateAction()
                             dialogWrapper.dismiss()
