@@ -1,6 +1,7 @@
 package com.smartfinance.tracker.ui.transaction
 
 import android.Manifest
+import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
@@ -35,7 +36,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     private var _binding: DialogTransactionManualPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var viewModel: TransactionActionViewModel
+    private lateinit var viewModel: TransactionViewModel
     
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var selectedCategoryMap: Map<String, Any>? = null
@@ -43,16 +44,16 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     private val contactPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK) {
             val contactUri: Uri? = result.data?.data
             contactUri?.let { uri ->
                 val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                val cursor: Cursor? = requireContext().contentResolver.query(uri, projection, null, null, null)
-                if (cursor != null && cursor.moveToFirst()) {
-                    val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    if (nameIdx != -1) binding.etManualPremiumContact.setText(cursor.getString(nameIdx))
+                requireContext().contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                        if (nameIdx != -1) binding.etManualPremiumContact.setText(cursor.getString(nameIdx))
+                    }
                 }
-                cursor?.close()
             }
         }
     }
@@ -67,7 +68,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
+        viewModel = ViewModelProvider(this)[TransactionViewModel::class.java]
 
         binding.etManualPremiumDate.setText(sdfPremium.format(Date()))
 
@@ -77,7 +78,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
         lifecycleScope.launch {
             try {
-                allCategoriesCloud = viewModel.getCategoriesCloud()
+                allCategoriesCloud = viewModel.getCategoriesForDropdown()
             } catch (e: Exception) {
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
@@ -123,32 +124,31 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     val txId = "tx_${System.currentTimeMillis()}"
                     val generatedDebtId = if (isDebtTransaction) "debt_${System.currentTimeMillis()}" else null
 
-                    val txMap = hashMapOf(
-                        "id" to txId,
-                        "amount" to amountVal,
-                        "type" to finalType,
-                        "categoryId" to catId,
-                        "categoryName" to catName,
-                        "note" to finalNote,
-                        "timestamp" to targetTime,
-                        "debtId" to generatedDebtId
-                    )
+                    val txMap = HashMap<String, Any>()
+                    txMap["id"] = txId
+                    txMap["amount"] = amountVal
+                    txMap["type"] = finalType
+                    txMap["categoryId"] = catId
+                    txMap["categoryName"] = catName
+                    txMap["note"] = finalNote
+                    txMap["timestamp"] = targetTime
+                    if (generatedDebtId != null) txMap["debtId"] = generatedDebtId
                     
                     viewModel.saveTransaction(txId, txMap)
 
                     if (isDebtTransaction && generatedDebtId != null) {
                         val selectedDebtType = if (catId == 104L || typeRaw == "RECEIVABLE") "RECEIVABLE" else "DEBT"
-                        val debtMap = hashMapOf(
-                            "id" to generatedDebtId,
-                            "contactName" to contactVal.uppercase(Locale.ROOT),
-                            "contactPhoneNumber" to "0812",
-                            "amount" to amountVal,
-                            "remainingAmount" to amountVal,
-                            "type" to selectedDebtType,
-                            "note" to "Input Manual Form Cloud",
-                            "timestamp" to targetTime,
-                            "isPaid" to false
-                        )
+                        val debtMap = HashMap<String, Any>()
+                        debtMap["id"] = generatedDebtId
+                        debtMap["contactName"] = contactVal.uppercase(Locale.ROOT)
+                        debtMap["contactPhoneNumber"] = "0812"
+                        debtMap["amount"] = amountVal
+                        debtMap["remainingAmount"] = amountVal
+                        debtMap["type"] = selectedDebtType
+                        debtMap["note"] = "Input Manual Form Cloud"
+                        debtMap["timestamp"] = targetTime
+                        debtMap["isPaid"] = false
+                        
                         viewModel.saveDebt(generatedDebtId, debtMap)
                     }
 
