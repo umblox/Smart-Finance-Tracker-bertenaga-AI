@@ -9,13 +9,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import com.google.android.material.card.MaterialCardView
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
+import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 import com.smartfinance.tracker.ui.report.DetailCategoryReportFragment
 import com.smartfinance.tracker.ui.report.ReportFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
@@ -28,19 +27,12 @@ import com.smartfinance.tracker.utils.FirebaseManager
 
 class DashboardFragment : Fragment() {
 
+    // Menggunakan ViewBinding untuk menghubungkan ke fragment_dashboard.xml
+    private var _binding: FragmentDashboardBinding? = null
+    private val binding get() = _binding!!
+
     private val firestore = FirebaseManager.getFirestore()
     private var transactionsListenerRegistration: ListenerRegistration? = null
-
-    private lateinit var chartContainer: LinearLayout
-    private lateinit var topExpenseContainer: LinearLayout
-    private lateinit var recentTxContainer: LinearLayout
-    
-    private lateinit var tvBalance: TextView
-    private lateinit var tvIncomeSummary: TextView
-    private lateinit var tvExpenseSummary: TextView
-    
-    private lateinit var btnTabWeek: TextView
-    private lateinit var btnTabMonth: TextView
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private var selectedTopFilter = "BULAN INI"
@@ -50,205 +42,31 @@ class DashboardFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
-        val context = requireContext()
-        val density = context.resources.displayMetrics.density
-
-        val root = RelativeLayout(context).apply { 
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.parseColor("#F8FAFC")) 
-        }
-        
-        val nsv = NestedScrollView(context).apply { 
-            isFillViewport = true
-            layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT)
-        }
-        
-        val mainLayout = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) 
-        }
-
-        mainLayout.addView(TextView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            text = "Smart Finance AI"
-            textSize = 22f
-            setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
-            setTextColor(Color.parseColor("#1E293B"))
-            setPadding(0, 4, 0, (16 * density).toInt())
-        })
-
-        val cardBalance = MaterialCardView(context).apply { 
-            radius = 16 * density
-            cardElevation = 2 * density
-            strokeWidth = 0
-            setCardBackgroundColor(Color.parseColor("#0D9488")) 
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (16 * density).toInt() }
-        }
-        val balanceLayout = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            setPadding((20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt(), (20 * density).toInt()) 
-        }
-        balanceLayout.addView(TextView(context).apply { text = "TOTAL SALDO BERSIH"; setTextColor(Color.parseColor("#CCFBF1")); textSize = 11f; setTypeface(null, Typeface.BOLD); letterSpacing = 0.05f })
-        tvBalance = TextView(context).apply { text = "Rp 0"; setTextColor(Color.WHITE); textSize = 28f; setTypeface(null, Typeface.BOLD); setPadding(0, (6 * density).toInt(), 0, 0) }
-        balanceLayout.addView(tvBalance)
-        cardBalance.addView(balanceLayout)
-        mainLayout.addView(cardBalance)
-
-        val statsRowContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
-            weightSum = 2f
-        }
-
-        val cardInc = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
-            setCardBackgroundColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (6 * density).toInt() }
-        }
-        val incLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt()) }
-        incLayout.addView(TextView(context).apply { text = "🟢 Pemasukan"; setTextColor(Color.parseColor("#64748B")); textSize = 12f })
-        tvIncomeSummary = TextView(context).apply { text = "Rp 0"; setTextColor(Color.parseColor("#10B981")); textSize = 15f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
-        cardInc.addView(incLayout.apply { addView(tvIncomeSummary) })
-
-        val cardExp = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
-            setCardBackgroundColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = (6 * density).toInt() }
-        }
-        val expLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt()) }
-        expLayout.addView(TextView(context).apply { text = "🔴 Pengeluaran"; setTextColor(Color.parseColor("#64748B")); textSize = 12f })
-        tvExpenseSummary = TextView(context).apply { text = "Rp 0"; setTextColor(Color.parseColor("#F43F5E")); textSize = 15f; setTypeface(null, Typeface.BOLD); setPadding(0, (4 * density).toInt(), 0, 0) }
-        cardExp.addView(expLayout.apply { addView(tvExpenseSummary) })
-
-        statsRowContainer.addView(cardInc)
-        statsRowContainer.addView(cardExp)
-        mainLayout.addView(statsRowContainer)
-
-        // 🔥 KLIK DETAIL LAPORAN: Diarahkan sempurna ke ReportFragment (lewat MainActivity)
-        val headerReportRow = createHeaderSectionRow("Grafik Laporan Keuangan", "Detail Laporan") {
-            (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
-        }
-        mainLayout.addView(headerReportRow)
-
-        val cardChart = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
-            setCardBackgroundColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
-            // 🔥 KLIK CARD GRAFIK
-            setOnClickListener {
-                (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
-            }
-        }
-        
-        val chartInsideVerticalLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            isClickable = false
-            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
-        }
-        chartContainer = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            isClickable = false
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-        chartInsideVerticalLayout.addView(chartContainer)
-        cardChart.addView(chartInsideVerticalLayout)
-        mainLayout.addView(cardChart)
-
-        // 🔥 KLIK ANALISIS KATEGORI: Diarahkan ke DetailCategoryReportFragment
-        val headerTopExpenseRow = createHeaderSectionRow("Pengeluaran Teratas", "Lihat Analisis") {
-            (activity as? MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
-        }
-        mainLayout.addView(headerTopExpenseRow)
-
-        val cardTopExpense = MaterialCardView(context).apply {
-            radius = 14 * density; cardElevation = 1.5f * density; strokeWidth = 0
-            setCardBackgroundColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (20 * density).toInt() }
-        }
-        
-        val topExpenseInsideLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
-        }
-
-        val filterTabsContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (40 * density).toInt()).apply { bottomMargin = (12 * density).toInt() }
-            background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 10 * density
-                setColor(Color.parseColor("#F1F5F9"))
-            }
-        }
-
-        btnTabWeek = TextView(context).apply {
-            text = "Minggu"
-            textSize = 12.5f; gravity = Gravity.CENTER; setTextColor(Color.parseColor("#64748B"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-            setOnClickListener { switchTopFilter("PERMINGGU") }
-        }
-        btnTabMonth = TextView(context).apply {
-            text = "Bulan"
-            textSize = 12.5f; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(Color.parseColor("#1E293B")) }
-            setOnClickListener { switchTopFilter("BULAN INI") }
-        }
-        filterTabsContainer.addView(btnTabWeek)
-        filterTabsContainer.addView(btnTabMonth)
-        topExpenseInsideLayout.addView(filterTabsContainer)
-
-        topExpenseContainer = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-        topExpenseInsideLayout.addView(topExpenseContainer)
-        cardTopExpense.addView(topExpenseInsideLayout)
-        mainLayout.addView(cardTopExpense)
-
-        // 🔥 KLIK LIHAT SEMUA TRANSAKSI
-        val headerRecentRow = createHeaderSectionRow("Transaksi Terkini", "Lihat Semua") {
-            (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
-        }
-        mainLayout.addView(headerRecentRow)
-
-        recentTxContainer = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-        mainLayout.addView(recentTxContainer)
-
-        nsv.addView(mainLayout)
-        root.addView(nsv)
-        
-        observeCloudTransactionsLive()
-        return root
+        _binding = FragmentDashboardBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
-    private fun createHeaderSectionRow(title: String, actionText: String, clickAction: View.OnClickListener): LinearLayout {
-        val density = requireContext().resources.displayMetrics.density
-        return LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (10 * density).toInt() }
-            addView(TextView(context).apply {
-                text = title
-                textSize = 14f
-                setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
-                setTextColor(Color.parseColor("#475569"))
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            })
-            addView(TextView(context).apply {
-                text = actionText
-                textSize = 12f
-                setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#0D9488")) 
-                setPadding((8 * density).toInt(), (4 * density).toInt(), 0, (4 * density).toInt())
-                setOnClickListener(clickAction)
-            })
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Setup aksi klik navigasi (Menggantikan fungsi createHeaderSectionRow lama)
+        binding.btnDetailLaporan.setOnClickListener {
+            (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
+        
+        binding.btnLihatAnalisis.setOnClickListener {
+            (activity as? MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
+        }
+        
+        binding.btnLihatSemua.setOnClickListener {
+            (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
+        }
+
+        binding.btnTabWeek.setOnClickListener { switchTopFilter("PERMINGGU") }
+        binding.btnTabMonth.setOnClickListener { switchTopFilter("BULAN INI") }
+
+        // Memicu default tab bulan aktif
+        switchTopFilter("BULAN INI")
     }
 
     private fun switchTopFilter(filter: String) {
@@ -256,21 +74,31 @@ class DashboardFragment : Fragment() {
         selectedTopFilter = filter
         
         if (filter == "PERMINGGU") {
-            btnTabWeek.apply {
-                setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
-                background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(Color.parseColor("#1E293B")) }
+            binding.btnTabWeek.apply {
+                setTextColor(Color.WHITE)
+                setTypeface(null, Typeface.BOLD)
+                background = android.graphics.drawable.GradientDrawable().apply { 
+                    cornerRadius = 8 * density 
+                    setColor(Color.parseColor("#1E293B")) 
+                }
             }
-            btnTabMonth.apply {
-                setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL)
+            binding.btnTabMonth.apply {
+                setTextColor(Color.parseColor("#64748B"))
+                setTypeface(null, Typeface.NORMAL)
                 background = null
             }
         } else {
-            btnTabMonth.apply {
-                setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
-                background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(Color.parseColor("#1E293B")) }
+            binding.btnTabMonth.apply {
+                setTextColor(Color.WHITE)
+                setTypeface(null, Typeface.BOLD)
+                background = android.graphics.drawable.GradientDrawable().apply { 
+                    cornerRadius = 8 * density 
+                    setColor(Color.parseColor("#1E293B")) 
+                }
             }
-            btnTabWeek.apply {
-                setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL)
+            binding.btnTabWeek.apply {
+                setTextColor(Color.parseColor("#64748B"))
+                setTypeface(null, Typeface.NORMAL)
                 background = null
             }
         }
@@ -301,6 +129,7 @@ class DashboardFragment : Fragment() {
 
                 val allTxList = ArrayList<HashMap<String, Any>>()
 
+                // LOGIKA MENGHITUNG SALDO - DIBIARKAN UTUH
                 for (doc in snapshots.documents) {
                     val data = doc.data ?: continue
                     val amount = (data["amount"] as? Number)?.toDouble() ?: 0.0
@@ -338,16 +167,22 @@ class DashboardFragment : Fragment() {
                     allTxList.add(itemMap)
                 }
                 
-                tvBalance.text = formatRupiah.format(balanceTotal)
-                tvExpenseSummary.text = formatRupiah.format(expenseThisMonth)
-                tvIncomeSummary.text = formatRupiah.format(incomeThisMonth)
+                // MENGUPDATE UI TEXT MENGGUNAKAN BINDING
+                binding.tvTotalBalance.text = formatRupiah.format(balanceTotal)
+                binding.tvExpenseSummary.text = formatRupiah.format(expenseThisMonth)
+                binding.tvIncomeSummary.text = formatRupiah.format(incomeThisMonth)
 
-                // Render Chart
-                chartContainer.removeAllViews()
+                // Render Chart (Dibungkus LinearLayout vertikal agar susunannya tetap rapi)
+                binding.chartContainer.removeAllViews()
+                val chartVerticalLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                }
+                
                 val barView = com.smartfinance.tracker.ui.report.QuadVerticalBarChartView(
                     context, incomeLastMonth.toFloat(), incomeThisMonth.toFloat(), expenseLastMonth.toFloat(), expenseThisMonth.toFloat()
                 )
-                chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
+                chartVerticalLayout.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
                 val summaryLayout = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
@@ -371,10 +206,11 @@ class DashboardFragment : Fragment() {
                     text = "📈 Performa: Pemasukan$incText • Pengeluaran$expText (vs Bulan Lalu)"
                     textSize = 12f; setTextColor(Color.parseColor("#0D9488")); setTypeface(null, Typeface.BOLD)
                 })
-                chartContainer.addView(summaryLayout)
+                chartVerticalLayout.addView(summaryLayout)
+                binding.chartContainer.addView(chartVerticalLayout)
 
                 // 🔥 LOGIKA TOP EXPENSE DIKEMBALIKAN UTUH!
-                topExpenseContainer.removeAllViews()
+                binding.topExpenseContainer.removeAllViews()
                 val nowTime = System.currentTimeMillis()
                 val filteredExpenses = allTxList.filter { item -> 
                     val typeUpper = (item["type"] as? String) ?: "EXPENSE"
@@ -398,7 +234,7 @@ class DashboardFragment : Fragment() {
 
                 if (aggregatedExpenses.isEmpty()) {
                     for (i in 1..3) {
-                        topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong ${i}", "Belum ada alokasi dana."))
+                        binding.topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong ${i}", "Belum ada alokasi dana."))
                     }
                 } else {
                     aggregatedExpenses.forEach { (categoryName, totalAmount) ->
@@ -435,17 +271,17 @@ class DashboardFragment : Fragment() {
                             textSize = 14f
                         })
                         rowCard.addView(rowLayout)
-                        topExpenseContainer.addView(rowCard)
+                        binding.topExpenseContainer.addView(rowCard)
                     }
                 }
 
                 // 🔥 LOGIKA TRANSAKSI TERAKHIR DIKEMBALIKAN UTUH!
-                recentTxContainer.removeAllViews()
+                binding.recentTxContainer.removeAllViews()
                 val recentTxList = allTxList.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }.take(4)
 
                 if (recentTxList.isEmpty()) {
                     for (i in 1..3) {
-                        recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
+                        binding.recentTxContainer.addView(createPlaceholderRow("Mutasi Kosong ${i}", "Menunggu transaksi dicatat."))
                     }
                 } else {
                     recentTxList.forEach { item ->
@@ -489,7 +325,7 @@ class DashboardFragment : Fragment() {
                             textSize = 14.5f
                         })
                         mutasiCard.addView(rowLayout)
-                        recentTxContainer.addView(mutasiCard)
+                        binding.recentTxContainer.addView(mutasiCard)
                     }
                 }
             }
@@ -515,5 +351,6 @@ class DashboardFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         transactionsListenerRegistration?.remove()
+        _binding = null // Mencegah memory leak ViewBinding
     }
 }
