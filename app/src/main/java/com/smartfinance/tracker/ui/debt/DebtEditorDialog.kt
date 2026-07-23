@@ -6,11 +6,11 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
-import com.smartfinance.tracker.utils.FirebaseManager
+import com.smartfinance.tracker.ui.transaction.TransactionActionViewModel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -22,7 +22,7 @@ class DebtEditorDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private val firestore = FirebaseManager.getFirestore()
+    private lateinit var viewModel: TransactionActionViewModel
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -35,6 +35,9 @@ class DebtEditorDialog(
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
         val builder = AlertDialog.Builder(requireContext()).setTitle("Aksi Kontak: $contactName")
         val dialogWrapper = builder.create()
+
+        // Inisialisasi ViewModel
+        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
 
         builder.setItems(options) { _, which ->
             if (which == 0) {
@@ -70,10 +73,7 @@ class DebtEditorDialog(
                             val payTimestamp = try { sdfPremium.parse(payDateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
                             val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
                             
-                            firestore.collection("debts").document(docId).update(
-                                "remainingAmount", newRemaining,
-                                "isPaid", newRemaining <= 0.0
-                            ).await()
+                            viewModel.updateDebtPayment(docId, newRemaining, newRemaining <= 0.0)
 
                             val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
                             val targetCatId = if (debtType == "DEBT") 102L else 103L
@@ -90,7 +90,8 @@ class DebtEditorDialog(
                                 "timestamp" to payTimestamp,
                                 "debtId" to docId
                             )
-                            firestore.collection("transactions").document(txId).set(payTransactionMap).await()
+                            
+                            viewModel.saveTransaction(txId, payTransactionMap)
                             
                             Toast.makeText(context, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
                             onUpdateAction()
@@ -108,7 +109,7 @@ class DebtEditorDialog(
                     setMessage("Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari $contactName?")
                     setPositiveButton("Hapus") { _, _ ->
                         lifecycleScope.launch {
-                            firestore.collection("debts").document(docId).delete().await()
+                            viewModel.deleteDebt(docId)
                             Toast.makeText(context, "Catatan berhasil dihapus dari awan!", Toast.LENGTH_SHORT).show()
                             onUpdateAction()
                             dialogWrapper.dismiss()
