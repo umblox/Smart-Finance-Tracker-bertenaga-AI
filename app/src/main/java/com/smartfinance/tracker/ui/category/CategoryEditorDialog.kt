@@ -53,7 +53,6 @@ class CategoryEditorDialog(
 
         binding.btnClose.setOnClickListener { dismiss() }
 
-        // Ambil data untuk spinner dari ViewModel
         lifecycleScope.launch {
             viewModel.uiState.collect { state ->
                 availableParents.clear()
@@ -100,14 +99,16 @@ class CategoryEditorDialog(
                 val targetDocId = if (docId.isEmpty()) "cat_${System.currentTimeMillis()}" else docId
                 val targetNumericId = currentNumericId ?: System.currentTimeMillis()
 
-                val categoryMap = hashMapOf<String, Any?>(
-                    "id" to targetNumericId,
-                    "name" to finalName,
-                    "type" to activeTypeFilter,
-                    "iconName" to (categoryData?.get("iconName") as? String ?: "ic_custom"),
-                    "parentCategoryId" to finalParentId,
-                    "isLocked" to false
-                )
+                // FIX: Menghindari type inference Kotlin yang salah
+                val categoryMap = HashMap<String, Any>()
+                categoryMap["id"] = targetNumericId
+                categoryMap["name"] = finalName
+                categoryMap["type"] = activeTypeFilter
+                categoryMap["iconName"] = categoryData?.get("iconName") as? String ?: "ic_custom"
+                categoryMap["isLocked"] = false
+                if (finalParentId != null) {
+                    categoryMap["parentCategoryId"] = finalParentId
+                }
 
                 lifecycleScope.launch {
                     viewModel.saveCategoryToCloud(targetDocId, categoryMap)
