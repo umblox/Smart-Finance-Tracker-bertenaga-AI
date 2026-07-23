@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors -->
+    <color name="primary">#0D9488</color> <!-- Premium Teal -->
+    <color name="primary_dark">#0F766E</color>
+    
+    <!-- Backgrounds -->
+    <color name="background_color">#F8FAFC</color> <!-- Soft Gray Premium -->
+    <color name="surface_white">#FFFFFF</color>
+    
+    <!-- Typography -->
+    <color name="text_primary">#1E293B</color> <!-- Slate 800 -->
+    <color name="text_secondary">#64748B</color> <!-- Slate 500 -->
+    <color name="text_hint">#94A3B8</color>
+    
+    <!-- Status Colors -->
+    <color name="income_green">#10B981</color>
+    <color name="expense_red">#F43F5E</color>
+    <color name="debt_orange">#D97706</color>
+    <color name="receivable_blue">#0284C7</color>
+    
+    <!-- UI Elements -->
+    <color name="divider_color">#E2E8F0</color>
+</resources>
+
