@@ -11,11 +11,10 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
-import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -29,7 +28,8 @@ class TransactionEditorDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private val firestore = FirebaseManager.getFirestore()
+    private lateinit var viewModel: TransactionActionViewModel
+
     private var currentType = "EXPENSE"
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
@@ -54,6 +54,8 @@ class TransactionEditorDialog(
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
 
         binding.tvDialogTitle.text = "Edit Transaksi"
         binding.btnDelete.visibility = View.VISIBLE
@@ -108,15 +110,7 @@ class TransactionEditorDialog(
 
         lifecycleScope.launch {
             try {
-                val snapshot = firestore.collection("categories").get().await()
-                val list = ArrayList<Map<String, Any>>()
-                for (doc in snapshot.documents) {
-                    val data = doc.data ?: continue
-                    val mutableData = HashMap(data)
-                    mutableData["id"] = doc.getLong("id") ?: 0L
-                    list.add(mutableData)
-                }
-                allCategoriesCloud = list
+                allCategoriesCloud = viewModel.getCategoriesCloud()
                 mapSpinnerHierarchyCloud(currentCategoryId)
             } catch (e: Exception) {
                 allCategoriesCloud = listOf(
@@ -132,12 +126,12 @@ class TransactionEditorDialog(
         binding.btnDelete.setOnClickListener {
             if (docId.isNotEmpty()) {
                 lifecycleScope.launch {
-                    if (targetDebtId.isNotEmpty()) firestore.collection("debts").document(targetDebtId).delete()
-                    firestore.collection("transactions").document(docId).delete().addOnSuccessListener {
-                        Toast.makeText(context, "Berhasil dihapus!", Toast.LENGTH_SHORT).show()
-                        onUpdateAction()
-                        dialog.dismiss()
-                    }
+                    if (targetDebtId.isNotEmpty()) viewModel.deleteDebt(targetDebtId)
+                    viewModel.deleteTransaction(docId)
+                    
+                    Toast.makeText(context, "Berhasil dihapus!", Toast.LENGTH_SHORT).show()
+                    onUpdateAction()
+                    dialog.dismiss()
                 }
             }
         }
@@ -173,13 +167,7 @@ class TransactionEditorDialog(
                         finalTxType = if (isReceivableSelected) "EXPENSE" else "INCOME"
                         finalNote = "[$catName] $contactNameVal - $finalNote"
 
-                        firestore.collection("debts").document(targetDebtId).update(
-                            "contactName", contactNameVal,
-                            "amount", amountVal,
-                            "remainingAmount", amountVal,
-                            "type", selectedDebtType,
-                            "timestamp", parsedDate
-                        )
+                        viewModel.updateDebt(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
                     }
 
                     val updatedTxMap = hashMapOf(
@@ -193,11 +181,10 @@ class TransactionEditorDialog(
                         "debtId" to targetDebtId
                     )
 
-                    firestore.collection("transactions").document(docId).set(updatedTxMap).addOnSuccessListener {
-                        Toast.makeText(context, "Perubahan sukses disimpan!", Toast.LENGTH_SHORT).show()
-                        onUpdateAction()
-                        dialog.dismiss()
-                    }
+                    viewModel.saveTransaction(docId, updatedTxMap)
+                    Toast.makeText(context, "Perubahan sukses disimpan!", Toast.LENGTH_SHORT).show()
+                    onUpdateAction()
+                    dialog.dismiss()
                 }
             } else {
                 Toast.makeText(context, "Data input tidak valid!", Toast.LENGTH_SHORT).show()
