@@ -41,7 +41,8 @@ class CategoryRepository {
         listener = null
     }
 
-    suspend fun saveCategory(docId: String, categoryMap: HashMap<String, Any?>) {
+    // FIX: Menggunakan HashMap<String, Any> secara tegas
+    suspend fun saveCategory(docId: String, categoryMap: HashMap<String, Any>) {
         firestore.collection("categories").document(docId).set(categoryMap).await()
     }
 
