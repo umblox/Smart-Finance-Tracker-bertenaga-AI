@@ -13,7 +13,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -23,30 +22,22 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.textfield.TextInputEditText
-import com.smartfinance.tracker.R
+import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
+import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
-import com.smartfinance.tracker.utils.FirebaseManager
 
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
+
+    private var _binding: DialogTransactionManualPremiumBinding? = null
+    private val binding get() = _binding!!
 
     private val firestore = FirebaseManager.getFirestore()
     
     private var allCategoriesCloud = listOf<Map<String, Any>>()
-    // State to hold the currently selected category from the picker dialog
     private var selectedCategoryMap: Map<String, Any>? = null
-
-    private lateinit var etAmount: TextInputEditText
-    private lateinit var etNote: TextInputEditText
-    private lateinit var etDate: TextInputEditText
-    private lateinit var etContact: TextInputEditText
-    // Replacing Spinner with a Button to trigger the custom picker dialog
-    private lateinit var btnSelectCategory: MaterialButton
 
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
@@ -58,7 +49,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                 val cursor: Cursor? = requireContext().contentResolver.query(uri, projection, null, null, null)
                 if (cursor != null && cursor.moveToFirst()) {
                     val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    if (nameIdx != -1) etContact.setText(cursor.getString(nameIdx))
+                    if (nameIdx != -1) binding.etManualPremiumContact.setText(cursor.getString(nameIdx))
                 }
                 cursor?.close()
             }
@@ -71,79 +62,17 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val context = requireContext()
-        val density = context.resources.displayMetrics.density
+        _binding = DialogTransactionManualPremiumBinding.inflate(layoutInflater)
+        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        val viewInflated = LayoutInflater.from(context).inflate(R.layout.dialog_transaction_manual_premium, null, false)
-        val innerLayout = viewInflated.findViewById<LinearLayout>(viewInflated.id) ?: (viewInflated as ViewGroup).getChildAt(0) as LinearLayout
+        binding.etManualPremiumDate.setText(sdfPremium.format(Date()))
 
-        etAmount = viewInflated.findViewById(R.id.etManualPremiumAmount)
-        etNote = viewInflated.findViewById(R.id.etManualPremiumNote)
-        etDate = viewInflated.findViewById(R.id.etManualPremiumDate)
-        etContact = viewInflated.findViewById(R.id.etManualPremiumContact)
-        val btnPickContact = viewInflated.findViewById<MaterialButton>(R.id.btnManualPremiumPick)
+        binding.btnManualCancel.setOnClickListener { dialog.dismiss() }
+        binding.btnManualPremiumPick.setOnClickListener { checkContactPermissionAndOpen() }
+        
+        binding.btnCategoryPicker.setOnClickListener { showCategoryPickerDialog() }
 
-        // Find the RadioGroup and remove it entirely to implement the clean UI design
-        val rgType = viewInflated.findViewById<RadioGroup>(R.id.rgManualPremiumType)
-        rgType?.visibility = View.GONE
-
-        // Replace Spinner with MaterialButton in the layout dynamically if it exists
-        val oldSpinner = viewInflated.findViewById<Spinner>(R.id.spinnerManualPremiumCategory)
-        if (oldSpinner != null) {
-            val parent = oldSpinner.parent as ViewGroup
-            val index = parent.indexOfChild(oldSpinner)
-            parent.removeView(oldSpinner)
-
-            btnSelectCategory = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = "Pilih Kategori"
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                    bottomMargin = (12 * density).toInt()
-                }
-                setOnClickListener { showCategoryPickerDialog() }
-            }
-            parent.addView(btnSelectCategory, index)
-        } else {
-             btnSelectCategory = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = "Pilih Kategori"
-                setOnClickListener { showCategoryPickerDialog() }
-            }
-        }
-
-        etDate.setText(sdfPremium.format(Date()))
-
-        val dialog = AlertDialog.Builder(context).setView(viewInflated).create()
-
-        val actionButtonsRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            weightSum = 2f
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(40, 20, 40, 30)
-            }
-        }
-
-        val btnCancel = MaterialButton(context).apply {
-            text = "Batal"
-            textSize = 14f; cornerRadius = 24; setTextColor(Color.parseColor("#475569"))
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = 16 }
-            setOnClickListener { dialog.dismiss() }
-        }
-
-        val btnSave = MaterialButton(context).apply {
-            text = "Simpan"
-            textSize = 14f; cornerRadius = 24; setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
-        actionButtonsRow.addView(btnCancel)
-        actionButtonsRow.addView(btnSave)
-        innerLayout.addView(actionButtonsRow)
-
-        btnPickContact.setOnClickListener { checkContactPermissionAndOpen() }
-
-        // Fetch categories directly from Cloud Firestore
         lifecycleScope.launch {
             try {
                 val snapshot = firestore.collection("categories").get().await()
@@ -156,7 +85,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                 }
                 allCategoriesCloud = list
             } catch (e: Exception) {
-                // Fallback mechanism if fetch fails
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
                     mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
@@ -165,13 +93,12 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             }
         }
 
-        btnSave.setOnClickListener {
-            val amountVal = etAmount.text.toString().toDoubleOrNull() ?: 0.0
-            val noteVal = etNote.text.toString().trim()
-            val dateVal = etDate.text.toString().trim()
-            val contactVal = etContact.text.toString().trim()
+        binding.btnManualSave.setOnClickListener {
+            val amountVal = binding.etManualPremiumAmount.text.toString().toDoubleOrNull() ?: 0.0
+            val noteVal = binding.etManualPremiumNote.text.toString().trim()
+            val dateVal = binding.etManualPremiumDate.text.toString().trim()
+            val contactVal = binding.etManualPremiumContact.text.toString().trim()
 
-            // Essential validation: Ensure a category is selected
             if (selectedCategoryMap == null) {
                 Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -181,7 +108,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
             val typeRaw = (selectedCategoryMap!!["type"] as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
 
-            // Validation for Debt/Receivable transactions requiring a contact name
             val isDebtTransaction = typeRaw == "DEBT" || typeRaw == "RECEIVABLE" || catId == 101L || catId == 102L || catId == 103L || catId == 104L
 
             if (isDebtTransaction && contactVal.isEmpty()) {
@@ -193,19 +119,13 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                 lifecycleScope.launch {
                     val targetTime = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
 
-                    // Determine the flow type correctly based on the selected category
                     val finalType = when (catId) {
                         101L, 103L -> "INCOME"     
                         102L, 104L -> "EXPENSE"    
                         else -> if (typeRaw == "INCOME") "INCOME" else "EXPENSE"
                     }
 
-                    val finalNote = if (isDebtTransaction) {
-                        "[$catName] $contactVal - $noteVal".uppercase(Locale.ROOT)
-                    } else {
-                        noteVal.uppercase(Locale.ROOT)
-                    }
-
+                    val finalNote = if (isDebtTransaction) "[$catName] $contactVal - $noteVal".uppercase(Locale.ROOT) else noteVal.uppercase(Locale.ROOT)
                     val txId = "tx_${System.currentTimeMillis()}"
                     val generatedDebtId = if (isDebtTransaction) "debt_${System.currentTimeMillis()}" else null
 
@@ -224,7 +144,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
                     if (isDebtTransaction && generatedDebtId != null) {
                         val selectedDebtType = if (catId == 104L || typeRaw == "RECEIVABLE") "RECEIVABLE" else "DEBT"
-                        
                         val debtMap = hashMapOf(
                             "id" to generatedDebtId,
                             "contactName" to contactVal.uppercase(Locale.ROOT),
@@ -251,48 +170,33 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    // This function builds the custom, luxury hierarchical category picker dialog
     private fun showCategoryPickerDialog() {
-        val context = requireContext()
-        val density = context.resources.displayMetrics.density
-
-        val dialogLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
-        }
-
-        val tabOuterBox = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42f * density).toInt()).apply {
-                setMargins((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (8f * density).toInt())
-            }
+        val density = requireContext().resources.displayMetrics.density
+        val dialogLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#F8FAFC")) }
+        
+        val tabOuterBox = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL; setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42f * density).toInt()).apply { setMargins((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (8f * density).toInt()) }
             background = GradientDrawable().apply { cornerRadius = 12f * density; setColor(Color.parseColor("#E2E8F0")) }
             weightSum = 3f
         }
 
-        val btnTabExpense = MaterialButton(context).apply { text = "Pengeluaran"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        val btnTabIncome = MaterialButton(context).apply { text = "Pemasukan"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        val btnTabDebt = MaterialButton(context).apply { text = "Hutang/Piutang"; textSize = 10f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabExpense = MaterialButton(requireContext()).apply { text = "Pengeluaran"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabIncome = MaterialButton(requireContext()).apply { text = "Pemasukan"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
+        val btnTabDebt = MaterialButton(requireContext()).apply { text = "Hutang/Piutang"; textSize = 10f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
 
         tabOuterBox.addView(btnTabExpense); tabOuterBox.addView(btnTabIncome); tabOuterBox.addView(btnTabDebt)
         dialogLayout.addView(tabOuterBox)
 
-        val scrollView = ScrollView(context)
-        val containerList = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
-        }
+        val scrollView = ScrollView(requireContext())
+        val containerList = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) }
         scrollView.addView(containerList)
         dialogLayout.addView(scrollView)
 
-        val dialog = AlertDialog.Builder(context)
-            .setView(dialogLayout)
-            .create()
+        val dialog = AlertDialog.Builder(requireContext()).setView(dialogLayout).create()
 
         fun renderList(typeFilter: String) {
             containerList.removeAllViews()
-
             val activeBg = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
             val inactiveBg = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
             
@@ -302,69 +206,38 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
             val targetTypes = if (typeFilter == "DEBT") listOf("DEBT", "RECEIVABLE") else listOf(typeFilter)
             val filteredList = allCategoriesCloud.filter { targetTypes.contains((it["type"] as? String)?.uppercase(Locale.ROOT)) }
-            
             val parentCategories = filteredList.filter { it["parentCategoryId"] == null }.sortedBy { it["name"] as? String ?: "" }
             val subCategories = filteredList.filter { it["parentCategoryId"] != null }
 
             if (parentCategories.isEmpty()) {
-                containerList.addView(TextView(context).apply { text = "Belum ada kategori terdaftar."; setTextColor(Color.GRAY); gravity = Gravity.CENTER; setPadding(0, 40, 0, 40) })
+                containerList.addView(TextView(requireContext()).apply { text = "Belum ada kategori terdaftar."; setTextColor(Color.GRAY); gravity = Gravity.CENTER; setPadding(0, 40, 0, 40) })
                 return
             }
 
             parentCategories.forEach { parent ->
-                val blockCard = MaterialCardView(context).apply {
-                    radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0
-                    setCardBackgroundColor(Color.WHITE)
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
+                val blockCard = MaterialCardView(requireContext()).apply { radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0; setCardBackgroundColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
+                val cardContentContainer = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
+                val parentRow = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
+                    setOnClickListener { selectedCategoryMap = parent; binding.btnCategoryPicker.text = parent["name"] as? String ?: ""; dialog.dismiss() }
                 }
-                val cardContentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-
-                val parentRow = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
-                    setOnClickListener {
-                        selectedCategoryMap = parent
-                        btnSelectCategory.text = parent["name"] as? String ?: ""
-                        dialog.dismiss() 
-                    }
-                }
-                parentRow.addView(TextView(context).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
-                parentRow.addView(TextView(context).apply {
-                    text = parent["name"] as? String ?: ""
-                    setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                })
+                parentRow.addView(TextView(requireContext()).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
+                parentRow.addView(TextView(requireContext()).apply { text = parent["name"] as? String ?: ""; setTextColor(Color.parseColor("#1E293B")); textSize = 14.5f; setTypeface(null, Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
                 cardContentContainer.addView(parentRow)
 
                 val parentId = (parent["id"] as? Number)?.toLong() ?: 0L
                 val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }.sortedBy { it["name"] as? String ?: "" }
 
-                if (kids.isNotEmpty()) {
-                    cardContentContainer.addView(View(context).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
-                }
+                if (kids.isNotEmpty()) cardContentContainer.addView(View(requireContext()).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
 
                 kids.forEach { child ->
-                    val childRow = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                        setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt())
-                        setBackgroundColor(Color.parseColor("#FAFAFA"))
-                        setOnClickListener {
-                            selectedCategoryMap = child
-                            btnSelectCategory.text = child["name"] as? String ?: ""
-                            dialog.dismiss() 
-                        }
+                    val childRow = LinearLayout(requireContext()).apply {
+                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt()); setBackgroundColor(Color.parseColor("#FAFAFA"))
+                        setOnClickListener { selectedCategoryMap = child; binding.btnCategoryPicker.text = child["name"] as? String ?: ""; dialog.dismiss() }
                     }
-                    val treeLine = View(context).apply {
-                        setBackgroundColor(Color.parseColor("#CBD5E0"))
-                        layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16 * density).toInt()).apply { rightMargin = (12 * density).toInt(); leftMargin = (6 * density).toInt() }
-                    }
-                    childRow.addView(treeLine)
-                    childRow.addView(TextView(context).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10 * density).toInt(), 0) })
-                    childRow.addView(TextView(context).apply {
-                        text = child["name"] as? String ?: ""
-                        setTextColor(Color.parseColor("#475569")); textSize = 13.5f
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    })
+                    val treeLine = View(requireContext()).apply { setBackgroundColor(Color.parseColor("#CBD5E0")); layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16 * density).toInt()).apply { rightMargin = (12 * density).toInt(); leftMargin = (6 * density).toInt() } }
+                    childRow.addView(treeLine); childRow.addView(TextView(requireContext()).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10 * density).toInt(), 0) })
+                    childRow.addView(TextView(requireContext()).apply { text = child["name"] as? String ?: ""; setTextColor(Color.parseColor("#475569")); textSize = 13.5f; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
                     cardContentContainer.addView(childRow)
                 }
                 blockCard.addView(cardContentContainer)
@@ -377,22 +250,23 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         btnTabDebt.setOnClickListener { renderList("DEBT") }
 
         val currentType = (selectedCategoryMap?.get("type") as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
-        val initialTab = if (currentType == "RECEIVABLE") "DEBT" else currentType
-        renderList(initialTab)
+        renderList(if (currentType == "RECEIVABLE") "DEBT" else currentType)
 
         dialog.show()
     }
 
     private fun checkContactPermissionAndOpen() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            openContactPicker()
-        } else {
-            requestPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-        }
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) openContactPicker()
+        else requestPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
     }
 
     private fun openContactPicker() {
         val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
         contactPickerLauncher.launch(intent)
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
