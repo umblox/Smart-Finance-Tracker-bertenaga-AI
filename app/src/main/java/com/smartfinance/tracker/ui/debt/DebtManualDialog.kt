@@ -13,11 +13,11 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
-import com.smartfinance.tracker.utils.FirebaseManager
+import com.smartfinance.tracker.ui.transaction.TransactionActionViewModel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -29,7 +29,7 @@ class DebtManualDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private val firestore = FirebaseManager.getFirestore()
+    private lateinit var viewModel: TransactionActionViewModel
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     private val contactPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -54,6 +54,8 @@ class DebtManualDialog(
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
 
         binding.tvDialogTitle.text = "Tambah Utang-Piutang"
         
@@ -94,7 +96,7 @@ class DebtManualDialog(
                         "timestamp" to targetTimestamp,
                         "isPaid" to false
                     )
-                    firestore.collection("debts").document(debtId).set(debtMap).await()
+                    viewModel.saveDebt(debtId, debtMap)
 
                     val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
                     val catId = if (selectedType == "RECEIVABLE") 104L else 101L
@@ -111,7 +113,7 @@ class DebtManualDialog(
                         "timestamp" to targetTimestamp,
                         "debtId" to debtId
                     )
-                    firestore.collection("transactions").document(txId).set(txMap).await()
+                    viewModel.saveTransaction(txId, txMap)
                     
                     Toast.makeText(context, "Pinjaman Tersimpan ke Cloud!", Toast.LENGTH_SHORT).show()
                     onSavedAction()
