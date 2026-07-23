@@ -3,338 +3,160 @@ package com.smartfinance.tracker.ui.debt
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.button.MaterialButton
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
-import com.smartfinance.tracker.R
+import com.smartfinance.tracker.databinding.FragmentAddDebtBinding
+import com.smartfinance.tracker.data.model.Debt
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
-import com.smartfinance.tracker.utils.FirebaseManager
+import java.util.Date
+import java.util.HashMap
+import java.util.Locale
 
 class AddDebtFragment : Fragment() {
 
-    private val firestore = FirebaseManager.getFirestore()
+    private var _binding: FragmentAddDebtBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var viewModel: DebtViewModel
+
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    
     private val sdfDisplayPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
-    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
-    
-    private var currentTab = "DEBT"
-    private var debtListenerRegistration: ListenerRegistration? = null
-    private val currentCalendar = Calendar.getInstance()
 
-    private lateinit var tvMonthLabel: TextView
-    private lateinit var listContainer: LinearLayout
-    private lateinit var cardDebt: MaterialCardView
-    private lateinit var cardReceivable: MaterialCardView
-
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
-        val context = requireContext()
-        val density = context.resources.displayMetrics.density
-
-        val root = FrameLayout(context).apply { 
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) 
-        }
-        
-        val mainContent = LinearLayout(context).apply { 
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#F8FAFC")) 
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
-
-        val headerLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding((20f * density).toInt(), (24f * density).toInt(), (20f * density).toInt(), (14f * density).toInt())
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val tvTitle = TextView(context).apply {
-            text = "🤝 Buku Utang Piutang"
-            textSize = 20f
-            setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
-            setTextColor(Color.parseColor("#1E293B"))
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        headerLayout.addView(tvTitle)
-        mainContent.addView(headerLayout)
-
-        val navMonthRow = LinearLayout(context).apply { 
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding((16f * density).toInt(), 0, (16f * density).toInt(), (14f * density).toInt()) 
-        }
-        val btnPrev = MaterialButton(context).apply { 
-            text = "◀"; cornerRadius = 10
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-            setTextColor(Color.parseColor("#475569"))
-            insetTop = 0; insetBottom = 0
-            setOnClickListener { 
-                currentCalendar.add(Calendar.MONTH, -1)
-                refreshDebtListLive() 
-            }
-        }
-        tvMonthLabel = TextView(context).apply { 
-            textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B"))
-            gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) 
-        }
-        val btnNext = MaterialButton(context).apply { 
-            text = "▶"; cornerRadius = 10
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
-            setTextColor(Color.parseColor("#475569"))
-            insetTop = 0; insetBottom = 0
-            setOnClickListener { 
-                currentCalendar.add(Calendar.MONTH, 1)
-                refreshDebtListLive() 
-            }
-        }
-        navMonthRow.addView(btnPrev)
-        navMonthRow.addView(tvMonthLabel)
-        navMonthRow.addView(btnNext)
-        mainContent.addView(navMonthRow)
-
-        val summaryLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding((16f * density).toInt(), 0, (16f * density).toInt(), (16f * density).toInt())
-            weightSum = 2f
-        }
-        cardDebt = createPremiumSummaryCard(context, "Hutang Aktif Saya", "#D97706")
-        cardReceivable = createPremiumSummaryCard(context, "Piutang Aktif (Di Orang)", "#0284C7")
-        summaryLayout.addView(cardDebt)
-        summaryLayout.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams((12f * density).toInt(), 1) })
-        summaryLayout.addView(cardReceivable)
-        mainContent.addView(summaryLayout)
-
-        val tabOuterContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (44f * density).toInt()).apply {
-                leftMargin = (16f * density).toInt(); rightMargin = (16f * density).toInt(); bottomMargin = (16f * density).toInt()
-            }
-            background = GradientDrawable().apply { cornerRadius = 12f * density; setColor(Color.parseColor("#E2E8F0")) }
-        }
-        val btnTabDebt = MaterialButton(context).apply { text = "Hutang Saya"; textSize = 13f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        val btnTabReceivable = MaterialButton(context).apply { text = "Piutang / Tagihan"; textSize = 13f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        tabOuterContainer.addView(btnTabDebt)
-        tabOuterContainer.addView(btnTabReceivable)
-        mainContent.addView(tabOuterContainer)
-
-        val scrollView = ScrollView(context).apply { isFillViewport = true }
-        listContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((16f * density).toInt(), 0, (16f * density).toInt(), (24f * density).toInt())
-        }
-        scrollView.addView(listContainer)
-        mainContent.addView(scrollView)
-        root.addView(mainContent)
-
-        val fab = FloatingActionButton(context).apply {
-            setImageResource(android.R.drawable.ic_input_add)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0D9488"))
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                setMargins(0, 0, (24f * density).toInt(), (24f * density).toInt())
-            }
-            setOnClickListener {
-                DebtManualDialog(currentTab) { refreshDebtListLive() }.show(parentFragmentManager, "DebtManualDialog")
-            }
-        }
-        root.addView(fab)
-
-        btnTabDebt.setOnClickListener {
-            currentTab = "DEBT"
-            setPremiumTabStyles(btnTabDebt, btnTabReceivable)
-            refreshDebtListLive()
-        }
-        btnTabReceivable.setOnClickListener {
-            currentTab = "RECEIVABLE"
-            setPremiumTabStyles(btnTabReceivable, btnTabDebt)
-            refreshDebtListLive()
-        }
-
-        setPremiumTabStyles(btnTabDebt, btnTabReceivable)
-        refreshDebtListLive()
-        return root
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = FragmentAddDebtBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
-    private fun createPremiumSummaryCard(ctx: Context, title: String, valueColorHex: String): MaterialCardView {
-        val density = ctx.resources.displayMetrics.density
-        return MaterialCardView(ctx).apply {
-            radius = 14f * density; cardElevation = 2f * density; strokeWidth = 0
-            setCardBackgroundColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-            val layout = LinearLayout(ctx).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding((14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt())
+        viewModel = ViewModelProvider(this)[DebtViewModel::class.java]
+
+        // Set Navigasi
+        binding.btnPrevMonth.setOnClickListener { viewModel.changeMonth(-1) }
+        binding.btnNextMonth.setOnClickListener { viewModel.changeMonth(1) }
+
+        // Set Tab Filter
+        binding.btnTabDebt.setOnClickListener { viewModel.changeTab("DEBT") }
+        binding.btnTabReceivable.setOnClickListener { viewModel.changeTab("RECEIVABLE") }
+
+        // Set Fab Tambah
+        binding.fabAddDebt.setOnClickListener {
+            // Kita pass state currentTab agar ManualDialog tahu sedang di tab mana
+            DebtManualDialog(viewModel.uiState.value.currentTab) {
+                // Biarkan kosong, repository di viewModel mendengarkan otomatis
+            }.show(parentFragmentManager, "DebtManualDialog")
+        }
+
+        // Pantau Perubahan Data
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collect { state ->
+                renderUi(state)
             }
-            layout.addView(TextView(ctx).apply { text = title; setTextColor(Color.parseColor("#64748B")); textSize = 11.5f })
-            layout.addView(TextView(ctx).apply { text = "Rp 0"; setTextColor(Color.parseColor(valueColorHex)); textSize = 15.5f; setTypeface(null, Typeface.BOLD); setPadding(0, (4f * density).toInt(), 0, 0) })
-            addView(layout)
         }
     }
 
-    private fun setPremiumTabStyles(active: MaterialButton, inactive: MaterialButton) {
-        active.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E293B"))
-        active.setTextColor(Color.WHITE); active.setTypeface(null, Typeface.BOLD)
-        inactive.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
-        inactive.setTextColor(Color.parseColor("#64748B")); inactive.setTypeface(null, Typeface.NORMAL)
-    }
+    private fun renderUi(state: DebtUiState) {
+        val density = requireContext().resources.displayMetrics.density
 
-    private fun refreshDebtListLive() {
-        if (!isAdded) return
-        val context = requireContext()
-        val density = context.resources.displayMetrics.density
+        // 1. Update Teks Navigasi & Saldo
+        binding.tvMonthLabel.text = state.currentMonthLabel
+        binding.tvTotalDebt.text = formatRupiah.format(state.totalActiveDebt)
+        binding.tvTotalReceivable.text = formatRupiah.format(state.totalActiveReceivable)
 
-        tvMonthLabel.text = sdfMonthLabel.format(currentCalendar.time).uppercase(Locale.ROOT)
-        debtListenerRegistration?.remove()
+        // Simpan waktu aktif untuk sinkronisasi dengan Dashboard (sesuai logika asli)
+        val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putLong("active_report_time", viewModel.getCurrentTimeInMillis()).apply()
 
-        debtListenerRegistration = firestore.collection("debts")
-            .addSnapshotListener { snapshots, e ->
-                if (e != null || snapshots == null) return@addSnapshotListener
+        // 2. Update Style Tab
+        if (state.currentTab == "DEBT") {
+            binding.btnTabDebt.apply { setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 10 * density; setColor(Color.parseColor("#1E293B")) } }
+            binding.btnTabReceivable.apply { setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL); background = null }
+        } else {
+            binding.btnTabReceivable.apply { setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 10 * density; setColor(Color.parseColor("#1E293B")) } }
+            binding.btnTabDebt.apply { setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL); background = null }
+        }
 
-                listContainer.removeAllViews()
-                var totalDebtSum = 0.0
-                var totalReceivableSum = 0.0
+        // 3. Render List
+        binding.listContainer.removeAllViews()
 
-                val targetMonth = currentCalendar.get(Calendar.MONTH)
-                val targetYear = currentCalendar.get(Calendar.YEAR)
-                val monthlyFilteredDebts = ArrayList<HashMap<String, Any>>()
+        if (state.displayedDebts.isEmpty()) {
+            binding.listContainer.addView(TextView(requireContext()).apply {
+                text = "\nTidak ada catatan pinjaman pada periode bulan ini."
+                textSize = 13.5f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
+                setTypeface(null, Typeface.ITALIC)
+            })
+            return
+        }
 
-                for (doc in snapshots.documents) {
-                    val data = doc.data ?: continue
-                    val isPaid = data["isPaid"] as? Boolean ?: false
-                    val type = data["type"] as? String ?: "DEBT"
-                    val remainingAmount = (data["remainingAmount"] as? Number)?.toDouble() ?: 0.0
-                    val timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
-
-                    if (!isPaid) {
-                        if (type == "DEBT") totalDebtSum += remainingAmount else totalReceivableSum += remainingAmount
+        state.displayedDebts.forEach { debt ->
+            val itemCard = MaterialCardView(requireContext()).apply {
+                radius = 14f * density; cardElevation = 1.5f * density; strokeWidth = 0
+                setCardBackgroundColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() }
+                
+                setOnClickListener {
+                    // Menerjemahkan Object Debt kembali ke HashMap untuk kompabilitas DebtEditorDialog lama
+                    val passMap = HashMap<String, Any>().apply {
+                        put("id", debt.id)
+                        put("contactName", debt.contactName)
+                        put("amount", debt.amount)
+                        put("remainingAmount", debt.remainingAmount)
+                        put("type", debt.type)
+                        put("timestamp", debt.timestamp)
+                        put("isPaid", debt.isPaid)
+                        put("note", debt.note)
                     }
-                    
-                    val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
-                    if (txCal.get(Calendar.MONTH) == targetMonth && txCal.get(Calendar.YEAR) == targetYear) {
-                        val itemMap = HashMap(data)
-                        itemMap["id"] = doc.id
-                        itemMap["timestamp"] = timestamp
-                        monthlyFilteredDebts.add(itemMap)
-                    }
-                }
-
-                val prefs = context.getSharedPreferences("smart_finance_prefs", 0)
-                prefs.edit().putLong("active_report_time", currentCalendar.timeInMillis).apply()
-
-                (((cardDebt.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalDebtSum)
-                (((cardReceivable.getChildAt(0) as LinearLayout).getChildAt(1)) as TextView).text = formatRupiah.format(totalReceivableSum)
-
-                val activeTabFiltered = monthlyFilteredDebts.filter { (it["type"] as? String) == currentTab }
-
-                if (activeTabFiltered.isEmpty()) {
-                    listContainer.addView(TextView(context).apply {
-                        text = "\nTidak ada catatan pinjaman pada periode bulan ini."
-                        textSize = 13.5f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
-                        setTypeface(null, Typeface.ITALIC)
-                    })
-                    return@addSnapshotListener
-                }
-
-                val sortedList = activeTabFiltered.sortedByDescending { (it["timestamp"] as? Long) ?: 0L }
-
-                sortedList.forEach { debtItem ->
-                    val contactName = (debtItem["contactName"] as? String) ?: "TEMAN"
-                    val remainingAmount = (debtItem["remainingAmount"] as? Number)?.toDouble() ?: 0.0
-                    val originalAmount = (debtItem["amount"] as? Number)?.toDouble() ?: 0.0
-                    val isPaid = (debtItem["isPaid"] as? Boolean) ?: false
-                    val debtTime = (debtItem["timestamp"] as? Long) ?: System.currentTimeMillis()
-
-                    val itemCard = MaterialCardView(context).apply {
-                        radius = 14f * density; cardElevation = 1.5f * density; strokeWidth = 0
-                        setCardBackgroundColor(Color.WHITE)
-                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() }
-                        
-                        setOnClickListener { 
-                            val passMap = HashMap(debtItem)
-                            DebtEditorDialog(passMap) { refreshDebtListLive() }.show(parentFragmentManager, "DebtEditorDialog")
-                        }
-                    }
-
-                    val rowLayout = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                        setPadding((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt())
-                    }
-
-                    // 🔥 SISI KIRI: Nama, Tanggal, dan Total Pinjaman Awal
-                    val leftLayout = LinearLayout(context).apply { 
-                        orientation = LinearLayout.VERTICAL
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) 
-                    }
-                    
-                    leftLayout.addView(TextView(context).apply { 
-                        text = contactName
-                        textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) 
-                    })
-                    
-                    leftLayout.addView(TextView(context).apply { 
-                        text = "📅 ${sdfDisplayPremium.format(Date(debtTime))}"
-                        textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8"))
-                        setPadding(0, (4f * density).toInt(), 0, 0) 
-                    })
-                    
-                    leftLayout.addView(TextView(context).apply {
-                        text = "Total Pinjaman: ${formatRupiah.format(originalAmount)}"
-                        textSize = 12f; setTextColor(Color.parseColor("#64748B"))
-                        setPadding(0, (2f * density).toInt(), 0, 0)
-                    })
-                    
-                    rowLayout.addView(leftLayout)
-
-                    // 🔥 SISI KANAN: Sisa Tagihan (Tebal) atau Status Lunas
-                    val rightLayout = LinearLayout(context).apply { 
-                        orientation = LinearLayout.VERTICAL
-                        gravity = Gravity.END 
-                    }
-                    
-                    if (isPaid) {
-                        rightLayout.addView(TextView(context).apply {
-                            text = "LUNAS ✅"
-                            textSize = 14f; setTypeface(null, Typeface.BOLD)
-                            setTextColor(Color.parseColor("#10B981"))
-                        })
-                    } else {
-                        rightLayout.addView(TextView(context).apply {
-                            text = "Sisa Tagihan"
-                            textSize = 11f; setTextColor(Color.parseColor("#94A3B8"))
-                        })
-                        rightLayout.addView(TextView(context).apply {
-                            text = formatRupiah.format(remainingAmount)
-                            textSize = 15f; setTypeface(null, Typeface.BOLD)
-                            setTextColor(if (currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
-                        })
-                    }
-                    
-                    rowLayout.addView(rightLayout)
-                    
-                    itemCard.addView(rowLayout)
-                    listContainer.addView(itemCard)
+                    DebtEditorDialog(passMap) { 
+                        // Kosong karena ViewModel otomatis update
+                    }.show(parentFragmentManager, "DebtEditorDialog")
                 }
             }
+
+            val rowLayout = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt())
+            }
+
+            // Kiri: Info Nama dan Tanggal
+            val leftLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+            leftLayout.addView(TextView(requireContext()).apply { text = debt.contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
+            leftLayout.addView(TextView(requireContext()).apply { text = "📅 ${sdfDisplayPremium.format(Date(debt.timestamp))}"; textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, (4f * density).toInt(), 0, 0) })
+            leftLayout.addView(TextView(requireContext()).apply { text = "Total Pinjaman: ${formatRupiah.format(debt.amount)}"; textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding(0, (2f * density).toInt(), 0, 0) })
+            rowLayout.addView(leftLayout)
+
+            // Kanan: Status Tagihan
+            val rightLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+            if (debt.isPaid) {
+                rightLayout.addView(TextView(requireContext()).apply { text = "LUNAS ✅"; textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#10B981")) })
+            } else {
+                rightLayout.addView(TextView(requireContext()).apply { text = "Sisa Tagihan"; textSize = 11f; setTextColor(Color.parseColor("#94A3B8")) })
+                rightLayout.addView(TextView(requireContext()).apply {
+                    text = formatRupiah.format(debt.remainingAmount)
+                    textSize = 15f; setTypeface(null, Typeface.BOLD)
+                    setTextColor(if (state.currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
+                })
+            }
+            rowLayout.addView(rightLayout)
+            
+            itemCard.addView(rowLayout)
+            binding.listContainer.addView(itemCard)
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        debtListenerRegistration?.remove()
+        _binding = null
     }
 }
