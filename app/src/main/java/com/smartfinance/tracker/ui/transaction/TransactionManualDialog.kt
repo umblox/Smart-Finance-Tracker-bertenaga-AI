@@ -19,22 +19,23 @@ import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
-import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
 
     private var _binding: DialogTransactionManualPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private val firestore = FirebaseManager.getFirestore()
+    private lateinit var viewModel: TransactionActionViewModel
     
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var selectedCategoryMap: Map<String, Any>? = null
@@ -66,24 +67,17 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
+        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
+
         binding.etManualPremiumDate.setText(sdfPremium.format(Date()))
 
         binding.btnManualCancel.setOnClickListener { dialog.dismiss() }
         binding.btnManualPremiumPick.setOnClickListener { checkContactPermissionAndOpen() }
-        
         binding.btnCategoryPicker.setOnClickListener { showCategoryPickerDialog() }
 
         lifecycleScope.launch {
             try {
-                val snapshot = firestore.collection("categories").get().await()
-                val list = ArrayList<Map<String, Any>>()
-                for (doc in snapshot.documents) {
-                    val data = doc.data ?: continue
-                    val mutableData = HashMap(data)
-                    mutableData["id"] = doc.getLong("id") ?: 0L
-                    list.add(mutableData)
-                }
-                allCategoriesCloud = list
+                allCategoriesCloud = viewModel.getCategoriesCloud()
             } catch (e: Exception) {
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
@@ -140,7 +134,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         "debtId" to generatedDebtId
                     )
                     
-                    firestore.collection("transactions").document(txId).set(txMap).await()
+                    viewModel.saveTransaction(txId, txMap)
 
                     if (isDebtTransaction && generatedDebtId != null) {
                         val selectedDebtType = if (catId == 104L || typeRaw == "RECEIVABLE") "RECEIVABLE" else "DEBT"
@@ -155,7 +149,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                             "timestamp" to targetTime,
                             "isPaid" to false
                         )
-                        firestore.collection("debts").document(generatedDebtId).set(debtMap).await()
+                        viewModel.saveDebt(generatedDebtId, debtMap)
                     }
 
                     Toast.makeText(context, "Berhasil Disimpan Langsung ke Cloud Server!", Toast.LENGTH_SHORT).show()
