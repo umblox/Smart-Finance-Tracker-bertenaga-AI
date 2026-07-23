@@ -16,10 +16,10 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
-import com.smartfinance.tracker.ui.transaction.TransactionActionViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.HashMap
 
 class DebtManualDialog(
     private val initialTabFilter: String,
@@ -29,7 +29,8 @@ class DebtManualDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var viewModel: TransactionActionViewModel
+    // Menggunakan ViewModel kita yang sudah ada
+    private lateinit var viewModel: DebtViewModel
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
     private val contactPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -55,7 +56,8 @@ class DebtManualDialog(
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        viewModel = ViewModelProvider(this)[TransactionActionViewModel::class.java]
+        // Inisialisasi ViewModel
+        viewModel = ViewModelProvider(this)[DebtViewModel::class.java]
 
         binding.tvDialogTitle.text = "Tambah Utang-Piutang"
         
@@ -85,35 +87,34 @@ class DebtManualDialog(
                     val targetTimestamp = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
                     val debtId = "debt_${System.currentTimeMillis()}"
                     
-                    val debtMap = hashMapOf(
-                        "id" to debtId,
-                        "contactName" to name,
-                        "contactPhoneNumber" to "0812",
-                        "amount" to amountVal,
-                        "remainingAmount" to amountVal,
-                        "type" to selectedType,
-                        "note" to noteText.ifEmpty { "Input Manual Buku Utang" },
-                        "timestamp" to targetTimestamp,
-                        "isPaid" to false
-                    )
-                    viewModel.saveDebt(debtId, debtMap)
+                    val debtMap = HashMap<String, Any>()
+                    debtMap["id"] = debtId
+                    debtMap["contactName"] = name
+                    debtMap["contactPhoneNumber"] = "0812"
+                    debtMap["amount"] = amountVal
+                    debtMap["remainingAmount"] = amountVal
+                    debtMap["type"] = selectedType
+                    debtMap["note"] = noteText.ifEmpty { "Input Manual Buku Utang" }
+                    debtMap["timestamp"] = targetTimestamp
+                    debtMap["isPaid"] = false
 
                     val flowType = if (selectedType == "RECEIVABLE") "EXPENSE" else "INCOME"
                     val catId = if (selectedType == "RECEIVABLE") 104L else 101L
                     val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
                     val txId = "tx_${System.currentTimeMillis()}"
                     
-                    val txMap = hashMapOf(
-                        "id" to txId,
-                        "amount" to amountVal,
-                        "type" to flowType,
-                        "categoryId" to catId,
-                        "categoryName" to catName,
-                        "note" to "[$catName] $name - ${noteText.ifEmpty { "INPUT MANUAL PINJAMAN" }.uppercase(Locale.ROOT)}",
-                        "timestamp" to targetTimestamp,
-                        "debtId" to debtId
-                    )
-                    viewModel.saveTransaction(txId, txMap)
+                    val txMap = HashMap<String, Any>()
+                    txMap["id"] = txId
+                    txMap["amount"] = amountVal
+                    txMap["type"] = flowType
+                    txMap["categoryId"] = catId
+                    txMap["categoryName"] = catName
+                    txMap["note"] = "[$catName] $name - ${noteText.ifEmpty { "INPUT MANUAL PINJAMAN" }.uppercase(Locale.ROOT)}"
+                    txMap["timestamp"] = targetTimestamp
+                    txMap["debtId"] = debtId
+                    
+                    // Semua diserahkan ke ViewModel
+                    viewModel.saveNewDebtAndTransaction(debtId, debtMap, txId, txMap)
                     
                     Toast.makeText(context, "Pinjaman Tersimpan ke Cloud!", Toast.LENGTH_SHORT).show()
                     onSavedAction()
