@@ -37,7 +37,6 @@ class CategoryManagerDialog : DialogFragment() {
 
         binding.btnAdd.setOnClickListener { 
             CategoryEditorDialog(null, viewModel.uiState.value.currentFilter) { 
-                // Biarkan kosong, ViewModel otomatis bereaksi
             }.show(parentFragmentManager, "CategoryEditorDialog")
         }
 
@@ -45,7 +44,6 @@ class CategoryManagerDialog : DialogFragment() {
         binding.btnTabIncome.setOnClickListener { switchFilterTab("INCOME", binding.btnTabIncome, binding.btnTabExpense, binding.btnTabDebt) }
         binding.btnTabDebt.setOnClickListener { switchFilterTab("DEBT", binding.btnTabDebt, binding.btnTabExpense, binding.btnTabIncome) }
 
-        // Set default UI
         switchFilterTab("EXPENSE", binding.btnTabExpense, binding.btnTabIncome, binding.btnTabDebt)
 
         lifecycleScope.launch {
@@ -59,7 +57,7 @@ class CategoryManagerDialog : DialogFragment() {
 
     private fun switchFilterTab(targetFilter: String, active: TextView, in1: TextView, in2: TextView) {
         val density = requireContext().resources.displayMetrics.density
-        viewModel.setFilter(targetFilter) // Beri tahu ViewModel filter berubah
+        viewModel.setFilter(targetFilter)
 
         active.setTextColor(Color.WHITE)
         active.setTypeface(null, Typeface.BOLD)
@@ -146,12 +144,17 @@ class CategoryManagerDialog : DialogFragment() {
         }
     }
 
+    // FIX: Mengisi HashMap secara eksplisit agar tipe data dikenali sebagai Any, bukan Serializable
     private fun categoryToHashMap(cat: Category): HashMap<String, Any> {
-        return hashMapOf(
-            "docId" to cat.docId, "id" to cat.id, "name" to cat.name,
-            "type" to cat.type, "iconName" to cat.iconName,
-            "isLocked" to cat.isLocked
-        ).apply { cat.parentCategoryId?.let { put("parentCategoryId", it) } }
+        val map = HashMap<String, Any>()
+        map["docId"] = cat.docId
+        map["id"] = cat.id
+        map["name"] = cat.name
+        map["type"] = cat.type
+        map["iconName"] = cat.iconName
+        map["isLocked"] = cat.isLocked
+        cat.parentCategoryId?.let { map["parentCategoryId"] = it }
+        return map
     }
 
     override fun onDestroyView() {
