@@ -5,6 +5,7 @@ import com.smartfinance.tracker.data.model.Debt
 import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.tasks.await
 
 class DebtRepository {
     private val firestore = FirebaseManager.getFirestore()
@@ -40,5 +41,17 @@ class DebtRepository {
     fun stopListening() {
         listener?.remove()
         listener = null
+    }
+
+    suspend fun saveDebt(debtId: String, debtMap: HashMap<String, Any>) {
+        firestore.collection("debts").document(debtId).set(debtMap).await()
+    }
+
+    suspend fun updateDebtFields(debtId: String, updates: Map<String, Any>) {
+        firestore.collection("debts").document(debtId).update(updates).await()
+    }
+
+    suspend fun deleteDebt(debtId: String) {
+        firestore.collection("debts").document(debtId).delete().await()
     }
 }
