@@ -12,7 +12,7 @@ data class CategoryUiState(
     val currentFilter: String = "EXPENSE",
     val parentCategories: List<Category> = emptyList(),
     val subCategories: List<Category> = emptyList(),
-    val allCategoriesForEditor: List<Category> = emptyList() // Khusus untuk Spinner di Editor
+    val allCategoriesForEditor: List<Category> = emptyList()
 )
 
 class CategoryViewModel : ViewModel() {
@@ -47,7 +47,8 @@ class CategoryViewModel : ViewModel() {
         )
     }
 
-    suspend fun saveCategoryToCloud(docId: String, data: HashMap<String, Any?>) {
+    // FIX: Menggunakan HashMap<String, Any> secara tegas
+    suspend fun saveCategoryToCloud(docId: String, data: HashMap<String, Any>) {
         repository.saveCategory(docId, data)
     }
 
