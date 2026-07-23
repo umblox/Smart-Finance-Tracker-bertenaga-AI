@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MaterialComponents.Light.NoActionBar" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+        <!-- Colors -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="android:colorBackground">@color/background_color</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        
+        <!-- Modern UI Defaults -->
+        <item name="materialCardViewStyle">@style/Widget.SmartFinance.CardView</item>
+    </style>
+
+    <!-- Custom Modern Card Style -->
+    <style name="Widget.SmartFinance.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardElevation">2dp</item>
+        <item name="cardCornerRadius">16dp</item>
+        <item name="strokeWidth">0dp</item>
+        <item name="cardBackgroundColor">@color/surface_white</item>
+    </style>
+</resources>
+
