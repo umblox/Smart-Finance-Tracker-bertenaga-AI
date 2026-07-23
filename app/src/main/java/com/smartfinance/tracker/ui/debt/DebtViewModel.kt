@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartfinance.tracker.data.model.Debt
 import com.smartfinance.tracker.data.repository.DebtRepository
+import com.smartfinance.tracker.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.HashMap
 import java.util.Locale
 
 data class DebtUiState(
@@ -21,6 +23,9 @@ data class DebtUiState(
 
 class DebtViewModel : ViewModel() {
     private val repository = DebtRepository()
+    
+    // Kita panggil TransactionRepository yang sudah ada di Tahap 3
+    private val txRepository = TransactionRepository()
     
     private val _uiState = MutableStateFlow(DebtUiState())
     val uiState: StateFlow<DebtUiState> = _uiState
@@ -82,6 +87,28 @@ class DebtViewModel : ViewModel() {
             displayedDebts = activeTabFiltered,
             currentTab = activeTab
         )
+    }
+
+    // --- FUNGSI BARU UNTUK MVVM WRITE ---
+
+    suspend fun saveNewDebtAndTransaction(debtId: String, debtMap: HashMap<String, Any>, txId: String, txMap: HashMap<String, Any>) {
+        repository.saveDebt(debtId, debtMap)
+        
+        // Kita juga perlu menambahkan fungsi saveTransaction di TransactionRepository nanti,
+        // Tapi sementara kita bisa pakai FirebaseManager langsung di repository jika belum ada
+        val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
+        firestore.collection("transactions").document(txId).set(txMap).kotlinx.coroutines.tasks.await()
+    }
+
+    suspend fun processDebtInstallment(debtId: String, newRemaining: Double, isPaid: Boolean, txId: String, txMap: HashMap<String, Any>) {
+        repository.updateDebtFields(debtId, mapOf("remainingAmount" to newRemaining, "isPaid" to isPaid))
+        
+        val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
+        firestore.collection("transactions").document(txId).set(txMap).kotlinx.coroutines.tasks.await()
+    }
+
+    suspend fun deleteDebtPermanently(debtId: String) {
+        repository.deleteDebt(debtId)
     }
 
     override fun onCleared() {
