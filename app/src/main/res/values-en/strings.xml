@@ -29,5 +29,11 @@
     <string name="settings_security_group">Security</string>
     <string name="settings_biometric">🔒 Biometric Lock</string>
     <string name="settings_biometric_desc">Use fingerprint to unlock app</string>
-</resources>
 
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_ai_assistant">AI Assistant</string>
+    <string name="nav_transaction">History</string>
+    <string name="nav_debt">Debts Book</string>
+    <string name="nav_settings">Settings</string>
+</resources>
