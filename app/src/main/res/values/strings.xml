@@ -29,5 +29,11 @@
     <string name="settings_security_group">Keamanan</string>
     <string name="settings_biometric">🔒 Kunci Biometrik</string>
     <string name="settings_biometric_desc">Gunakan sidik jari untuk membuka aplikasi</string>
-</resources>
 
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Beranda</string>
+    <string name="nav_ai_assistant">AI Asisten</string>
+    <string name="nav_transaction">Transaksi</string>
+    <string name="nav_debt">Buku Utang</string>
+    <string name="nav_settings">Pengaturan</string>
+</resources>
