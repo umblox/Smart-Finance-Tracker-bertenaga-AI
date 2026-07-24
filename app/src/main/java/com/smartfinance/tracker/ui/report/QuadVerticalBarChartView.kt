@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.View
+import androidx.core.content.ContextCompat
+import com.smartfinance.tracker.R
 
 class QuadVerticalBarChartView(
     ctx: Context,
@@ -17,7 +19,8 @@ class QuadVerticalBarChartView(
     
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { 
-        color = Color.parseColor("#64748B")
+        // Menggunakan warna tema dinamis untuk teks
+        color = ContextCompat.getColor(ctx, R.color.text_secondary)
         textSize = 24f
         textAlign = Paint.Align.CENTER
     }
@@ -35,7 +38,8 @@ class QuadVerticalBarChartView(
         val spacing = barWidth / 2.5f
 
         if (maxVal == 0f) {
-            paint.color = Color.parseColor("#F1F5F9")
+            // Garis pembatas dinamis
+            paint.color = ContextCompat.getColor(context, R.color.divider_color)
             canvas.drawLine(0f, usableHeight, canvasWidth, usableHeight, paint)
             canvas.drawText("Belum ada data bulan lalu & ini", canvasWidth / 2, usableHeight / 2, textPaint)
             return
@@ -45,13 +49,13 @@ class QuadVerticalBarChartView(
 
         val xIncLast = spacing
         val hIncLast = (incLast / maxVal) * usableHeight
-        paint.color = Color.parseColor("#38BDF8")
+        paint.color = Color.parseColor("#38BDF8") // Tetap biru terang
         rectF.set(xIncLast, usableHeight - hIncLast, xIncLast + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
 
         val xIncThis = xIncLast + barWidth + (spacing / 2)
         val hIncThis = (incThis / maxVal) * usableHeight
-        paint.color = Color.parseColor("#0284C7")
+        paint.color = Color.parseColor("#0284C7") // Tetap biru gelap
         rectF.set(xIncThis, usableHeight - hIncThis, xIncThis + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
         
@@ -59,17 +63,16 @@ class QuadVerticalBarChartView(
 
         val xExpLast = xIncThis + barWidth + (spacing * 2.2f)
         val hExpLast = (expLast / maxVal) * usableHeight
-        paint.color = Color.parseColor("#FDA4AF")
+        paint.color = Color.parseColor("#FDA4AF") // Tetap pink
         rectF.set(xExpLast, usableHeight - hExpLast, xExpLast + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
 
         val xExpThis = xExpLast + barWidth + (spacing / 2)
         val hExpThis = (expThis / maxVal) * usableHeight
-        paint.color = Color.parseColor("#F43F5E")
+        paint.color = Color.parseColor("#F43F5E") // Tetap merah
         rectF.set(xExpThis, usableHeight - hExpThis, xExpThis + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
 
         canvas.drawText("Pengeluaran", (xExpLast + xExpThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
     }
 }
-
