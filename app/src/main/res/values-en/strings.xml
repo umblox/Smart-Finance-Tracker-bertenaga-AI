@@ -23,6 +23,7 @@
     <string name="settings_manage_category">🗂️ Manage Categories</string>
     <string name="settings_recurring_tx">⏳ Recurring Transactions</string>
     <string name="settings_export_csv">📄 Export CSV Report</string>
+    <string name="settings_export_pdf">🖨️ Export PDF Report (Print)</string>
     
     <!-- Security Group -->
     <string name="settings_security_group">Security</string>
