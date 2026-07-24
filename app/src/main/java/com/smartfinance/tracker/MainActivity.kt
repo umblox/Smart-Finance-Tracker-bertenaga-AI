@@ -14,6 +14,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.smartfinance.tracker.ui.dashboard.DashboardFragment
 import com.smartfinance.tracker.ui.chat.ChatFragment
@@ -79,7 +80,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSetupRequiredDialog() {
-        AlertDialog.Builder(this)
+        MaterialAlertDialog.Builder(this)
             .setTitle("⚙️ Persiapan Aplikasi")
             .setMessage("Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan File Database (google-services.json) dan API Key Mesin AI terlebih dahulu.")
             .setCancelable(false)
