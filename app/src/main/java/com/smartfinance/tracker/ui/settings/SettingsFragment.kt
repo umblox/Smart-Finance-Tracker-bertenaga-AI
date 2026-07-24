@@ -2,19 +2,23 @@ package com.smartfinance.tracker.ui.settings
 
 import android.app.AlertDialog
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.ai.AIClient
@@ -29,6 +33,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,7 +44,9 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: SettingsViewModel
-    private var isUserInteracting = false // Mencegah loop ganda saat inisialisasi spinner
+    private var isUserInteracting = false
+
+    private val formatRp = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -54,7 +61,7 @@ class SettingsFragment : Fragment() {
                 val activity = requireActivity()
                 if (activity is MainActivity) activity.reinitializeFirebase()
                 
-                Toast.makeText(requireContext(), "✅ Database di-load!", Toast.LENGTH_SHORT).show()
+                Snackbar.make(binding.root, "✅ Database di-load!", Snackbar.LENGTH_SHORT).show()
             } catch (e: Exception) {}
         }
     }
@@ -83,8 +90,22 @@ class SettingsFragment : Fragment() {
                         os.write(sb.toString().toByteArray())
                     }
                     
-                    withContext(Dispatchers.Main) { Toast.makeText(requireContext(), "✅ Backup CSV berhasil disimpan!", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Snackbar.make(binding.root, "✅ Backup CSV disimpan!", Snackbar.LENGTH_LONG).show() }
                 } catch (e: Exception) {}
+            }
+        }
+    }
+
+    // PELUNCUR UNTUK MENYIMPAN FILE PDF
+    private val exportPdfLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        uri?.let { fileUri ->
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    generatePdfReport(fileUri)
+                    withContext(Dispatchers.Main) { Snackbar.make(binding.root, "✅ Laporan PDF berhasil dibuat!", Snackbar.LENGTH_LONG).show() }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { Snackbar.make(binding.root, "❌ Gagal membuat PDF", Snackbar.LENGTH_LONG).show() }
+                }
             }
         }
     }
@@ -100,10 +121,8 @@ class SettingsFragment : Fragment() {
         viewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
 
-        // Setup Spinners for Theme & Language
         setupThemeAndLanguageSpinners()
 
-        // Bind Biometric State
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isBiometricEnabled.collect { isEnabled ->
                 if (binding.switchBiometric.isChecked != isEnabled) binding.switchBiometric.isChecked = isEnabled
@@ -119,11 +138,87 @@ class SettingsFragment : Fragment() {
             exportCsvLauncher.launch("SmartFinance_Backup_${sdf.format(Date())}.csv")
         }
 
+        // AKSI KLIK UNTUK PDF
+        binding.menuExportPdf.setOnClickListener {
+            val sdf = SimpleDateFormat("yyyyMMdd", Locale("id", "ID"))
+            exportPdfLauncher.launch("SmartFinance_Report_${sdf.format(Date())}.pdf")
+        }
+
         binding.menuManageCategories.setOnClickListener { CategoryManagerDialog().show(parentFragmentManager, "CategoryManagerDialog") }
         binding.menuBudgeting.setOnClickListener { com.smartfinance.tracker.ui.budget.BudgetManagerDialog().show(parentFragmentManager, "BudgetManagerDialog") }
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
         setupAiDialogs(prefs)
+    }
+
+    // FUNGSI INTI PEMBUAT PDF
+    private suspend fun generatePdfReport(fileUri: android.net.Uri) {
+        val db = FirebaseManager.getFirestore()
+        // Ambil 100 transaksi terbaru untuk menghemat memori saat generate PDF
+        val txSnap = db.collection("transactions").orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(100).get().await()
+        
+        val pdfDocument = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // Ukuran A4 standar
+        val page = pdfDocument.startPage(pageInfo)
+        val canvas: Canvas = page.canvas
+        
+        val titlePaint = Paint().apply { textSize = 18f; isFakeBoldText = true; color = Color.BLACK }
+        val headerPaint = Paint().apply { textSize = 12f; isFakeBoldText = true; color = Color.BLACK }
+        val textPaint = Paint().apply { textSize = 10f; color = Color.DKGRAY }
+        val linePaint = Paint().apply { color = Color.LTGRAY; strokeWidth = 1f }
+
+        val sdf = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
+        var startY = 50f
+        
+        // Judul Dokumen
+        canvas.drawText("Laporan Transaksi Smart Finance (100 Terbaru)", 50f, startY, titlePaint)
+        startY += 20f
+        canvas.drawText("Dicetak pada: ${sdf.format(Date())}", 50f, startY, textPaint)
+        startY += 40f
+
+        // Header Tabel
+        canvas.drawText("Tanggal", 50f, startY, headerPaint)
+        canvas.drawText("Kategori", 150f, startY, headerPaint)
+        canvas.drawText("Catatan", 280f, startY, headerPaint)
+        canvas.drawText("Nominal", 450f, startY, headerPaint)
+        startY += 10f
+        canvas.drawLine(50f, startY, 545f, startY, linePaint)
+        startY += 20f
+
+        // Isi Tabel
+        for (doc in txSnap.documents) {
+            val date = sdf.format(Date(doc.getLong("timestamp") ?: 0L))
+            val cat = doc.getString("categoryName") ?: "-"
+            var note = doc.getString("note") ?: "-"
+            if (note.length > 25) note = note.substring(0, 22) + "..." // Truncate text panjang
+            
+            val type = doc.getString("type") ?: ""
+            val amt = doc.getDouble("amount") ?: 0.0
+            val prefix = if (type == "EXPENSE") "-" else "+"
+            val formattedAmt = "$prefix${formatRp.format(amt)}"
+
+            canvas.drawText(date, 50f, startY, textPaint)
+            canvas.drawText(cat, 150f, startY, textPaint)
+            canvas.drawText(note, 280f, startY, textPaint)
+            
+            textPaint.color = if (type == "EXPENSE") Color.RED else Color.parseColor("#006400") // Hijau gelap
+            canvas.drawText(formattedAmt, 450f, startY, textPaint)
+            textPaint.color = Color.DKGRAY // Kembalikan ke warna asli
+            
+            startY += 20f
+            
+            // Paginasi: Hentikan jika kertas penuh
+            if (startY > 800f) {
+                canvas.drawText("... (Lanjut ke halaman berikutnya - Tidak didukung pada versi ini)", 50f, startY, textPaint)
+                break
+            }
+        }
+        
+        pdfDocument.finishPage(page)
+        requireContext().contentResolver.openOutputStream(fileUri)?.use { os ->
+            pdfDocument.writeTo(os)
+        }
+        pdfDocument.close()
     }
 
     private fun setupThemeAndLanguageSpinners() {
@@ -141,7 +236,6 @@ class SettingsFragment : Fragment() {
         val currentLangIndex = langValues.indexOf(viewModel.appLanguage.value).takeIf { it >= 0 } ?: 0
         binding.spinnerLanguage.setSelection(currentLangIndex)
 
-        // Listeners for Selection
         binding.spinnerTheme.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (!isUserInteracting) return
@@ -155,14 +249,11 @@ class SettingsFragment : Fragment() {
                 if (!isUserInteracting) return
                 val selectedLang = langValues[position]
                 viewModel.setLanguage(selectedLang)
-                
-                // Menerapkan perubahan bahasa secara global di AndroidX 
                 AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selectedLang))
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Mencegah trigger saat inisialisasi awal
         binding.spinnerTheme.setOnTouchListener { _, _ -> isUserInteracting = true; false }
         binding.spinnerLanguage.setOnTouchListener { _, _ -> isUserInteracting = true; false }
     }
@@ -188,7 +279,7 @@ class SettingsFragment : Fragment() {
                 prefs.edit().putString("ai_model", aiModelsValue[dialogBinding.spinnerAiModel.selectedItemPosition])
                     .putString("ai_api_key", dialogBinding.etApiKey.text.toString().trim()).apply()
                 (requireActivity() as? MainActivity)?.reinitializeFirebase()
-                Toast.makeText(context, "AI Config Saved!", Toast.LENGTH_SHORT).show()
+                Snackbar.make(binding.root, "AI Config Saved!", Snackbar.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
             dialog.show()
