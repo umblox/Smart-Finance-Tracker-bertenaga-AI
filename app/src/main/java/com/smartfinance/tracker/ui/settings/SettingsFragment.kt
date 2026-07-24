@@ -225,14 +225,22 @@ class SettingsFragment : Fragment() {
         val themeNames = listOf(getString(R.string.theme_system), getString(R.string.theme_light), getString(R.string.theme_dark))
         val themeValues = listOf(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM, AppCompatDelegate.MODE_NIGHT_NO, AppCompatDelegate.MODE_NIGHT_YES)
         
-        binding.spinnerTheme.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, themeNames)
+        // 🔥 MENGGUNAKAN LAYOUT CUSTOM (R.layout.item_spinner)
+        val themeAdapter = ArrayAdapter(requireContext(), R.layout.item_spinner, themeNames)
+        themeAdapter.setDropDownViewResource(R.layout.item_spinner)
+        binding.spinnerTheme.adapter = themeAdapter
+        
         val currentThemeIndex = themeValues.indexOf(viewModel.themeMode.value).takeIf { it >= 0 } ?: 0
         binding.spinnerTheme.setSelection(currentThemeIndex)
 
         val langNames = listOf("🇮🇩 Indonesia", "🇬🇧 English")
         val langValues = listOf("id", "en")
         
-        binding.spinnerLanguage.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, langNames)
+        // 🔥 MENGGUNAKAN LAYOUT CUSTOM (R.layout.item_spinner)
+        val langAdapter = ArrayAdapter(requireContext(), R.layout.item_spinner, langNames)
+        langAdapter.setDropDownViewResource(R.layout.item_spinner)
+        binding.spinnerLanguage.adapter = langAdapter
+        
         val currentLangIndex = langValues.indexOf(viewModel.appLanguage.value).takeIf { it >= 0 } ?: 0
         binding.spinnerLanguage.setSelection(currentLangIndex)
 
