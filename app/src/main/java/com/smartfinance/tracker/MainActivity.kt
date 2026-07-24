@@ -5,10 +5,10 @@ import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate // ✅ IMPORT BARU UNTUK TEMA
+import androidx.appcompat.app.AppCompatDelegate 
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
-import androidx.core.os.LocaleListCompat // ✅ IMPORT BARU UNTUK BAHASA
+import androidx.core.os.LocaleListCompat 
 import androidx.fragment.app.Fragment
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -21,8 +21,6 @@ import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.utils.FirebaseManager
-
-// 🔥 INI JALUR IMPORT YANG BENAR (MENGARAH KE FOLDER UTILS)
 import com.smartfinance.tracker.utils.RecurringTxWorker 
 
 class MainActivity : AppCompatActivity() {
@@ -77,7 +75,6 @@ class MainActivity : AppCompatActivity() {
                     prefs.edit().putBoolean("use_biometric", cloudBiometric).apply()
                 }
             }
-            // 🔥 SISA KODE LAMA YANG BIKIN ERROR SUDAH DIBERSIHKAN
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -93,9 +90,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // ==========================================
-        // ✅ INJEKSI TEMA DAN BAHASA SEBELUM TAMPILAN DIGAMBAR
-        // ==========================================
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
         val savedTheme = prefs.getInt("app_theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
@@ -105,21 +99,16 @@ class MainActivity : AppCompatActivity() {
         if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != savedLang) {
             AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(savedLang))
         }
-        // ==========================================
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // ==========================================
-        // 🔥 ALARM WORKMANAGER (AKAN BEKERJA OTOMATIS)
-        // ==========================================
         val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "RecurringTransactionWorker",
             ExistingPeriodicWorkPolicy.KEEP, 
             workRequest
         )
-        // ==========================================
 
         checkBiometric()
         
@@ -129,12 +118,10 @@ class MainActivity : AppCompatActivity() {
         if (!hasFirebaseJson || !isAiConfigured) {
             showSetupRequiredDialog()
         } else {
-            // Inisialisasi Firebase di background, jangan pakai hasilnya untuk blokir UI
             reinitializeFirebase()
         }
 
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
-        bottomNavigation.menu.findItem(R.id.menu_report)?.title = "Transaksi"
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
