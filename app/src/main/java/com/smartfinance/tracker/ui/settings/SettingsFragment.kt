@@ -225,7 +225,6 @@ class SettingsFragment : Fragment() {
         val themeNames = listOf(getString(R.string.theme_system), getString(R.string.theme_light), getString(R.string.theme_dark))
         val themeValues = listOf(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM, AppCompatDelegate.MODE_NIGHT_NO, AppCompatDelegate.MODE_NIGHT_YES)
         
-        // 🔥 KEMBALI MENGGUNAKAN LAYOUT PINTAR BAWAAN ANDROID
         val themeAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, themeNames)
         themeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerTheme.adapter = themeAdapter
@@ -236,7 +235,6 @@ class SettingsFragment : Fragment() {
         val langNames = listOf("🇮🇩 Indonesia", "🇬🇧 English")
         val langValues = listOf("id", "en")
         
-        // 🔥 KEMBALI MENGGUNAKAN LAYOUT PINTAR BAWAAN ANDROID
         val langAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, langNames)
         langAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerLanguage.adapter = langAdapter
@@ -247,7 +245,17 @@ class SettingsFragment : Fragment() {
         binding.spinnerTheme.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (!isUserInteracting) return
-                viewModel.setThemeMode(themeValues[position])
+                val selectedTheme = themeValues[position]
+                
+                // 1. Simpan pilihan tema secara sinkron (instan)
+                requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                    .edit().putInt("app_theme", selectedTheme).commit()
+                viewModel.setThemeMode(selectedTheme)
+                
+                // 2. Beri jeda 150ms agar dropdown tertutup dulu sebelum tema diganti
+                binding.spinnerTheme.postDelayed({
+                    AppCompatDelegate.setDefaultNightMode(selectedTheme)
+                }, 150)
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -256,8 +264,16 @@ class SettingsFragment : Fragment() {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (!isUserInteracting) return
                 val selectedLang = langValues[position]
+                
+                // 1. Simpan pilihan bahasa secara sinkron (instan)
+                requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                    .edit().putString("app_language", selectedLang).commit()
                 viewModel.setLanguage(selectedLang)
-                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selectedLang))
+                
+                // 2. Beri jeda 150ms agar dropdown tertutup dulu sebelum aplikasi restart
+                binding.spinnerLanguage.postDelayed({
+                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selectedLang))
+                }, 150)
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
