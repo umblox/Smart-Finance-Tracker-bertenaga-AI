@@ -1,9 +1,11 @@
 package com.smartfinance.tracker.ui.transaction
 
 import androidx.lifecycle.ViewModel
+import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.DebtRepository
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import com.smartfinance.tracker.utils.FirebaseManager
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
 import java.util.ArrayList
 import java.util.HashMap
@@ -12,7 +14,14 @@ class TransactionViewModel : ViewModel() {
     private val txRepository = TransactionRepository()
     private val debtRepository = DebtRepository()
 
-    // Mengambil kategori khusus untuk ditampilkan di Spinner/Dropdown Dialog
+    // Membuka akses aliran data riwayat transaksi untuk UI
+    val transactions: StateFlow<List<Transaction>> = txRepository.transactions
+
+    init {
+        // Mulai mendengarkan database secara real-time saat ViewModel dipanggil
+        txRepository.startListening()
+    }
+
     suspend fun getCategoriesForDropdown(): List<Map<String, Any>> {
         val firestore = FirebaseManager.getFirestore()
         val snapshot = firestore.collection("categories").get().await()
@@ -34,7 +43,6 @@ class TransactionViewModel : ViewModel() {
         txRepository.deleteTransaction(txId)
     }
 
-    // Delegasi tugas ke DebtRepository jika transaksi melibatkan Utang/Piutang
     suspend fun saveDebt(debtId: String, debtMap: HashMap<String, Any>) {
         debtRepository.saveDebt(debtId, debtMap)
     }
@@ -51,5 +59,10 @@ class TransactionViewModel : ViewModel() {
 
     suspend fun deleteDebt(debtId: String) {
         debtRepository.deleteDebt(debtId)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        txRepository.stopListening()
     }
 }
