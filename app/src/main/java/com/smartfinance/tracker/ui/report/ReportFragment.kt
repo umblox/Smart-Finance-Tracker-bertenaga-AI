@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ui.report
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -10,9 +9,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.FragmentReportBinding
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -25,6 +26,8 @@ class ReportFragment : Fragment() {
 
     private lateinit var viewModel: ReportViewModel
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+
+    private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentReportBinding.inflate(inflater, container, false)
@@ -55,7 +58,7 @@ class ReportFragment : Fragment() {
         binding.tvReportIncome.text = "Pemasukan: ${formatRupiah.format(state.incomeThisMonth)}"
         binding.tvReportExpense.text = "Pengeluaran: ${formatRupiah.format(state.expenseThisMonth)}"
         binding.tvReportNet.text = "Sisa Bersih: ${formatRupiah.format(state.netBalance)}"
-        binding.tvReportNet.setTextColor(if (state.netBalance >= 0) Color.parseColor("#0D9488") else Color.parseColor("#F43F5E"))
+        binding.tvReportNet.setTextColor(if (state.netBalance >= 0) getThemeColor(R.color.income_green) else getThemeColor(R.color.expense_red))
 
         // 2. Update Chart
         binding.chartContainer.removeAllViews()
@@ -71,7 +74,7 @@ class ReportFragment : Fragment() {
         if (!state.hasData || state.topExpenses.isEmpty()) {
             binding.topBorosContainer.addView(TextView(requireContext()).apply { 
                 text = "Belum ada pengeluaran bulan ini."
-                setTextColor(Color.GRAY); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER 
+                setTextColor(getThemeColor(R.color.text_secondary)); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER 
             })
         } else {
             state.topExpenses.forEach { (catName, amt) ->
@@ -83,18 +86,18 @@ class ReportFragment : Fragment() {
                 val centerInfo = LinearLayout(requireContext()).apply { 
                     orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
-                centerInfo.addView(TextView(requireContext()).apply { text = catName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                centerInfo.addView(TextView(requireContext()).apply { text = formatRupiah.format(amt); setTextColor(Color.parseColor("#64748B")); textSize = 12f; setPadding(0, 2, 0, 0) })
+                centerInfo.addView(TextView(requireContext()).apply { text = catName; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(null, Typeface.BOLD); textSize = 14f })
+                centerInfo.addView(TextView(requireContext()).apply { text = formatRupiah.format(amt); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 12f; setPadding(0, 2, 0, 0) })
                 
                 rowLayout.addView(centerInfo)
                 rowLayout.addView(TextView(requireContext()).apply { 
                     text = "$pct%"
-                    setTextColor(Color.parseColor("#F43F5E"))
+                    setTextColor(getThemeColor(R.color.expense_red))
                     setTypeface(null, Typeface.BOLD); textSize = 14f
                 })
                 binding.topBorosContainer.addView(rowLayout)
                 binding.topBorosContainer.addView(View(requireContext()).apply { 
-                    setBackgroundColor(Color.parseColor("#F1F5F9"))
+                    setBackgroundColor(getThemeColor(R.color.divider_color))
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) 
                 })
             }
