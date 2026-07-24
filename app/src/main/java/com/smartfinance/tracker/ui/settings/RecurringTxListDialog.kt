@@ -2,6 +2,7 @@ package com.smartfinance.tracker.ui.settings
 
 import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.app.Dialog // ✅ FIX: Ini adalah baris yang menyelesaikan masalah!
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -141,7 +142,6 @@ class RecurringTxListDialog : DialogFragment() {
             binding.etAmount.setText(if (doc.amount > 0) doc.amount.toLong().toString() else "")
             binding.etContact.setText(doc.contactName)
 
-            // Cari kategori di daftar
             val allCats = viewModel.categories.value
             selectedCategoryMap = allCats.find { it.id == doc.categoryId }
             binding.btnSelectCategory.text = doc.categoryName
