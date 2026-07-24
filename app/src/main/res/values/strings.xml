@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">Smart Finance Tracker</string>
+    
+    <!-- Menu Settings -->
+    <string name="settings_title">Pengaturan Sistem</string>
+    <string name="settings_theme">Tema Aplikasi</string>
+    <string name="settings_language">Bahasa (Language)</string>
+    <string name="theme_system">Sistem (Otomatis)</string>
+    <string name="theme_light">Terang (Light)</string>
+    <string name="theme_dark">Gelap (Dark)</string>
+    
+    <!-- AI Group -->
+    <string name="settings_ai_group">Kecerdasan Buatan (AI)</string>
+    <string name="settings_ai_config">⚙️ Konfigurasi Mesin AI</string>
+    <string name="settings_ai_config_desc">Pilih model dan atur API Key</string>
+    <string name="settings_ai_expert">🧠 Expert Mode (Prompt)</string>
+    <string name="settings_ai_expert_desc">Modifikasi karakter dan aturan AI</string>
+    
+    <!-- Data Group -->
+    <string name="settings_data_group">Manajemen Data &amp; Cloud</string>
+    <string name="settings_upload_json">☁️ Upload Database (JSON)</string>
+    <string name="settings_upload_json_desc">Hubungkan dengan server Firestore Anda</string>
+    <string name="settings_manage_category">🗂️ Manajemen Kategori</string>
+    <string name="settings_recurring_tx">⏳ Transaksi Berkala</string>
+    <string name="settings_export_csv">📄 Export Laporan CSV</string>
+    
+    <!-- Security Group -->
+    <string name="settings_security_group">Keamanan</string>
+    <string name="settings_biometric">🔒 Kunci Biometrik</string>
+    <string name="settings_biometric_desc">Gunakan sidik jari untuk membuka aplikasi</string>
+</resources>
+
