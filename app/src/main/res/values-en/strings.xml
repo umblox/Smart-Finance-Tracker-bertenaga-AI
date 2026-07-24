@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">Smart Finance Tracker</string>
+    
+    <!-- Menu Settings -->
+    <string name="settings_title">System Settings</string>
+    <string name="settings_theme">App Theme</string>
+    <string name="settings_language">Language (Bahasa)</string>
+    <string name="theme_system">System Default</string>
+    <string name="theme_light">Light Mode</string>
+    <string name="theme_dark">Dark Mode</string>
+    
+    <!-- AI Group -->
+    <string name="settings_ai_group">Artificial Intelligence (AI)</string>
+    <string name="settings_ai_config">⚙️ AI Engine Configuration</string>
+    <string name="settings_ai_config_desc">Select model and set API Key</string>
+    <string name="settings_ai_expert">🧠 Expert Mode (Prompt)</string>
+    <string name="settings_ai_expert_desc">Modify AI behavior and rules</string>
+    
+    <!-- Data Group -->
+    <string name="settings_data_group">Data &amp; Cloud Management</string>
+    <string name="settings_upload_json">☁️ Upload Database (JSON)</string>
+    <string name="settings_upload_json_desc">Connect to your Firestore server</string>
+    <string name="settings_manage_category">🗂️ Manage Categories</string>
+    <string name="settings_recurring_tx">⏳ Recurring Transactions</string>
+    <string name="settings_export_csv">📄 Export CSV Report</string>
+    
+    <!-- Security Group -->
+    <string name="settings_security_group">Security</string>
+    <string name="settings_biometric">🔒 Biometric Lock</string>
+    <string name="settings_biometric_desc">Use fingerprint to unlock app</string>
+</resources>
+
