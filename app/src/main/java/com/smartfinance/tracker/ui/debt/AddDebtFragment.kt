@@ -9,13 +9,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.databinding.FragmentAddDebtBinding
-import com.smartfinance.tracker.data.model.Debt
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -31,7 +31,7 @@ class AddDebtFragment : Fragment() {
     private lateinit var viewModel: DebtViewModel
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val sdfDisplayPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
+    private val sdfDisplayPremium = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentAddDebtBinding.inflate(inflater, container, false)
@@ -43,23 +43,17 @@ class AddDebtFragment : Fragment() {
 
         viewModel = ViewModelProvider(this)[DebtViewModel::class.java]
 
-        // Set Navigasi
         binding.btnPrevMonth.setOnClickListener { viewModel.changeMonth(-1) }
         binding.btnNextMonth.setOnClickListener { viewModel.changeMonth(1) }
 
-        // Set Tab Filter
         binding.btnTabDebt.setOnClickListener { viewModel.changeTab("DEBT") }
         binding.btnTabReceivable.setOnClickListener { viewModel.changeTab("RECEIVABLE") }
 
-        // Set Fab Tambah
         binding.fabAddDebt.setOnClickListener {
-            // Kita pass state currentTab agar ManualDialog tahu sedang di tab mana
             DebtManualDialog(viewModel.uiState.value.currentTab) {
-                // Biarkan kosong, repository di viewModel mendengarkan otomatis
             }.show(parentFragmentManager, "DebtManualDialog")
         }
 
-        // Pantau Perubahan Data
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state ->
                 renderUi(state)
@@ -70,16 +64,16 @@ class AddDebtFragment : Fragment() {
     private fun renderUi(state: DebtUiState) {
         val density = requireContext().resources.displayMetrics.density
 
-        // 1. Update Teks Navigasi & Saldo
+        // Update Label
         binding.tvMonthLabel.text = state.currentMonthLabel
         binding.tvTotalDebt.text = formatRupiah.format(state.totalActiveDebt)
         binding.tvTotalReceivable.text = formatRupiah.format(state.totalActiveReceivable)
 
-        // Simpan waktu aktif untuk sinkronisasi dengan Dashboard (sesuai logika asli)
+        // Simpan waktu aktif
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         prefs.edit().putLong("active_report_time", viewModel.getCurrentTimeInMillis()).apply()
 
-        // 2. Update Style Tab
+        // Tab Styling
         if (state.currentTab == "DEBT") {
             binding.btnTabDebt.apply { setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 10 * density; setColor(Color.parseColor("#1E293B")) } }
             binding.btnTabReceivable.apply { setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL); background = null }
@@ -88,26 +82,28 @@ class AddDebtFragment : Fragment() {
             binding.btnTabDebt.apply { setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL); background = null }
         }
 
-        // 3. Render List
         binding.listContainer.removeAllViews()
 
         if (state.displayedDebts.isEmpty()) {
             binding.listContainer.addView(TextView(requireContext()).apply {
-                text = "\nTidak ada catatan pinjaman pada periode bulan ini."
+                text = "\nBelum ada catatan riwayat pinjaman/utang yang dibuat pada periode bulan ini."
                 textSize = 13.5f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
                 setTypeface(null, Typeface.ITALIC)
             })
             return
         }
 
+        // Render List Dinamis
         state.displayedDebts.forEach { debt ->
+            val paidAmount = debt.amount - debt.remainingAmount
+            val progressPercent = if (debt.amount > 0) ((paidAmount / debt.amount) * 100).toInt() else 0
+            
             val itemCard = MaterialCardView(requireContext()).apply {
-                radius = 14f * density; cardElevation = 1.5f * density; strokeWidth = 0
-                setCardBackgroundColor(Color.WHITE)
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() }
+                radius = 16f * density; cardElevation = 1.5f * density; strokeWidth = 0
+                setCardBackgroundColor(if (debt.isPaid) Color.parseColor("#F8FAFC") else Color.WHITE) // Bedakan warna jika lunas
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (12f * density).toInt() }
                 
                 setOnClickListener {
-                    // Menerjemahkan Object Debt kembali ke HashMap untuk kompabilitas DebtEditorDialog lama
                     val passMap = HashMap<String, Any>().apply {
                         put("id", debt.id)
                         put("contactName", debt.contactName)
@@ -119,38 +115,73 @@ class AddDebtFragment : Fragment() {
                         put("note", debt.note)
                     }
                     DebtEditorDialog(passMap) { 
-                        // Kosong karena ViewModel otomatis update
                     }.show(parentFragmentManager, "DebtEditorDialog")
                 }
             }
 
-            val rowLayout = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            // Container Utama Card
+            val masterContainer = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
                 setPadding((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt())
             }
 
-            // Kiri: Info Nama dan Tanggal
-            val leftLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-            leftLayout.addView(TextView(requireContext()).apply { text = debt.contactName; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
-            leftLayout.addView(TextView(requireContext()).apply { text = "📅 ${sdfDisplayPremium.format(Date(debt.timestamp))}"; textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, (4f * density).toInt(), 0, 0) })
-            leftLayout.addView(TextView(requireContext()).apply { text = "Total Pinjaman: ${formatRupiah.format(debt.amount)}"; textSize = 12f; setTextColor(Color.parseColor("#64748B")); setPadding(0, (2f * density).toInt(), 0, 0) })
-            rowLayout.addView(leftLayout)
+            // Baris 1: Nama dan Status Lunas/Sisa
+            val rowTop = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            
+            val leftTop = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+            leftTop.addView(TextView(requireContext()).apply { text = debt.contactName; textSize = 16f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B")) })
+            leftTop.addView(TextView(requireContext()).apply { text = "📅 ${sdfDisplayPremium.format(Date(debt.timestamp))}"; textSize = 11.5f; setTextColor(Color.parseColor("#94A3B8")) })
+            rowTop.addView(leftTop)
 
-            // Kanan: Status Tagihan
-            val rightLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
             if (debt.isPaid) {
-                rightLayout.addView(TextView(requireContext()).apply { text = "LUNAS ✅"; textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#10B981")) })
+                val badgeLunas = TextView(requireContext()).apply { 
+                    text = "LUNAS ✅"
+                    textSize = 12f; setTypeface(null, Typeface.BOLD)
+                    setTextColor(Color.parseColor("#059669"))
+                    background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 20f * density; setColor(Color.parseColor("#D1FAE5")) }
+                    setPadding((10*density).toInt(), (4*density).toInt(), (10*density).toInt(), (4*density).toInt())
+                }
+                rowTop.addView(badgeLunas)
             } else {
-                rightLayout.addView(TextView(requireContext()).apply { text = "Sisa Tagihan"; textSize = 11f; setTextColor(Color.parseColor("#94A3B8")) })
-                rightLayout.addView(TextView(requireContext()).apply {
+                val rightTop = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+                rightTop.addView(TextView(requireContext()).apply { text = "SISA TAGIHAN"; textSize = 10f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#94A3B8")) })
+                rightTop.addView(TextView(requireContext()).apply {
                     text = formatRupiah.format(debt.remainingAmount)
                     textSize = 15f; setTypeface(null, Typeface.BOLD)
                     setTextColor(if (state.currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
                 })
+                rowTop.addView(rightTop)
             }
-            rowLayout.addView(rightLayout)
+            masterContainer.addView(rowTop)
+
+            // Garis Pembatas
+            masterContainer.addView(View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply { setMargins(0, (12*density).toInt(), 0, (12*density).toInt()) }
+                setBackgroundColor(Color.parseColor("#F1F5F9"))
+            })
+
+            // Baris 2: Total Pinjaman & Progress
+            val rowBottom = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
             
-            itemCard.addView(rowLayout)
+            val infoBottom = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT) }
+            infoBottom.addView(TextView(requireContext()).apply { text = "Total Pinjaman: ${formatRupiah.format(debt.amount)}"; textSize = 12f; setTextColor(Color.parseColor("#475569")); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+            infoBottom.addView(TextView(requireContext()).apply { text = "$progressPercent% Terbayar"; textSize = 11f; setTextColor(Color.parseColor("#64748B")) })
+            rowBottom.addView(infoBottom)
+
+            // Progress Bar
+            val progressBar = ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (6f * density).toInt()).apply { topMargin = (6f*density).toInt() }
+                progressDrawable = ContextCompat.getDrawable(context, com.google.android.material.R.drawable.design_snackbar_background) // Placeholder style, kita pakai tint
+                progress = progressPercent
+                max = 100
+                progressTintList = android.content.res.ColorStateList.valueOf(if (state.currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#E2E8F0"))
+            }
+            rowBottom.addView(progressBar)
+
+            masterContainer.addView(rowBottom)
+
+            itemCard.addView(masterContainer)
             binding.listContainer.addView(itemCard)
         }
     }
