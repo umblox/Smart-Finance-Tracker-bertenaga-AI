@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSetupRequiredDialog() {
-        MaterialAlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("⚙️ Persiapan Aplikasi")
             .setMessage("Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan File Database (google-services.json) dan API Key Mesin AI terlebih dahulu.")
             .setCancelable(false)
