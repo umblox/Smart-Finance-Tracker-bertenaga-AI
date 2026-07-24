@@ -23,6 +23,7 @@
     <string name="settings_manage_category">🗂️ Manajemen Kategori</string>
     <string name="settings_recurring_tx">⏳ Transaksi Berkala</string>
     <string name="settings_export_csv">📄 Export Laporan CSV</string>
+    <string name="settings_export_pdf">🖨️ Export Laporan PDF (Cetak)</string>
     
     <!-- Security Group -->
     <string name="settings_security_group">Keamanan</string>
