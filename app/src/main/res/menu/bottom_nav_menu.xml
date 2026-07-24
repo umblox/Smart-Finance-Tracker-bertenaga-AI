@@ -3,21 +3,21 @@
     <item
         android:id="@+id/menu_dashboard"
         android:icon="@android:drawable/ic_dialog_dialer"
-        android:title="Beranda" />
+        android:title="@string/nav_home" />
     <item
         android:id="@+id/menu_chat"
         android:icon="@android:drawable/ic_menu_send"
-        android:title="AI Asisten" />
+        android:title="@string/nav_ai_assistant" />
     <item
         android:id="@+id/menu_report"
         android:icon="@android:drawable/ic_menu_sort_by_size"
-        android:title="Transaksi" />
+        android:title="@string/nav_transaction" />
     <item
         android:id="@+id/menu_debt"
         android:icon="@android:drawable/ic_menu_agenda"
-        android:title="Buku Utang" />
+        android:title="@string/nav_debt" />
     <item
         android:id="@+id/menu_settings"
         android:icon="@android:drawable/ic_menu_preferences"
-        android:title="Pengaturan" />
+        android:title="@string/nav_settings" />
 </menu>
