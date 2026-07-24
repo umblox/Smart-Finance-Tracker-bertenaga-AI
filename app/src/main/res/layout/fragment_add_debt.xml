@@ -10,17 +10,16 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Header -->
+        <!-- 1. HEADER UTAMA -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:paddingStart="20dp"
             android:paddingTop="24dp"
             android:paddingEnd="20dp"
             android:paddingBottom="14dp">
-
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -31,70 +30,25 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Navigasi Bulan -->
+        <!-- 2. SUMMARY GLOBAL (Seluruh Waktu) ditaruh di ATAS -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="14dp">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnPrevMonth"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="◀"
-                app:cornerRadius="10dp"
-                app:backgroundTint="@color/divider_color"
-                android:textColor="@color/text_secondary"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minWidth="0dp"
-                android:padding="8dp"/>
-
-            <TextView
-                android:id="@+id/tvMonthLabel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnNextMonth"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▶"
-                app:cornerRadius="10dp"
-                app:backgroundTint="@color/divider_color"
-                android:textColor="@color/text_secondary"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minWidth="0dp"
-                android:padding="8dp"/>
-        </LinearLayout>
-
-        <!-- Summary Cards -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:baselineAligned="false"
+            android:orientation="horizontal"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
             android:paddingBottom="16dp">
 
-            <!-- Card Hutang -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:layout_marginEnd="6dp"
-                app:cardBackgroundColor="@color/surface_white">
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/surface_white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -103,7 +57,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Hutang Aktif Saya"
+                        android:text="Sisa Utang Saya (Global)"
                         android:textColor="@color/text_secondary"
                         android:textSize="11.5sp" />
                     <TextView
@@ -113,18 +67,20 @@
                         android:layout_marginTop="4dp"
                         android:text="Rp 0"
                         android:textColor="@color/debt_orange"
-                        android:textSize="15.5sp"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Card Piutang -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:layout_marginStart="6dp"
-                app:cardBackgroundColor="@color/surface_white">
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/surface_white"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -133,7 +89,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Piutang Aktif"
+                        android:text="Uang Saya di Orang (Global)"
                         android:textColor="@color/text_secondary"
                         android:textSize="11.5sp" />
                     <TextView
@@ -143,24 +99,23 @@
                         android:layout_marginTop="4dp"
                         android:text="Rp 0"
                         android:textColor="@color/receivable_blue"
-                        android:textSize="15.5sp"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
-        <!-- Tab Filters -->
+        <!-- 3. TAB FILTER -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:orientation="horizontal"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="16dp"
             android:background="@drawable/bubble_ai_premium"
             android:backgroundTint="@color/divider_color"
+            android:orientation="horizontal"
             android:padding="4dp">
-
             <TextView
                 android:id="@+id/btnTabDebt"
                 android:layout_width="0dp"
@@ -169,7 +124,6 @@
                 android:gravity="center"
                 android:text="Hutang Saya"
                 android:textSize="13sp" />
-
             <TextView
                 android:id="@+id/btnTabReceivable"
                 android:layout_width="0dp"
@@ -180,7 +134,65 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- Data List Container -->
+        <!-- 4. NAVIGASI BULAN (Diturunkan ke bawah, menjadi milik Daftar History) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPrevMonth"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="◀"
+                android:textColor="@color/text_secondary"
+                app:backgroundTint="@color/divider_color"
+                app:cornerRadius="10dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Riwayat Bulan:"
+                    android:textSize="11sp"
+                    android:textColor="@color/text_secondary"/>
+                <TextView
+                    android:id="@+id/tvMonthLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnNextMonth"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="▶"
+                android:textColor="@color/text_secondary"
+                app:backgroundTint="@color/divider_color"
+                app:cornerRadius="10dp" />
+        </LinearLayout>
+
+        <!-- 5. DAFTAR LIST -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -196,6 +208,7 @@
         </ScrollView>
     </LinearLayout>
 
+    <!-- FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddDebt"
         android:layout_width="wrap_content"
