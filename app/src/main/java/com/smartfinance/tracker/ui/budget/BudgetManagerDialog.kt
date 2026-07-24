@@ -1,10 +1,9 @@
 package com.smartfinance.tracker.ui.budget
 
 import android.app.AlertDialog
-import android.app.Dialog
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -15,7 +14,6 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.snackbar.Snackbar
 import com.smartfinance.tracker.R
@@ -26,6 +24,7 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.HashMap
 
 class BudgetManagerDialog : DialogFragment() {
 
@@ -46,9 +45,15 @@ class BudgetManagerDialog : DialogFragment() {
         dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        _binding = DialogBudgetManagerBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+    // 1. PINDAHKAN INFLATE KE onCreateView
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = DialogBudgetManagerBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    // 2. PINDAHKAN LOGIKA KE onViewCreated (DI SINI viewLifecycleOwner SUDAH AMAN!)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProvider(this)[BudgetViewModel::class.java]
 
@@ -68,7 +73,6 @@ class BudgetManagerDialog : DialogFragment() {
             }
             
             launch {
-                // Render Ulang List saat Budget atau Transaksi berubah
                 viewModel.budgets.collect { budgets -> renderBudgets(budgets) }
             }
             
@@ -76,8 +80,6 @@ class BudgetManagerDialog : DialogFragment() {
                 viewModel.transactions.collect { renderBudgets(viewModel.budgets.value) }
             }
         }
-
-        return dialog
     }
 
     private fun openFormMode(budget: Budget?) {
@@ -110,12 +112,11 @@ class BudgetManagerDialog : DialogFragment() {
             binding.listContainer.addView(TextView(requireContext()).apply { 
                 text = "Belum ada anggaran yang diatur.\nKlik tombol di bawah untuk membuat baru."
                 setTextColor(getThemeColor(R.color.text_secondary)); textSize = 13f
-                textAlignment = View.TEXT_ALIGNMENT_CENTER; setPadding(0, 40, 0, 40) 
+                textAlignment = View.TEXT_ALIGNMENT_CENTER; setPadding(0, (40 * density).toInt(), 0, (40 * density).toInt()) 
             })
             return
         }
 
-        // Ambil transaksi pengeluaran khusus bulan ini
         val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
         val currentYear = Calendar.getInstance().get(Calendar.YEAR)
         
@@ -125,13 +126,12 @@ class BudgetManagerDialog : DialogFragment() {
         }
 
         budgets.forEach { budget ->
-            // Hitung pengeluaran untuk kategori anggaran ini
             val spentAmount = currentMonthExpenses.filter { it.categoryId == budget.categoryId }.sumOf { it.amount }
             val progressPercent = if (budget.limitAmount > 0) ((spentAmount / budget.limitAmount) * 100).toInt() else 0
             val isOverBudget = spentAmount > budget.limitAmount
 
             val card = MaterialCardView(requireContext()).apply {
-                radius = 12 * density; cardElevation = 1 * density; setCardBackgroundColor(getThemeColor(R.color.background_color))
+                radius = 12 * density; cardElevation = 1 * density; setCardBackgroundColor(getThemeColor(R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
                 setOnClickListener { openFormMode(budget) }
             }
