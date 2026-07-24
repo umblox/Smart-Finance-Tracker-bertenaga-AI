@@ -22,7 +22,7 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <!-- TEMA & BAHASA (FITUR BARU) -->
+        <!-- TEMA & BAHASA -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -30,7 +30,6 @@
             android:layout_marginBottom="20dp"
             android:weightSum="2">
             
-            <!-- Pilih Tema -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -60,7 +59,6 @@
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
-            <!-- Pilih Bahasa -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -163,6 +161,11 @@
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
                 <LinearLayout android:id="@+id/menuExportCsv" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_export_csv" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
+                </LinearLayout>
+                <!-- MENU PDF BARU -->
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
+                <LinearLayout android:id="@+id/menuExportPdf" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_export_pdf" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
