@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.content.ContextCompat // ✅ FIX: Baris ini yang menyelesaikan error
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -100,7 +101,7 @@ class AddDebtFragment : Fragment() {
             
             val itemCard = MaterialCardView(requireContext()).apply {
                 radius = 16f * density; cardElevation = 1.5f * density; strokeWidth = 0
-                setCardBackgroundColor(if (debt.isPaid) Color.parseColor("#F8FAFC") else Color.WHITE) // Bedakan warna jika lunas
+                setCardBackgroundColor(if (debt.isPaid) Color.parseColor("#F8FAFC") else Color.WHITE) 
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (12f * density).toInt() }
                 
                 setOnClickListener {
@@ -171,7 +172,7 @@ class AddDebtFragment : Fragment() {
             // Progress Bar
             val progressBar = ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (6f * density).toInt()).apply { topMargin = (6f*density).toInt() }
-                progressDrawable = ContextCompat.getDrawable(context, com.google.android.material.R.drawable.design_snackbar_background) // Placeholder style, kita pakai tint
+                progressDrawable = ContextCompat.getDrawable(context, com.google.android.material.R.drawable.design_snackbar_background) 
                 progress = progressPercent
                 max = 100
                 progressTintList = android.content.res.ColorStateList.valueOf(if (state.currentTab == "DEBT") Color.parseColor("#D97706") else Color.parseColor("#0284C7"))
