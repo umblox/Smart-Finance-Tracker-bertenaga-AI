@@ -165,7 +165,7 @@
                     android:layout_height="wrap_content"
                     android:paddingBottom="12dp"
                     android:text="💡 Statistik Pengeluaran Bulan Ini"
-                    android:textColor="#F59E0B"
+                    android:textColor="@color/debt_orange"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
@@ -175,7 +175,7 @@
                     android:layout_height="wrap_content"
                     android:paddingBottom="8dp"
                     android:text="Rata-rata pengeluaran harian: Menghitung..."
-                    android:textColor="#334155"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp" />
 
                 <TextView
@@ -183,7 +183,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Proyeksi total pengeluaran akhir bulan: Menghitung..."
-                    android:textColor="#334155"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
