@@ -6,13 +6,17 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.MainActivity
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.ai.AIClient
 import com.smartfinance.tracker.databinding.DialogApiConfigBinding
 import com.smartfinance.tracker.databinding.DialogExpertModeBinding
@@ -35,6 +39,7 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: SettingsViewModel
+    private var isUserInteracting = false // Mencegah loop ganda saat inisialisasi spinner
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -49,10 +54,8 @@ class SettingsFragment : Fragment() {
                 val activity = requireActivity()
                 if (activity is MainActivity) activity.reinitializeFirebase()
                 
-                Toast.makeText(requireContext(), "✅ Database berhasil di-load otomatis!", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "❌ Gagal membaca file JSON.", Toast.LENGTH_SHORT).show()
-            }
+                Toast.makeText(requireContext(), "✅ Database di-load!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {}
         }
     }
 
@@ -81,9 +84,7 @@ class SettingsFragment : Fragment() {
                     }
                     
                     withContext(Dispatchers.Main) { Toast.makeText(requireContext(), "✅ Backup CSV berhasil disimpan!", Toast.LENGTH_LONG).show() }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(requireContext(), "❌ Gagal Export: ${e.message}", Toast.LENGTH_SHORT).show() }
-                }
+                } catch (e: Exception) {}
             }
         }
     }
@@ -99,96 +100,111 @@ class SettingsFragment : Fragment() {
         viewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
 
+        // Setup Spinners for Theme & Language
+        setupThemeAndLanguageSpinners()
+
         // Bind Biometric State
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isBiometricEnabled.collect { isEnabled ->
-                if (binding.switchBiometric.isChecked != isEnabled) {
-                    binding.switchBiometric.isChecked = isEnabled
-                }
+                if (binding.switchBiometric.isChecked != isEnabled) binding.switchBiometric.isChecked = isEnabled
             }
         }
 
-        binding.switchBiometric.setOnCheckedChangeListener { _, isChecked ->
-            viewModel.setBiometricStatus(isChecked)
-            val status = if (isChecked) "Diaktifkan & Disimpan ke Cloud" else "Dimatikan"
-            Toast.makeText(requireContext(), "Keamanan Biometrik $status", Toast.LENGTH_SHORT).show()
-        }
+        binding.switchBiometric.setOnCheckedChangeListener { _, isChecked -> viewModel.setBiometricStatus(isChecked) }
 
         binding.menuFirebaseJson.setOnClickListener { filePickerLauncher.launch("application/json") }
 
         binding.menuExportCsv.setOnClickListener {
             val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale("id", "ID"))
-            val fileName = "SmartFinance_Backup_${sdf.format(Date())}.csv"
-            exportCsvLauncher.launch(fileName)
+            exportCsvLauncher.launch("SmartFinance_Backup_${sdf.format(Date())}.csv")
         }
 
         binding.menuManageCategories.setOnClickListener { CategoryManagerDialog().show(parentFragmentManager, "CategoryManagerDialog") }
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
-        // --- Dialog Konfigurasi AI ---
+        setupAiDialogs(prefs)
+    }
+
+    private fun setupThemeAndLanguageSpinners() {
+        val themeNames = listOf(getString(R.string.theme_system), getString(R.string.theme_light), getString(R.string.theme_dark))
+        val themeValues = listOf(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM, AppCompatDelegate.MODE_NIGHT_NO, AppCompatDelegate.MODE_NIGHT_YES)
+        
+        binding.spinnerTheme.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, themeNames)
+        val currentThemeIndex = themeValues.indexOf(viewModel.themeMode.value).takeIf { it >= 0 } ?: 0
+        binding.spinnerTheme.setSelection(currentThemeIndex)
+
+        val langNames = listOf("🇮🇩 Indonesia", "🇬🇧 English")
+        val langValues = listOf("id", "en")
+        
+        binding.spinnerLanguage.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, langNames)
+        val currentLangIndex = langValues.indexOf(viewModel.appLanguage.value).takeIf { it >= 0 } ?: 0
+        binding.spinnerLanguage.setSelection(currentLangIndex)
+
+        // Listeners for Selection
+        binding.spinnerTheme.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!isUserInteracting) return
+                viewModel.setThemeMode(themeValues[position])
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        binding.spinnerLanguage.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!isUserInteracting) return
+                val selectedLang = langValues[position]
+                viewModel.setLanguage(selectedLang)
+                
+                // Menerapkan perubahan bahasa secara global di AndroidX 
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selectedLang))
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Mencegah trigger saat inisialisasi awal
+        binding.spinnerTheme.setOnTouchListener { _, _ -> isUserInteracting = true; false }
+        binding.spinnerLanguage.setOnTouchListener { _, _ -> isUserInteracting = true; false }
+    }
+
+    private fun setupAiDialogs(prefs: android.content.SharedPreferences) {
         binding.menuApiConfig.setOnClickListener {
             val dialogBinding = DialogApiConfigBinding.inflate(layoutInflater)
             val dialog = AlertDialog.Builder(requireContext()).setView(dialogBinding.root).create()
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-            val aiModelsDisplay = listOf(
-                "Groq: llama-3.3-70b-versatile (Super Cepat/Gratis)",
-                "Groq: mixtral-8x7b-32768 (Cepat/Gratis)",
-                "Groq: gemma2-9b-it (Ringan/Gratis)",
-                "OpenAI: gpt-4o (Paling Cerdas/Pro)",
-                "OpenAI: gpt-4-turbo (Cerdas/Pro)",
-                "OpenAI: gpt-3.5-turbo (Standar/Pro)",
-                "Google: gemini-3.1-pro (Super Cerdas/Pro)",
-                "Google: gemini-3.1-flash-lite (Cepat/Pro & Gratis Tier)",
-                "Anthropic: claude-3-opus-20240229 (Super Cerdas/Pro)",
-                "Anthropic: claude-3-sonnet-20240229 (Cerdas/Pro)",
-                "Anthropic: claude-3-haiku-20240307 (Cepat/Pro)",
-                "DeepSeek: deepseek-chat (Cerdas/Sangat Murah)"
-            )
-            val aiModelsValue = listOf(
-                "llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo",
-                "gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307", "deepseek-chat"
-            )
+            val aiModelsDisplay = listOf("Groq: llama-3.3-70b", "OpenAI: gpt-4o", "Google: gemini-3.1-pro", "Anthropic: claude-3-opus")
+            val aiModelsValue = listOf("llama-3.3-70b-versatile", "gpt-4o", "gemini-3.1-pro-preview", "claude-3-opus-20240229")
 
             dialogBinding.spinnerAiModel.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, aiModelsDisplay)
-            
             val savedModel = prefs.getString("ai_model", "llama-3.3-70b-versatile")
             val selectedIndex = aiModelsValue.indexOf(savedModel).takeIf { it >= 0 } ?: 0
             dialogBinding.spinnerAiModel.setSelection(selectedIndex)
             
-            val savedKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", ""))
-            dialogBinding.etApiKey.setText(savedKey)
+            dialogBinding.etApiKey.setText(prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")))
 
             dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
             dialogBinding.btnSave.setOnClickListener {
-                val selectedValue = aiModelsValue[dialogBinding.spinnerAiModel.selectedItemPosition]
-                prefs.edit().putString("ai_model", selectedValue).putString("ai_api_key", dialogBinding.etApiKey.text.toString().trim()).apply()
+                prefs.edit().putString("ai_model", aiModelsValue[dialogBinding.spinnerAiModel.selectedItemPosition])
+                    .putString("ai_api_key", dialogBinding.etApiKey.text.toString().trim()).apply()
                 (requireActivity() as? MainActivity)?.reinitializeFirebase()
-                Toast.makeText(context, "Konfigurasi Mesin AI Tersimpan!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "AI Config Saved!", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
             dialog.show()
         }
 
-        // --- Dialog Expert Mode ---
         binding.menuExpertMode.setOnClickListener {
             val dialogBinding = DialogExpertModeBinding.inflate(layoutInflater)
             val dialog = AlertDialog.Builder(requireContext()).setView(dialogBinding.root).create()
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-
             dialogBinding.etPrompt.setText(prefs.getString("expert_system_prompt", AIClient.DEFAULT_PROMPT))
-
             dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
-            
             dialogBinding.btnReset.setOnClickListener {
                 prefs.edit().remove("expert_system_prompt").apply()
-                Toast.makeText(context, "Prompt dikembalikan ke racikan Master!", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
-            
             dialogBinding.btnSave.setOnClickListener {
                 prefs.edit().putString("expert_system_prompt", dialogBinding.etPrompt.text.toString()).apply()
-                Toast.makeText(context, "Prompt Expert Tersimpan!", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
             dialog.show()
