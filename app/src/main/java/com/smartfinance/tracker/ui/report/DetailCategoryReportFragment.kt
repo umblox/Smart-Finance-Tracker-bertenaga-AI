@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ui.report
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -11,10 +10,12 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.FragmentDetailCategoryReportBinding
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -31,6 +32,8 @@ class DetailCategoryReportFragment : Fragment() {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val sdfDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
+    private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentDetailCategoryReportBinding.inflate(inflater, container, false)
         return binding.root
@@ -44,7 +47,6 @@ class DetailCategoryReportFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
 
-        // Inisialisasi bulan dari SharedPreferences agar sinkron dengan Dashboard
         viewModel.initializeTime(activeTimePrefs)
 
         binding.btnBack.setOnClickListener { parentFragmentManager.popBackStack() }
@@ -63,7 +65,6 @@ class DetailCategoryReportFragment : Fragment() {
 
         binding.tvMonthLabel.text = state.currentMonthLabel
         
-        // Simpan state waktu terakhir agar saat pindah tab/halaman, bulannya tidak reset
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         prefs.edit().putLong("active_report_time", state.activeTimeMillis).apply()
 
@@ -72,7 +73,7 @@ class DetailCategoryReportFragment : Fragment() {
         if (state.isEmpty) {
             binding.containerHierarchy.addView(TextView(requireContext()).apply {
                 text = "Tidak ada catatan pengeluaran pada bulan ini."
-                textSize = 14f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
+                textSize = 14f; setTextColor(getThemeColor(R.color.text_secondary)); gravity = Gravity.CENTER
                 setPadding(0, (40 * density).toInt(), 0, 0)
             })
             return
@@ -84,40 +85,38 @@ class DetailCategoryReportFragment : Fragment() {
 
             val card = MaterialCardView(requireContext()).apply {
                 radius = 14 * density; cardElevation = 1f * density; strokeWidth = 0
-                setCardBackgroundColor(Color.WHITE)
+                setCardBackgroundColor(getThemeColor(R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
             }
 
             val masterLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
             
-            // Baris Induk Kategori (Bisa di-klik)
             val rowHeader = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding((16 * density).toInt(), (14 * density).toInt(), (16 * density).toInt(), (14 * density).toInt())
-                setBackgroundColor(Color.parseColor("#FFFFFF"))
+                setBackgroundColor(getThemeColor(R.color.surface_white))
             }
 
             val iconFrame = FrameLayout(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
-                background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.parseColor("#F1F5F9")) }
+                background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(getThemeColor(R.color.background_color)) }
                 addView(TextView(requireContext()).apply { text = "📁"; textSize = 15f; gravity = Gravity.CENTER })
             }
             rowHeader.addView(iconFrame)
 
             val infoLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-            infoLayout.addView(TextView(requireContext()).apply { text = categoryName; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 14.5f })
-            infoLayout.addView(TextView(requireContext()).apply { text = "${txList.size} Transaksi • ${formatRupiah.format(totalCategoryAmount)}"; setTextColor(Color.parseColor("#64748B")); textSize = 11.5f; setPadding(0, 2, 0, 0) })
+            infoLayout.addView(TextView(requireContext()).apply { text = categoryName; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(null, Typeface.BOLD); textSize = 14.5f })
+            infoLayout.addView(TextView(requireContext()).apply { text = "${txList.size} Transaksi • ${formatRupiah.format(totalCategoryAmount)}"; setTextColor(getThemeColor(R.color.text_secondary)); textSize = 11.5f; setPadding(0, 2, 0, 0) })
             rowHeader.addView(infoLayout)
 
-            val tvPercent = TextView(requireContext()).apply { text = "$percentage%"; setTextColor(Color.parseColor("#F43F5E")); setTypeface(null, Typeface.BOLD); textSize = 14.5f }
+            val tvPercent = TextView(requireContext()).apply { text = "$percentage%"; setTextColor(getThemeColor(R.color.expense_red)); setTypeface(null, Typeface.BOLD); textSize = 14.5f }
             rowHeader.addView(tvPercent)
             masterLayout.addView(rowHeader)
 
-            // Container Anak (Detail Transaksi) - Awalnya Tersembunyi
             val childContainer = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.VERTICAL; visibility = View.GONE
                 setPadding((16 * density).toInt(), 0, (16 * density).toInt(), (12 * density).toInt())
-                setBackgroundColor(Color.parseColor("#FAFAFA"))
+                setBackgroundColor(getThemeColor(R.color.background_color)) // Background sedikit beda dari header
             }
 
             val sortedTxList = txList.sortedByDescending { it.timestamp }
@@ -128,19 +127,18 @@ class DetailCategoryReportFragment : Fragment() {
                 }
 
                 val txInfo = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                txInfo.addView(TextView(requireContext()).apply { text = tx.note.ifEmpty { "Tanpa Catatan" }; setTextColor(Color.parseColor("#334155")); textSize = 13.5f })
-                txInfo.addView(TextView(requireContext()).apply { text = sdfDateTime.format(Date(tx.timestamp)); setTextColor(Color.parseColor("#94A3B8")); textSize = 10.5f; setPadding(0, 2, 0, 0) })
+                txInfo.addView(TextView(requireContext()).apply { text = tx.note.ifEmpty { "Tanpa Catatan" }; setTextColor(getThemeColor(R.color.text_primary)); textSize = 13.5f })
+                txInfo.addView(TextView(requireContext()).apply { text = sdfDateTime.format(Date(tx.timestamp)); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 10.5f; setPadding(0, 2, 0, 0) })
                 txRow.addView(txInfo)
 
-                val tvAmt = TextView(requireContext()).apply { text = "-" + formatRupiah.format(tx.amount); setTextColor(Color.parseColor("#64748B")); textSize = 13.5f }
+                val tvAmt = TextView(requireContext()).apply { text = "-" + formatRupiah.format(tx.amount); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 13.5f }
                 txRow.addView(tvAmt)
 
                 childContainer.addView(txRow)
-                childContainer.addView(View(requireContext()).apply { setBackgroundColor(Color.parseColor("#F1F5F9")); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (0.5f * density).toInt()) })
+                childContainer.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
             }
             masterLayout.addView(childContainer)
 
-            // Logika Expand/Collapse (Accordion)
             rowHeader.setOnClickListener {
                 if (childContainer.visibility == View.GONE) {
                     childContainer.visibility = View.VISIBLE
