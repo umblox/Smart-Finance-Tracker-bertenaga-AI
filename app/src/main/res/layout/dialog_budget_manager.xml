@@ -9,167 +9,51 @@
     app:cardElevation="4dp"
     app:strokeWidth="0dp">
 
-    <FrameLayout
-        android:id="@+id/rootFrame"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="20dp">
 
-        <!-- MODE DAFTAR -->
-        <LinearLayout
-            android:id="@+id/layoutList"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="20dp"
-            android:visibility="visible">
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:text="🎯 Anggaran Bulanan"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+            
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Kendalikan pengeluaranmu bulan ini"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:text="🎯 Anggaran Bulanan"
-                android:textColor="@color/text_primary"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-                
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:text="Kendalikan pengeluaranmu bulan ini"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
-
-            <ScrollView
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:fillViewport="true">
-                <LinearLayout
-                    android:id="@+id/listContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
-            </ScrollView>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAddBudget"
-                android:layout_width="match_parent"
-                android:layout_height="54dp"
-                android:layout_marginTop="16dp"
-                android:text="+ BUAT ANGGARAN BARU"
-                android:textColor="@android:color/white"
-                android:textStyle="bold"
-                app:backgroundTint="@color/primary"
-                app:cornerRadius="12dp" />
-        </LinearLayout>
-
-        <!-- MODE FORMULIR -->
         <ScrollView
-            android:id="@+id/layoutForm"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:fillViewport="true">
-
+            
             <LinearLayout
+                android:id="@+id/listContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/btnBack"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="⬅️ Kembali"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvFormTitle"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="end"
-                        android:text="Atur Anggaran"
-                        android:textColor="@color/text_primary"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:text="Pilih Kategori Pengeluaran:"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="@color/background_color"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/divider_color"
-                    app:strokeWidth="1dp">
-                    <Spinner
-                        android:id="@+id/spinnerCategory"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="@android:drawable/btn_dropdown"
-                        android:paddingStart="12dp" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="24dp"
-                    android:hint="Batas Maksimal Bulanan (Rp)"
-                    app:boxCornerRadiusBottomEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxStrokeColor="@color/primary">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etLimitAmount"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="numberDecimal"
-                        android:textColor="@color/text_primary" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnDelete"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginBottom="8dp"
-                    android:text="HAPUS ANGGARAN"
-                    android:textColor="@android:color/white"
-                    android:visibility="gone"
-                    app:backgroundTint="@color/expense_red"
-                    app:cornerRadius="12dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSave"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:text="SIMPAN ANGGARAN"
-                    android:textColor="@android:color/white"
-                    app:backgroundTint="@color/primary"
-                    app:cornerRadius="12dp" />
-            </LinearLayout>
+                android:orientation="vertical" />
         </ScrollView>
-    </FrameLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAddBudget"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="16dp"
+            android:text="+ BUAT ANGGARAN BARU"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            app:backgroundTint="@color/primary"
+            app:cornerRadius="12dp" />
+    </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
