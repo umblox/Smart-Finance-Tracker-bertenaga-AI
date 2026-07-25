@@ -47,9 +47,26 @@ class CategoryViewModel : ViewModel() {
         )
     }
 
-    // FIX: Menggunakan HashMap<String, Any> secara tegas
-    suspend fun saveCategoryToCloud(docId: String, data: HashMap<String, Any>) {
-        repository.saveCategory(docId, data)
+    // 🔥 LOGIKA BISNIS: Validasi Kategori
+    suspend fun validateAndSaveCategory(
+        docId: String?, currentNumericId: Long?, name: String, type: String, 
+        iconName: String, isLocked: Boolean, parentId: Long?
+    ) {
+        if (name.isBlank()) throw Exception("Nama kategori tidak boleh kosong!")
+        
+        val targetDocId = if (docId.isNullOrEmpty()) "cat_${System.currentTimeMillis()}" else docId
+        val targetNumericId = currentNumericId ?: System.currentTimeMillis()
+
+        val data = HashMap<String, Any>().apply {
+            put("id", targetNumericId)
+            put("name", name.trim())
+            put("type", type)
+            put("iconName", iconName)
+            put("isLocked", isLocked)
+            if (parentId != null) put("parentCategoryId", parentId)
+        }
+        
+        repository.saveCategory(targetDocId, data)
     }
 
     suspend fun deleteCategoryFromCloud(docId: String) {
