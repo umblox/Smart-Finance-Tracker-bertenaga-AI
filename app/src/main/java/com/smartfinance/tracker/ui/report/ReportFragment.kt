@@ -29,21 +29,6 @@ class ReportFragment : Fragment() {
 
     private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
 
-    // 🔥 Helper Navigasi Aman Anti-Crash
-    private fun safeNavigate(targetFragment: Fragment) {
-        try {
-            (requireActivity() as com.smartfinance.tracker.MainActivity).navigateToSpecificFragment(targetFragment)
-        } catch (e: Exception) {
-            val container = requireView().parent as? ViewGroup
-            container?.id?.let { containerId ->
-                parentFragmentManager.beginTransaction()
-                    .replace(containerId, targetFragment)
-                    .addToBackStack(null)
-                    .commitAllowingStateLoss()
-            }
-        }
-    }
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentReportBinding.inflate(inflater, container, false)
         return binding.root
@@ -92,9 +77,9 @@ class ReportFragment : Fragment() {
         )
         binding.chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-        // 🔥 FIX Navigasi 1
+        // 🔥 FIX Navigasi Murni
         binding.btnSeeAllDetails.setOnClickListener {
-            safeNavigate(DetailCategoryReportFragment())
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
         }
 
         binding.topBorosContainer.removeAllViews()
@@ -112,7 +97,7 @@ class ReportFragment : Fragment() {
                     setBackgroundResource(android.R.attr.selectableItemBackground)
                     isClickable = true; isFocusable = true
                     
-                    // 🔥 FIX Navigasi 2
+                    // 🔥 FIX Navigasi Murni Kategori
                     setOnClickListener {
                         val fragmentBaru = CategoryAnalyticsFragment().apply {
                             arguments = Bundle().apply {
@@ -121,7 +106,7 @@ class ReportFragment : Fragment() {
                                 putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
                             }
                         }
-                        safeNavigate(fragmentBaru)
+                        (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragmentBaru)
                     }
                 }
                 
