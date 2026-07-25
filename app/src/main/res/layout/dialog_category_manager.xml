@@ -6,7 +6,6 @@
     android:background="@color/background_color"
     android:orientation="vertical">
 
-    <!-- Top Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,7 +22,10 @@
             android:text="✕"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"/>
 
         <TextView
             android:id="@+id/tvHeaderTitle"
@@ -35,7 +37,6 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Tab Filters -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="44dp"
@@ -43,10 +44,11 @@
         android:layout_marginTop="14dp"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="10dp"
-        app:cardBackgroundColor="@color/divider_color"
+        app:cardBackgroundColor="@color/surface_white"
         app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
-        app:strokeWidth="0dp">
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/divider_color">
 
         <LinearLayout
             android:id="@+id/tabOuterBox"
@@ -84,7 +86,6 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Tombol Tambah Baru -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAdd"
         android:layout_width="match_parent"
@@ -98,12 +99,10 @@
         app:backgroundTint="@color/primary"
         app:cornerRadius="14dp" />
 
-    <!-- Container Daftar Kategori -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true">
-
         <LinearLayout
             android:id="@+id/containerList"
             android:layout_width="match_parent"
