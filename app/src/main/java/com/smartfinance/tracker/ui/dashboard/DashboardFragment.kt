@@ -41,29 +41,6 @@ class DashboardFragment : Fragment() {
         return ContextCompat.getColor(requireContext(), resId)
     }
 
-    // 🔥 Helper Navigasi Aman Anti-Crash untuk Dashboard
-    private fun safeNavigate(targetFragment: Fragment, backupId: Int? = null) {
-        try {
-            val mainActivity = requireActivity() as MainActivity
-            if (backupId != null) {
-                // Memanggil fungsi dengan 2 argumen
-                val method = mainActivity.javaClass.getMethod("navigateToSpecificFragment", Fragment::class.java, Int::class.java)
-                method.invoke(mainActivity, targetFragment, backupId)
-            } else {
-                // Memanggil fungsi dengan 1 argumen
-                mainActivity.navigateToSpecificFragment(targetFragment)
-            }
-        } catch (e: Exception) {
-            val container = requireView().parent as? ViewGroup
-            container?.id?.let { containerId ->
-                parentFragmentManager.beginTransaction()
-                    .replace(containerId, targetFragment)
-                    .addToBackStack(null)
-                    .commitAllowingStateLoss()
-            }
-        }
-    }
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
         return binding.root
@@ -80,10 +57,20 @@ class DashboardFragment : Fragment() {
         viewModel.updatePreferences(activeTimePrefs, "BULAN INI")
         updateTabUi("BULAN INI")
 
-        // 🔥 FIX Navigasi
-        binding.btnDetailLaporan.setOnClickListener { safeNavigate(ReportFragment()) }
-        binding.btnLihatAnalisis.setOnClickListener { safeNavigate(DetailCategoryReportFragment()) }
-        binding.btnLihatSemua.setOnClickListener { safeNavigate(HistoryTransactionFragment(), R.id.menu_report) }
+        // 🔥 FIX: Navigasi murni tanpa hack reflection
+        binding.btnDetailLaporan.setOnClickListener {
+            (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
+        }
+        binding.btnLihatAnalisis.setOnClickListener {
+            (activity as? MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
+        }
+        binding.btnLihatSemua.setOnClickListener {
+            try {
+                (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
+            } catch (e: Exception) {
+                (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment())
+            }
+        }
 
         binding.btnTabWeek.setOnClickListener {
             viewModel.updatePreferences(activeTimePrefs, "PERMINGGU")
