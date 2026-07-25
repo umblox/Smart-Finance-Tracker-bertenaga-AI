@@ -1,6 +1,7 @@
 package com.smartfinance.tracker.ui.budget
 
 import androidx.lifecycle.ViewModel
+import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.repository.BudgetRepository
 import com.smartfinance.tracker.data.repository.CategoryRepository
 import com.smartfinance.tracker.data.repository.TransactionRepository
@@ -21,7 +22,20 @@ class BudgetViewModel : ViewModel() {
         catRepo.startListening()
     }
 
-    suspend fun saveBudget(docId: String?, data: HashMap<String, Any>) {
+    // 🔥 LOGIKA BISNIS: Validasi & Pembuatan Data
+    suspend fun validateAndSaveBudget(docId: String?, limitAmountStr: String, category: Category?) {
+        if (category == null) throw Exception("Pilih kategori terlebih dahulu!")
+        if (limitAmountStr.isBlank()) throw Exception("Mohon isi nominal batas anggaran!")
+        
+        val limitAmount = limitAmountStr.toDoubleOrNull() ?: 0.0
+        if (limitAmount <= 0) throw Exception("Nominal tidak valid!")
+
+        val data = HashMap<String, Any>().apply {
+            put("categoryId", category.id)
+            put("categoryName", category.name)
+            put("limitAmount", limitAmount)
+        }
+        
         budgetRepo.saveBudget(docId, data)
     }
 
