@@ -32,7 +32,6 @@ class CategoryManagerDialog : DialogFragment() {
         dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
-    // 🔥 FIX: Menggunakan onCreateView murni (Bukan AlertDialog)
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = DialogCategoryManagerBinding.inflate(inflater, container, false)
         return binding.root
@@ -40,20 +39,16 @@ class CategoryManagerDialog : DialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
         viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
-
         binding.btnClose.setOnClickListener { dismiss() }
-
         binding.btnAdd.setOnClickListener { 
             CategoryEditorDialog.newInstance(null, viewModel.uiState.value.currentFilter)
                 .show(parentFragmentManager, "CategoryEditorDialog")
         }
-
         binding.btnTabExpense.setOnClickListener { switchFilterTab("EXPENSE", binding.btnTabExpense, binding.btnTabIncome, binding.btnTabDebt) }
         binding.btnTabIncome.setOnClickListener { switchFilterTab("INCOME", binding.btnTabIncome, binding.btnTabExpense, binding.btnTabDebt) }
         binding.btnTabDebt.setOnClickListener { switchFilterTab("DEBT", binding.btnTabDebt, binding.btnTabExpense, binding.btnTabIncome) }
-
+        
         switchFilterTab("EXPENSE", binding.btnTabExpense, binding.btnTabIncome, binding.btnTabDebt)
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -64,11 +59,9 @@ class CategoryManagerDialog : DialogFragment() {
     private fun switchFilterTab(targetFilter: String, active: TextView, in1: TextView, in2: TextView) {
         val density = requireContext().resources.displayMetrics.density
         viewModel.setFilter(targetFilter)
-
         active.setTextColor(getThemeColor(R.color.surface_white))
         active.setTypeface(null, Typeface.BOLD)
         active.background = GradientDrawable().apply { cornerRadius = 10f * density; setColor(getThemeColor(R.color.primary)) }
-        
         in1.setTextColor(getThemeColor(R.color.text_secondary)); in1.setTypeface(null, Typeface.NORMAL); in1.background = null
         in2.setTextColor(getThemeColor(R.color.text_secondary)); in2.setTypeface(null, Typeface.NORMAL); in2.background = null
     }
@@ -76,6 +69,11 @@ class CategoryManagerDialog : DialogFragment() {
     private fun renderHierarchyCloud(state: CategoryUiState) {
         binding.containerList.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
+
+        // 🔥 FIX: Mengambil ID efek sentuh (Ripple) dengan cara yang 100% AMAN
+        val typedValue = android.util.TypedValue()
+        requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
+        val safeRippleId = typedValue.resourceId
 
         if (state.parentCategories.isEmpty()) {
             binding.containerList.addView(TextView(requireContext()).apply {
@@ -98,7 +96,9 @@ class CategoryManagerDialog : DialogFragment() {
             val parentRow = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding((14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt())
-                background = ContextCompat.getDrawable(context, android.R.attr.selectableItemBackground)
+                
+                // 🔥 Menerapkan Ripple secara aman
+                setBackgroundResource(safeRippleId)
                 isClickable = true; isFocusable = true
                 setOnClickListener { 
                     CategoryEditorDialog.newInstance(parent, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
@@ -125,8 +125,9 @@ class CategoryManagerDialog : DialogFragment() {
                 val childRow = LinearLayout(requireContext()).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding((14f * density).toInt(), (10f * density).toInt(), (14f * density).toInt(), (10f * density).toInt())
-                    setBackgroundColor(getThemeColor(R.color.background_color))
-                    background = ContextCompat.getDrawable(context, android.R.attr.selectableItemBackground)
+                    
+                    // 🔥 Menerapkan Ripple secara aman
+                    setBackgroundResource(safeRippleId)
                     isClickable = true; isFocusable = true
                     setOnClickListener { 
                         CategoryEditorDialog.newInstance(child, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
