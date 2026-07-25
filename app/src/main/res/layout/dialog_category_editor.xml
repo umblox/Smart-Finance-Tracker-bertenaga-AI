@@ -5,7 +5,6 @@
     android:layout_height="match_parent"
     android:background="@color/background_color">
 
-    <!-- Top Bar -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
@@ -24,7 +23,10 @@
             android:text="✕"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"/>
 
         <TextView
             android:id="@+id/tvTitle"
@@ -46,10 +48,12 @@
             android:textColor="@color/expense_red"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:visibility="gone" />
+            android:visibility="gone" 
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"/>
     </LinearLayout>
 
-    <!-- Form Container -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -81,7 +85,7 @@
                 android:id="@+id/etName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Masukkan nama kategori cloud"
+                android:hint="Masukkan nama kategori"
                 android:inputType="textCapWords"
                 android:textColor="@color/text_primary" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -99,7 +103,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="54dp"
-            app:cardBackgroundColor="@android:color/transparent"
+            app:cardBackgroundColor="@color/surface_white"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
             app:strokeColor="@color/divider_color"
@@ -109,13 +113,11 @@
                 android:id="@+id/spinnerParent"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@android:drawable/btn_dropdown"
                 android:paddingStart="12dp" />
         </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 
-    <!-- Save Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSave"
         android:layout_width="match_parent"
@@ -124,7 +126,7 @@
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="24dp"
-        android:text="SIMPAN KE SERVER CLOUD"
+        android:text="SIMPAN KE CLOUD"
         android:textColor="@color/surface_white"
         android:textStyle="bold"
         app:backgroundTint="@color/primary"
