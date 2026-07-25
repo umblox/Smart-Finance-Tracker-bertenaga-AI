@@ -139,7 +139,10 @@ class ReportViewModel : ViewModel() {
 
         return Pair(startCal.timeInMillis, endCal.timeInMillis)
     }
-
+    
+    fun getCurrentFilter(): TimeFilter = currentFilter
+    fun getBaseTime(): Long = baseTimeMillis
+    
     override fun onCleared() {
         super.onCleared()
         repository.stopListening()
