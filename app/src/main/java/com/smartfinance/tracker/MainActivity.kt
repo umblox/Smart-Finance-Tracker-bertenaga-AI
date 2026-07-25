@@ -1,9 +1,7 @@
 package com.smartfinance.tracker
 
-import android.app.AlertDialog
 import android.content.Context
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate 
 import androidx.biometric.BiometricPrompt
@@ -48,7 +46,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun reinitializeFirebase(): Boolean {
-        // 🔥 VAKSIN 1: Cegah inisialisasi ganda jika sudah ready!
         if (isFirebaseReady) return true 
 
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
@@ -122,7 +119,6 @@ class MainActivity : AppCompatActivity() {
         if (!hasFirebaseJson || !isAiConfigured) {
             showSetupRequiredDialog()
         } else {
-            // 🔥 VAKSIN 2: Hanya panggil jika belum ready
             if (!isFirebaseReady) {
                 reinitializeFirebase()
             }
@@ -157,8 +153,11 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.fragmentContainer, fragment)
             .addToBackStack(null)
             .commit()
+            
         activeMenuId?.let { 
-            findViewById<BottomNavigationView>(R.id.bottomNavigation).selectedItemId = it 
+            // 🔥 FIX: Hanya ubah status aktif/warna icon-nya saja!
+            // Mencegah BottomNavigation memicu listener yang me-load ulang fragment
+            findViewById<BottomNavigationView>(R.id.bottomNavigation).menu.findItem(it)?.isChecked = true
         }
     }
 }
