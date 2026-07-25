@@ -20,7 +20,38 @@ class RecurringTxViewModel : ViewModel() {
         categoryRepository.startListening()
     }
 
-    suspend fun saveSchedule(docId: String?, data: HashMap<String, Any?>) {
+    // 🔥 LOGIKA BISNIS PINDAH KE SINI: Validasi dan Pembuatan Data
+    suspend fun validateAndSaveSchedule(
+        docId: String?,
+        note: String,
+        amountStr: String,
+        category: Category?,
+        contactName: String,
+        interval: String,
+        nextExecutionTime: Long,
+        hasEndDate: Boolean,
+        endDate: Long?
+    ) {
+        if (category == null) throw Exception("Harap pilih Kategori terlebih dahulu!")
+        if (note.isBlank() || amountStr.isBlank()) throw Exception("Harap isi Catatan dan Nominal!")
+        
+        val amount = amountStr.toDoubleOrNull() ?: 0.0
+        if (amount <= 0) throw Exception("Nominal tidak valid!")
+
+        val data = HashMap<String, Any?>().apply {
+            put("note", note)
+            put("amount", amount)
+            put("type", category.type)
+            put("categoryId", category.id)
+            put("categoryName", category.name)
+            put("contactName", contactName.trim())
+            put("interval", interval)
+            put("nextExecutionTime", nextExecutionTime)
+            put("hasEndDate", hasEndDate)
+            put("endDate", if (hasEndDate) endDate else null)
+            put("isActive", true)
+        }
+
         repository.saveSchedule(docId, data)
     }
 
@@ -34,4 +65,3 @@ class RecurringTxViewModel : ViewModel() {
         categoryRepository.stopListening()
     }
 }
-
