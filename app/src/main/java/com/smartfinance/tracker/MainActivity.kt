@@ -48,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun reinitializeFirebase(): Boolean {
+        // 🔥 VAKSIN 1: Cegah inisialisasi ganda jika sudah ready!
+        if (isFirebaseReady) return true 
+
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val customFirebaseJson = prefs.getString("custom_firebase_json", null)
         
@@ -119,7 +122,10 @@ class MainActivity : AppCompatActivity() {
         if (!hasFirebaseJson || !isAiConfigured) {
             showSetupRequiredDialog()
         } else {
-            reinitializeFirebase()
+            // 🔥 VAKSIN 2: Hanya panggil jika belum ready
+            if (!isFirebaseReady) {
+                reinitializeFirebase()
+            }
         }
 
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
