@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.app.Dialog
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
@@ -41,13 +42,18 @@ class CategoryEditorDialog : DialogFragment() {
     private lateinit var viewModel: CategoryViewModel
     private var availableParents = ArrayList<Category>()
 
+    // 🔥 FIX 1: Fullscreen aman
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    }
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogCategoryEditorBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext(), android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
-            .setView(binding.root)
-            .create()
+        // 🔥 FIX 2: Menghapus Theme Lawas yang menghancurkan UI
+        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
 
-        // Gunakan Shared ViewModel
         viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
 
         val docId = arguments?.getString("DOC_ID")
