@@ -2,10 +2,6 @@ package com.smartfinance.tracker.ui.settings
 
 import android.app.AlertDialog
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.pdf.PdfDocument
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -26,17 +22,9 @@ import com.smartfinance.tracker.databinding.DialogApiConfigBinding
 import com.smartfinance.tracker.databinding.DialogExpertModeBinding
 import com.smartfinance.tracker.databinding.FragmentSettingsBinding
 import com.smartfinance.tracker.ui.category.CategoryManagerDialog
-import com.smartfinance.tracker.utils.FirebaseManager
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class SettingsFragment : Fragment() {
 
@@ -45,8 +33,6 @@ class SettingsFragment : Fragment() {
 
     private lateinit var viewModel: SettingsViewModel
     private var isUserInteracting = false
-
-    private val formatRp = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -63,50 +49,6 @@ class SettingsFragment : Fragment() {
                 
                 Snackbar.make(binding.root, "✅ Database di-load!", Snackbar.LENGTH_SHORT).show()
             } catch (e: Exception) {}
-        }
-    }
-
-    private val exportCsvLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        uri?.let { fileUri ->
-            lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    val db = FirebaseManager.getFirestore()
-                    val txSnap = db.collection("transactions").orderBy("timestamp").get().await()
-                    
-                    val sb = java.lang.StringBuilder()
-                    sb.append("Tanggal,Catatan,Kategori,Tipe,Nominal\n")
-                    val sdf = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
-                    
-                    for (doc in txSnap.documents) {
-                        val date = sdf.format(Date(doc.getLong("timestamp") ?: 0L))
-                        val note = (doc.getString("note") ?: "").replace(",", " ")
-                        val cat = doc.getString("categoryName") ?: ""
-                        val type = doc.getString("type") ?: ""
-                        val amt = doc.getDouble("amount") ?: 0.0
-                        sb.append("${date},${note},${cat},${type},${amt}\n")
-                    }
-                    
-                    requireContext().contentResolver.openOutputStream(fileUri)?.use { os ->
-                        os.write(sb.toString().toByteArray())
-                    }
-                    
-                    withContext(Dispatchers.Main) { Snackbar.make(binding.root, "✅ Backup CSV disimpan!", Snackbar.LENGTH_LONG).show() }
-                } catch (e: Exception) {}
-            }
-        }
-    }
-
-    // PELUNCUR UNTUK MENYIMPAN FILE PDF
-    private val exportPdfLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        uri?.let { fileUri ->
-            lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    generatePdfReport(fileUri)
-                    withContext(Dispatchers.Main) { Snackbar.make(binding.root, "✅ Laporan PDF berhasil dibuat!", Snackbar.LENGTH_LONG).show() }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Snackbar.make(binding.root, "❌ Gagal membuat PDF", Snackbar.LENGTH_LONG).show() }
-                }
-            }
         }
     }
 
@@ -133,15 +75,9 @@ class SettingsFragment : Fragment() {
 
         binding.menuFirebaseJson.setOnClickListener { filePickerLauncher.launch("application/json") }
 
-        binding.menuExportCsv.setOnClickListener {
-            val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale("id", "ID"))
-            exportCsvLauncher.launch("SmartFinance_Backup_${sdf.format(Date())}.csv")
-        }
-
-        // AKSI KLIK UNTUK PDF
-        binding.menuExportPdf.setOnClickListener {
-            val sdf = SimpleDateFormat("yyyyMMdd", Locale("id", "ID"))
-            exportPdfLauncher.launch("SmartFinance_Report_${sdf.format(Date())}.pdf")
+        // 🔥 FIX: Panggilan ke BottomSheet yang baru dibuat
+        binding.menuExportReport.setOnClickListener { 
+            ExportBottomSheet().show(parentFragmentManager, "ExportBottomSheet") 
         }
 
         binding.menuManageCategories.setOnClickListener { CategoryManagerDialog().show(parentFragmentManager, "CategoryManagerDialog") }
@@ -149,76 +85,6 @@ class SettingsFragment : Fragment() {
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
         setupAiDialogs(prefs)
-    }
-
-    // FUNGSI INTI PEMBUAT PDF
-    private suspend fun generatePdfReport(fileUri: android.net.Uri) {
-        val db = FirebaseManager.getFirestore()
-        // Ambil 100 transaksi terbaru untuk menghemat memori saat generate PDF
-        val txSnap = db.collection("transactions").orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(100).get().await()
-        
-        val pdfDocument = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // Ukuran A4 standar
-        val page = pdfDocument.startPage(pageInfo)
-        val canvas: Canvas = page.canvas
-        
-        val titlePaint = Paint().apply { textSize = 18f; isFakeBoldText = true; color = Color.BLACK }
-        val headerPaint = Paint().apply { textSize = 12f; isFakeBoldText = true; color = Color.BLACK }
-        val textPaint = Paint().apply { textSize = 10f; color = Color.DKGRAY }
-        val linePaint = Paint().apply { color = Color.LTGRAY; strokeWidth = 1f }
-
-        val sdf = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
-        var startY = 50f
-        
-        // Judul Dokumen
-        canvas.drawText("Laporan Transaksi Smart Finance (100 Terbaru)", 50f, startY, titlePaint)
-        startY += 20f
-        canvas.drawText("Dicetak pada: ${sdf.format(Date())}", 50f, startY, textPaint)
-        startY += 40f
-
-        // Header Tabel
-        canvas.drawText("Tanggal", 50f, startY, headerPaint)
-        canvas.drawText("Kategori", 150f, startY, headerPaint)
-        canvas.drawText("Catatan", 280f, startY, headerPaint)
-        canvas.drawText("Nominal", 450f, startY, headerPaint)
-        startY += 10f
-        canvas.drawLine(50f, startY, 545f, startY, linePaint)
-        startY += 20f
-
-        // Isi Tabel
-        for (doc in txSnap.documents) {
-            val date = sdf.format(Date(doc.getLong("timestamp") ?: 0L))
-            val cat = doc.getString("categoryName") ?: "-"
-            var note = doc.getString("note") ?: "-"
-            if (note.length > 25) note = note.substring(0, 22) + "..." // Truncate text panjang
-            
-            val type = doc.getString("type") ?: ""
-            val amt = doc.getDouble("amount") ?: 0.0
-            val prefix = if (type == "EXPENSE") "-" else "+"
-            val formattedAmt = "$prefix${formatRp.format(amt)}"
-
-            canvas.drawText(date, 50f, startY, textPaint)
-            canvas.drawText(cat, 150f, startY, textPaint)
-            canvas.drawText(note, 280f, startY, textPaint)
-            
-            textPaint.color = if (type == "EXPENSE") Color.RED else Color.parseColor("#006400") // Hijau gelap
-            canvas.drawText(formattedAmt, 450f, startY, textPaint)
-            textPaint.color = Color.DKGRAY // Kembalikan ke warna asli
-            
-            startY += 20f
-            
-            // Paginasi: Hentikan jika kertas penuh
-            if (startY > 800f) {
-                canvas.drawText("... (Lanjut ke halaman berikutnya - Tidak didukung pada versi ini)", 50f, startY, textPaint)
-                break
-            }
-        }
-        
-        pdfDocument.finishPage(page)
-        requireContext().contentResolver.openOutputStream(fileUri)?.use { os ->
-            pdfDocument.writeTo(os)
-        }
-        pdfDocument.close()
     }
 
     private fun setupThemeAndLanguageSpinners() {
@@ -251,7 +117,6 @@ class SettingsFragment : Fragment() {
                     .edit().putInt("app_theme", selectedTheme).commit()
                 viewModel.setThemeMode(selectedTheme)
                 
-                // 🔥 VAKSIN 3: Gunakan Coroutines untuk jeda aman
                 viewLifecycleOwner.lifecycleScope.launch {
                     kotlinx.coroutines.delay(150)
                     AppCompatDelegate.setDefaultNightMode(selectedTheme)
@@ -269,7 +134,6 @@ class SettingsFragment : Fragment() {
                     .edit().putString("app_language", selectedLang).commit()
                 viewModel.setLanguage(selectedLang)
                 
-                // 🔥 VAKSIN 4: Gunakan Coroutines untuk jeda aman
                 viewLifecycleOwner.lifecycleScope.launch {
                     kotlinx.coroutines.delay(150)
                     AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selectedLang))
