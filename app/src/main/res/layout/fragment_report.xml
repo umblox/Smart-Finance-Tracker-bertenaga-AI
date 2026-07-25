@@ -23,6 +23,46 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
+            <!-- Filter Rentang Waktu -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggleTimeFilter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"
+        app:singleSelection="true"
+        app:checkedButton="@+id/btnFilterMonthly"
+        android:gravity="center">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterDaily"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Harian"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterWeekly"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Mingguan"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterMonthly"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Bulanan"
+            android:textSize="12sp" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+        
         <!-- Card Summary -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
