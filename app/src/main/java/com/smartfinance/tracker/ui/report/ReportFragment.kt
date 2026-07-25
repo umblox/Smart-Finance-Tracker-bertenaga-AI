@@ -64,6 +64,11 @@ class ReportFragment : Fragment() {
     private fun renderReportUi(state: ReportUiState) {
         val density = requireContext().resources.displayMetrics.density
 
+        // 🔥 FIX: Mengambil ID efek sentuh secara AMAN!
+        val typedValue = android.util.TypedValue()
+        requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
+        val safeRippleId = typedValue.resourceId
+
         binding.tvReportIncome.text = "Pemasukan (${state.filterLabel}): ${formatRupiah.format(state.incomeCurrent)}"
         binding.tvReportExpense.text = "Pengeluaran (${state.filterLabel}): ${formatRupiah.format(state.expenseCurrent)}"
         binding.tvReportNet.text = "Sisa Bersih: ${formatRupiah.format(state.netBalance)}"
@@ -77,7 +82,6 @@ class ReportFragment : Fragment() {
         )
         binding.chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-        // 🔥 FIX Navigasi Murni
         binding.btnSeeAllDetails.setOnClickListener {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
         }
@@ -91,13 +95,15 @@ class ReportFragment : Fragment() {
         } else {
             state.topExpenses.forEach { (catName, amt) ->
                 val pct = if (state.topExpensesTotal > 0) ((amt / state.topExpensesTotal) * 100).toInt() else 0
+                
                 val rowLayout = LinearLayout(requireContext()).apply { 
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
-                    setBackgroundResource(android.R.attr.selectableItemBackground)
+                    
+                    // 🔥 TERAPKAN RIPPLE YANG AMAN DI SINI!
+                    setBackgroundResource(safeRippleId)
                     isClickable = true; isFocusable = true
                     
-                    // 🔥 FIX Navigasi Murni Kategori
                     setOnClickListener {
                         val fragmentBaru = CategoryAnalyticsFragment().apply {
                             arguments = Bundle().apply {
