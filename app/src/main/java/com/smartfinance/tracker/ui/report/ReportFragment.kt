@@ -29,6 +29,21 @@ class ReportFragment : Fragment() {
 
     private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
 
+    // 🔥 Helper Navigasi Aman Anti-Crash
+    private fun safeNavigate(targetFragment: Fragment) {
+        try {
+            (requireActivity() as com.smartfinance.tracker.MainActivity).navigateToSpecificFragment(targetFragment)
+        } catch (e: Exception) {
+            val container = requireView().parent as? ViewGroup
+            container?.id?.let { containerId ->
+                parentFragmentManager.beginTransaction()
+                    .replace(containerId, targetFragment)
+                    .addToBackStack(null)
+                    .commitAllowingStateLoss()
+            }
+        }
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentReportBinding.inflate(inflater, container, false)
         return binding.root
@@ -42,10 +57,8 @@ class ReportFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
 
-        // Default Filter
         viewModel.setTimeFilter(TimeFilter.MONTHLY, activeTimePrefs)
 
-        // Setup Listener Tombol Filter
         binding.toggleTimeFilter.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 when (checkedId) {
@@ -66,13 +79,11 @@ class ReportFragment : Fragment() {
     private fun renderReportUi(state: ReportUiState) {
         val density = requireContext().resources.displayMetrics.density
 
-        // 1. Update Summary
         binding.tvReportIncome.text = "Pemasukan (${state.filterLabel}): ${formatRupiah.format(state.incomeCurrent)}"
         binding.tvReportExpense.text = "Pengeluaran (${state.filterLabel}): ${formatRupiah.format(state.expenseCurrent)}"
         binding.tvReportNet.text = "Sisa Bersih: ${formatRupiah.format(state.netBalance)}"
         binding.tvReportNet.setTextColor(if (state.netBalance >= 0) getThemeColor(R.color.income_green) else getThemeColor(R.color.expense_red))
 
-        // 2. Update Chart Quad-Bar
         binding.chartContainer.removeAllViews()
         val barView = QuadVerticalBarChartView(
             requireContext(),
@@ -81,13 +92,11 @@ class ReportFragment : Fragment() {
         )
         binding.chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-        // 🔥 JALUR 1: Navigasi ke Laporan Keseluruhan (File Lama Anda)
+        // 🔥 FIX Navigasi 1
         binding.btnSeeAllDetails.setOnClickListener {
-            val fragmentLama = DetailCategoryReportFragment()
-            (requireActivity() as com.smartfinance.tracker.MainActivity).navigateToSpecificFragment(fragmentLama)
+            safeNavigate(DetailCategoryReportFragment())
         }
 
-        // 3. Update Top Boros (Drill-Down Fase 3)
         binding.topBorosContainer.removeAllViews()
         if (!state.hasData || state.topExpenses.isEmpty()) {
             binding.topBorosContainer.addView(TextView(requireContext()).apply { 
@@ -100,13 +109,10 @@ class ReportFragment : Fragment() {
                 val rowLayout = LinearLayout(requireContext()).apply { 
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
-                    
-                    // Efek sentuh & Navigasi
                     setBackgroundResource(android.R.attr.selectableItemBackground)
-                    isClickable = true
-                    isFocusable = true
+                    isClickable = true; isFocusable = true
                     
-                    // 🔥 JALUR 2: Navigasi ke Detail Kategori Spesifik (File Baru)
+                    // 🔥 FIX Navigasi 2
                     setOnClickListener {
                         val fragmentBaru = CategoryAnalyticsFragment().apply {
                             arguments = Bundle().apply {
@@ -115,7 +121,7 @@ class ReportFragment : Fragment() {
                                 putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
                             }
                         }
-                        (requireActivity() as com.smartfinance.tracker.MainActivity).navigateToSpecificFragment(fragmentBaru)
+                        safeNavigate(fragmentBaru)
                     }
                 }
                 
