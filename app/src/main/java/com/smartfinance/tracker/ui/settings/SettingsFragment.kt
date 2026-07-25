@@ -247,15 +247,15 @@ class SettingsFragment : Fragment() {
                 if (!isUserInteracting) return
                 val selectedTheme = themeValues[position]
                 
-                // 1. Simpan pilihan tema secara sinkron (instan)
                 requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                     .edit().putInt("app_theme", selectedTheme).commit()
                 viewModel.setThemeMode(selectedTheme)
                 
-                // 2. Beri jeda 150ms agar dropdown tertutup dulu sebelum tema diganti
-                binding.spinnerTheme.postDelayed({
+                // 🔥 VAKSIN 3: Gunakan Coroutines untuk jeda aman
+                viewLifecycleOwner.lifecycleScope.launch {
+                    kotlinx.coroutines.delay(150)
                     AppCompatDelegate.setDefaultNightMode(selectedTheme)
-                }, 150)
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -265,15 +265,15 @@ class SettingsFragment : Fragment() {
                 if (!isUserInteracting) return
                 val selectedLang = langValues[position]
                 
-                // 1. Simpan pilihan bahasa secara sinkron (instan)
                 requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                     .edit().putString("app_language", selectedLang).commit()
                 viewModel.setLanguage(selectedLang)
                 
-                // 2. Beri jeda 150ms agar dropdown tertutup dulu sebelum aplikasi restart
-                binding.spinnerLanguage.postDelayed({
+                // 🔥 VAKSIN 4: Gunakan Coroutines untuk jeda aman
+                viewLifecycleOwner.lifecycleScope.launch {
+                    kotlinx.coroutines.delay(150)
                     AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selectedLang))
-                }, 150)
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
