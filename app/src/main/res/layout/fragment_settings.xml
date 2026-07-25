@@ -139,31 +139,52 @@
             app:cardElevation="2dp"
             app:strokeWidth="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                
                 <LinearLayout android:id="@+id/menuFirebaseJson" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_upload_json" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_upload_json_desc" android:textColor="@color/text_secondary" android:textSize="12sp"/>
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
+                
                 <LinearLayout android:id="@+id/menuBudgeting" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎯 Anggaran Bulanan (Budgeting)" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kendalikan limit pengeluaran per kategori" android:textColor="@color/text_secondary" android:textSize="12sp"/>
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
+                
                 <LinearLayout android:id="@+id/menuManageCategories" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_manage_category" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
+                
                 <LinearLayout android:id="@+id/menuRecurringTx" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_recurring_tx" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
-                <LinearLayout android:id="@+id/menuExportCsv" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_export_csv" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
-                </LinearLayout>
-                <!-- MENU PDF BARU -->
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
-                <LinearLayout android:id="@+id/menuExportPdf" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_export_pdf" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
+                
+                <!-- 🔥 FIX: MENU EXPORT GABUNGAN BARU -->
+                <LinearLayout 
+                    android:id="@+id/menuExportReport" 
+                    android:layout_width="match_parent" 
+                    android:layout_height="wrap_content" 
+                    android:background="?attr/selectableItemBackground" 
+                    android:clickable="true" 
+                    android:focusable="true" 
+                    android:padding="16dp" 
+                    android:orientation="vertical">
+                    <TextView 
+                        android:layout_width="wrap_content" 
+                        android:layout_height="wrap_content" 
+                        android:text="🖨️ Mesin Cetak Laporan (PDF / CSV)" 
+                        android:textColor="@color/text_primary" 
+                        android:textStyle="bold" 
+                        android:textSize="15sp"/>
+                    <TextView 
+                        android:layout_width="wrap_content" 
+                        android:layout_height="wrap_content" 
+                        android:text="Ekspor transaksi dengan filter khusus" 
+                        android:textColor="@color/text_secondary" 
+                        android:textSize="12sp"/>
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
