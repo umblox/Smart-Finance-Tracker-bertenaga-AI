@@ -27,12 +27,18 @@ class CategoryManagerDialog : DialogFragment() {
 
     private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
 
+    // 🔥 FIX 1: Memaksa Fullscreen dengan cara aman tanpa merusak tema Material
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    }
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogCategoryManagerBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext(), android.R.style.Theme_DeviceDefault_NoActionBar_Fullscreen)
-            .setView(binding.root).create()
+        // 🔥 FIX 2: Menghapus Theme_DeviceDefault yang bikin Force Close
+        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
 
-        // Gunakan Shared ViewModel
         viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
 
         binding.btnClose.setOnClickListener { dismiss() }
