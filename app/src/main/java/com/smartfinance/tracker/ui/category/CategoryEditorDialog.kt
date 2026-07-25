@@ -13,13 +13,27 @@ import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.databinding.DialogCategoryEditorBinding
 import kotlinx.coroutines.launch
 import java.util.ArrayList
-import java.util.HashMap
 
-class CategoryEditorDialog(
-    private val categoryData: HashMap<String, Any>?,
-    private val activeTypeFilter: String,
-    private val onSavedAction: () -> Unit
-) : DialogFragment() {
+class CategoryEditorDialog : DialogFragment() {
+
+    companion object {
+        fun newInstance(category: Category?, activeTypeFilter: String): CategoryEditorDialog {
+            val frag = CategoryEditorDialog()
+            val args = Bundle().apply {
+                putString("TYPE_FILTER", activeTypeFilter)
+                if (category != null) {
+                    putString("DOC_ID", category.docId)
+                    putLong("ID", category.id)
+                    putString("NAME", category.name)
+                    putString("ICON", category.iconName)
+                    putBoolean("IS_LOCKED", category.isLocked)
+                    category.parentCategoryId?.let { putLong("PARENT_ID", it) }
+                }
+            }
+            frag.arguments = args
+            return frag
+        }
+    }
 
     private var _binding: DialogCategoryEditorBinding? = null
     private val binding get() = _binding!!
@@ -33,20 +47,22 @@ class CategoryEditorDialog(
             .setView(binding.root)
             .create()
 
-        viewModel = ViewModelProvider(this)[CategoryViewModel::class.java]
+        // Gunakan Shared ViewModel
+        viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
 
-        val docId = categoryData?.get("docId") as? String ?: ""
-        val currentNumericId = categoryData?.get("id") as? Long
-        val currentName = categoryData?.get("name") as? String ?: ""
-        val isLocked = categoryData?.get("isLocked") as? Boolean ?: false
-        val currentParentId = (categoryData?.get("parentCategoryId") as? Number)?.toLong()
+        val docId = arguments?.getString("DOC_ID")
+        val currentNumericId = if (arguments?.containsKey("ID") == true) arguments?.getLong("ID") else null
+        val currentName = arguments?.getString("NAME") ?: ""
+        val isLocked = arguments?.getBoolean("IS_LOCKED") ?: false
+        val currentParentId = if (arguments?.containsKey("PARENT_ID") == true) arguments?.getLong("PARENT_ID") else null
+        val activeTypeFilter = arguments?.getString("TYPE_FILTER") ?: "EXPENSE"
 
-        binding.tvTitle.text = if (categoryData == null) "Tambah Kategori Baru" else "Ubah Detail Kategori"
-        binding.btnDelete.visibility = if (categoryData != null && !isLocked) View.VISIBLE else View.GONE
-        binding.btnSave.visibility = if (categoryData != null && isLocked) View.GONE else View.VISIBLE
+        binding.tvTitle.text = if (docId == null) "Tambah Kategori Baru" else "Ubah Detail Kategori"
+        binding.btnDelete.visibility = if (docId != null && !isLocked) View.VISIBLE else View.GONE
+        binding.btnSave.visibility = if (docId != null && isLocked) View.GONE else View.VISIBLE
         
         binding.etName.setText(currentName)
-        if (categoryData != null && isLocked) {
+        if (docId != null && isLocked) {
             binding.etName.isEnabled = false
             binding.spinnerParent.isEnabled = false
         }
@@ -80,44 +96,37 @@ class CategoryEditorDialog(
         }
 
         binding.btnDelete.setOnClickListener {
-            if (categoryData != null && !isLocked && docId.isNotEmpty()) {
+            if (docId != null && !isLocked) {
                 lifecycleScope.launch {
-                    viewModel.deleteCategoryFromCloud(docId)
-                    Toast.makeText(context, "Kategori sukses dilenyapkan!", Toast.LENGTH_SHORT).show()
-                    onSavedAction()
-                    dialog.dismiss()
+                    try {
+                        viewModel.deleteCategoryFromCloud(docId)
+                        Toast.makeText(context, "Kategori sukses dilenyapkan!", Toast.LENGTH_SHORT).show()
+                        dismiss()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Gagal menghapus!", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
 
         binding.btnSave.setOnClickListener {
-            val finalName = binding.etName.text.toString().trim()
-            if (finalName.isNotEmpty()) {
-                val selectedPos = binding.spinnerParent.selectedItemPosition
-                val finalParentId = if (selectedPos == 0 || availableParents.isEmpty()) null else availableParents[selectedPos - 1].id
+            val finalName = binding.etName.text.toString()
+            val selectedPos = binding.spinnerParent.selectedItemPosition
+            val finalParentId = if (selectedPos == 0 || availableParents.isEmpty()) null else availableParents[selectedPos - 1].id
+            val iconName = arguments?.getString("ICON") ?: "ic_custom"
 
-                val targetDocId = if (docId.isEmpty()) "cat_${System.currentTimeMillis()}" else docId
-                val targetNumericId = currentNumericId ?: System.currentTimeMillis()
-
-                // FIX: Menghindari type inference Kotlin yang salah
-                val categoryMap = HashMap<String, Any>()
-                categoryMap["id"] = targetNumericId
-                categoryMap["name"] = finalName
-                categoryMap["type"] = activeTypeFilter
-                categoryMap["iconName"] = categoryData?.get("iconName") as? String ?: "ic_custom"
-                categoryMap["isLocked"] = false
-                if (finalParentId != null) {
-                    categoryMap["parentCategoryId"] = finalParentId
+            lifecycleScope.launch {
+                try {
+                    viewModel.validateAndSaveCategory(
+                        docId = docId, currentNumericId = currentNumericId, 
+                        name = finalName, type = activeTypeFilter, 
+                        iconName = iconName, isLocked = isLocked, parentId = finalParentId
+                    )
+                    Toast.makeText(context, "Kategori sukses disimpan!", Toast.LENGTH_SHORT).show()
+                    dismiss()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "❌ ${e.message}", Toast.LENGTH_SHORT).show()
                 }
-
-                lifecycleScope.launch {
-                    viewModel.saveCategoryToCloud(targetDocId, categoryMap)
-                    Toast.makeText(context, "Kategori sukses disimpan ke Cloud!", Toast.LENGTH_SHORT).show()
-                    onSavedAction()
-                    dialog.dismiss()
-                }
-            } else {
-                Toast.makeText(context, "Nama kategori tidak boleh kosong!", Toast.LENGTH_SHORT).show()
             }
         }
 
