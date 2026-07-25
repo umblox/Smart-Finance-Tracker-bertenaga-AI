@@ -81,7 +81,13 @@ class ReportFragment : Fragment() {
         )
         binding.chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-        // 3. Update Top Boros (Persiapan Drill-Down Fase 3)
+        // 🔥 JALUR 1: Navigasi ke Laporan Keseluruhan (File Lama Anda)
+        binding.btnSeeAllDetails.setOnClickListener {
+            val fragmentLama = DetailCategoryReportFragment()
+            (requireActivity() as com.smartfinance.tracker.MainActivity).navigateToSpecificFragment(fragmentLama)
+        }
+
+        // 3. Update Top Boros (Drill-Down Fase 3)
         binding.topBorosContainer.removeAllViews()
         if (!state.hasData || state.topExpenses.isEmpty()) {
             binding.topBorosContainer.addView(TextView(requireContext()).apply { 
@@ -99,11 +105,20 @@ class ReportFragment : Fragment() {
                     setBackgroundResource(android.R.attr.selectableItemBackground)
                     isClickable = true
                     isFocusable = true
+                    
+                    // 🔥 JALUR 2: Navigasi ke Detail Kategori Spesifik (File Baru)
                     setOnClickListener {
-                        // TODO FASE 3: Navigasi ke CategoryAnalyticsFragment membawa data nama Kategori
-                        // Akan kita kerjakan di langkah selanjutnya!
+                        val fragmentBaru = CategoryAnalyticsFragment().apply {
+                            arguments = Bundle().apply {
+                                putString("EXTRA_CATEGORY_NAME", catName)
+                                putString("EXTRA_TIME_FILTER", viewModel.getCurrentFilter().name)
+                                putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                            }
+                        }
+                        (requireActivity() as com.smartfinance.tracker.MainActivity).navigateToSpecificFragment(fragmentBaru)
                     }
                 }
+                
                 val centerInfo = LinearLayout(requireContext()).apply { 
                     orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
@@ -123,8 +138,6 @@ class ReportFragment : Fragment() {
                 })
             }
         }
-        
-        // (Insight Proyeksi Bulanan dihapus sementara karena tidak logis dihitung pada view Harian/Mingguan)
     }
 
     override fun onDestroyView() {
