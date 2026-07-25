@@ -42,7 +42,19 @@ class ReportFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
 
-        viewModel.calculateReport(activeTimePrefs)
+        // Default Filter
+        viewModel.setTimeFilter(TimeFilter.MONTHLY, activeTimePrefs)
+
+        // Setup Listener Tombol Filter
+        binding.toggleTimeFilter.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                when (checkedId) {
+                    R.id.btnFilterDaily -> viewModel.setTimeFilter(TimeFilter.DAILY, activeTimePrefs)
+                    R.id.btnFilterWeekly -> viewModel.setTimeFilter(TimeFilter.WEEKLY, activeTimePrefs)
+                    R.id.btnFilterMonthly -> viewModel.setTimeFilter(TimeFilter.MONTHLY, activeTimePrefs)
+                }
+            }
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state ->
@@ -55,25 +67,25 @@ class ReportFragment : Fragment() {
         val density = requireContext().resources.displayMetrics.density
 
         // 1. Update Summary
-        binding.tvReportIncome.text = "Pemasukan: ${formatRupiah.format(state.incomeThisMonth)}"
-        binding.tvReportExpense.text = "Pengeluaran: ${formatRupiah.format(state.expenseThisMonth)}"
+        binding.tvReportIncome.text = "Pemasukan (${state.filterLabel}): ${formatRupiah.format(state.incomeCurrent)}"
+        binding.tvReportExpense.text = "Pengeluaran (${state.filterLabel}): ${formatRupiah.format(state.expenseCurrent)}"
         binding.tvReportNet.text = "Sisa Bersih: ${formatRupiah.format(state.netBalance)}"
         binding.tvReportNet.setTextColor(if (state.netBalance >= 0) getThemeColor(R.color.income_green) else getThemeColor(R.color.expense_red))
 
-        // 2. Update Chart
+        // 2. Update Chart Quad-Bar
         binding.chartContainer.removeAllViews()
         val barView = QuadVerticalBarChartView(
             requireContext(),
-            state.incomeLastMonth.toFloat(), state.incomeThisMonth.toFloat(),
-            state.expenseLastMonth.toFloat(), state.expenseThisMonth.toFloat()
+            state.incomePrevious.toFloat(), state.incomeCurrent.toFloat(),
+            state.expensePrevious.toFloat(), state.expenseCurrent.toFloat()
         )
         binding.chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
 
-        // 3. Update Top Boros
+        // 3. Update Top Boros (Persiapan Drill-Down Fase 3)
         binding.topBorosContainer.removeAllViews()
         if (!state.hasData || state.topExpenses.isEmpty()) {
             binding.topBorosContainer.addView(TextView(requireContext()).apply { 
-                text = "Belum ada pengeluaran bulan ini."
+                text = "Belum ada pengeluaran pada ${state.filterLabel.lowercase()}."
                 setTextColor(getThemeColor(R.color.text_secondary)); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER 
             })
         } else {
@@ -82,6 +94,15 @@ class ReportFragment : Fragment() {
                 val rowLayout = LinearLayout(requireContext()).apply { 
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
+                    
+                    // Efek sentuh & Navigasi
+                    setBackgroundResource(android.R.attr.selectableItemBackground)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        // TODO FASE 3: Navigasi ke CategoryAnalyticsFragment membawa data nama Kategori
+                        // Akan kita kerjakan di langkah selanjutnya!
+                    }
                 }
                 val centerInfo = LinearLayout(requireContext()).apply { 
                     orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -102,15 +123,8 @@ class ReportFragment : Fragment() {
                 })
             }
         }
-
-        // 4. Update Insight Lokal
-        if (state.expenseThisMonth > 0) {
-            binding.tvInsightDailyAvg.text = "• Rata-rata pengeluaran harian: ${formatRupiah.format(state.dailyAvg)}"
-            binding.tvInsightProjection.text = "• Proyeksi pengeluaran akhir bulan: ${formatRupiah.format(state.projectedTotal)}"
-        } else {
-            binding.tvInsightDailyAvg.text = "• Rata-rata pengeluaran harian: Rp 0"
-            binding.tvInsightProjection.text = "• Proyeksi pengeluaran akhir bulan: Rp 0"
-        }
+        
+        // (Insight Proyeksi Bulanan dihapus sementara karena tidak logis dihitung pada view Harian/Mingguan)
     }
 
     override fun onDestroyView() {
