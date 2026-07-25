@@ -1,8 +1,7 @@
 package com.smartfinance.tracker.ui.category
 
-import android.app.AlertDialog
-import android.app.Dialog
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -42,18 +41,20 @@ class CategoryEditorDialog : DialogFragment() {
     private lateinit var viewModel: CategoryViewModel
     private var availableParents = ArrayList<Category>()
 
-    // 🔥 FIX 1: Fullscreen aman
     override fun onStart() {
         super.onStart()
         dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        _binding = DialogCategoryEditorBinding.inflate(layoutInflater)
-        // 🔥 FIX 2: Menghapus Theme Lawas yang menghancurkan UI
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+    // 🔥 FIX: Menggunakan onCreateView murni
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = DialogCategoryEditorBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
 
         val docId = arguments?.getString("DOC_ID")
@@ -75,7 +76,7 @@ class CategoryEditorDialog : DialogFragment() {
 
         binding.btnClose.setOnClickListener { dismiss() }
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state ->
                 availableParents.clear()
                 val typedParents = state.allCategoriesForEditor.filter { 
@@ -135,8 +136,6 @@ class CategoryEditorDialog : DialogFragment() {
                 }
             }
         }
-
-        return dialog
     }
 
     override fun onDestroyView() {
