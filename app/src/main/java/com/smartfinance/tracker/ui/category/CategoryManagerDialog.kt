@@ -1,11 +1,10 @@
 package com.smartfinance.tracker.ui.category
 
-import android.app.AlertDialog
-import android.app.Dialog
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -27,18 +26,21 @@ class CategoryManagerDialog : DialogFragment() {
 
     private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
 
-    // 🔥 FIX 1: Memaksa Fullscreen dengan cara aman tanpa merusak tema Material
     override fun onStart() {
         super.onStart()
         dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        _binding = DialogCategoryManagerBinding.inflate(layoutInflater)
-        // 🔥 FIX 2: Menghapus Theme_DeviceDefault yang bikin Force Close
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+    // 🔥 FIX: Menggunakan onCreateView murni (Bukan AlertDialog)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = DialogCategoryManagerBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
         viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
 
         binding.btnClose.setOnClickListener { dismiss() }
@@ -54,11 +56,9 @@ class CategoryManagerDialog : DialogFragment() {
 
         switchFilterTab("EXPENSE", binding.btnTabExpense, binding.btnTabIncome, binding.btnTabDebt)
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state -> renderHierarchyCloud(state) }
         }
-
-        return dialog
     }
 
     private fun switchFilterTab(targetFilter: String, active: TextView, in1: TextView, in2: TextView) {
