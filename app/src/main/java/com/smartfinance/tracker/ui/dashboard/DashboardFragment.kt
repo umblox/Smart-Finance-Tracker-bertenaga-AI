@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
+import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 import com.smartfinance.tracker.ui.report.DetailCategoryReportFragment
 import com.smartfinance.tracker.ui.report.QuadVerticalBarChartView
