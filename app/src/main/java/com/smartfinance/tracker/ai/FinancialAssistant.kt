@@ -90,8 +90,6 @@ class FinancialAssistant(private val context: Context) {
                     val customDateStr = item.optString("transaction_date", "").trim()
                     
                     // 🔥 FIX: Waktu DITAMBAH 'i' detik.
-                    // Transaksi pertama (i=0) +0 detik. Transaksi kedua (i=1) +1 detik.
-                    // Hasilnya transaksi kedua jadi lebih baru dari yang pertama (urutan kronologis yang benar).
                     val targetTimestamp = parseTransactionDateTime(customDateStr, batchBaseTime) + (i * 1000L)
                     
                     val finalAmount = parseAmount(item)
@@ -269,6 +267,56 @@ class FinancialAssistant(private val context: Context) {
         val finalNoteStr = cleanNote.ifEmpty { "TRANSAKSI $catName" }.uppercase(Locale.ROOT)
         val txMap = hashMapOf("id" to txId, "amount" to finalAmount, "type" to type, "categoryId" to catId, "categoryName" to catName, "note" to finalNoteStr, "timestamp" to targetTimestamp)
         firestore.collection("transactions").document(txId).set(txMap).await()
+
+        // 🔥 CEK BUDGET DINAMIS DARI DATABASE (VIA AI CHAT)
+        if (type == "EXPENSE") {
+            checkAndTriggerBudgetAlertFromAI(catId, catName, finalAmount)
+        }
+    }
+
+    private suspend fun checkAndTriggerBudgetAlertFromAI(categoryId: Long, categoryName: String, newAmount: Double) {
+        try {
+            val budgetSnap = firestore.collection("budgets")
+                .whereEqualTo("categoryId", categoryId)
+                .get()
+                .await()
+
+            if (!budgetSnap.isEmpty) {
+                val budgetDoc = budgetSnap.documents[0]
+                val limitAmount = budgetDoc.getDouble("limitAmount") ?: budgetDoc.getDouble("amount") ?: 0.0
+
+                if (limitAmount > 0.0) {
+                    val cal = Calendar.getInstance()
+                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    val startOfMonth = cal.timeInMillis
+
+                    val txSnap = firestore.collection("transactions")
+                        .whereEqualTo("categoryId", categoryId)
+                        .whereGreaterThanOrEqualTo("timestamp", startOfMonth)
+                        .get()
+                        .await()
+
+                    var totalSpent = newAmount
+                    for (doc in txSnap.documents) {
+                        totalSpent += doc.getDouble("amount") ?: 0.0
+                    }
+
+                    if (totalSpent >= (limitAmount * 0.8)) {
+                        com.smartfinance.tracker.worker.AiWorkerManager.triggerBudgetAlert(
+                            context,
+                            categoryName,
+                            totalSpent,
+                            limitAmount
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private suspend fun compileAiReport(cleanJsonStr: String): String {
@@ -414,7 +462,6 @@ class FinancialAssistant(private val context: Context) {
                "_(Data akurat ditarik dari Cloud)_"
     }
 
-    // 🔥 FIX: Perbaikan Parse DateTime agar detik di-lock (tidak melompat menit)
     private fun parseTransactionDateTime(dateStr: String, baseTime: Long = System.currentTimeMillis()): Long {
         if (dateStr.trim().isEmpty()) return baseTime
         return try {
@@ -427,11 +474,9 @@ class FinancialAssistant(private val context: Context) {
                 val nowCal = Calendar.getInstance().apply { timeInMillis = baseTime }
                 
                 if (hasTime) {
-                    // Jika AI menyertakan jam, paksa detik ke 0 agar waktu aman dan murni (tidak rollover)
                     cal.set(Calendar.SECOND, 0)
                     cal.set(Calendar.MILLISECOND, 0)
                 } else {
-                    // Jika AI hanya memberikan tanggal, ambil jam & menit dari waktu HP pengguna sekarang
                     cal.set(Calendar.HOUR_OF_DAY, nowCal.get(Calendar.HOUR_OF_DAY))
                     cal.set(Calendar.MINUTE, nowCal.get(Calendar.MINUTE))
                     cal.set(Calendar.SECOND, nowCal.get(Calendar.SECOND))
