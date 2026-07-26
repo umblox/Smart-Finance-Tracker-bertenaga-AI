@@ -5,15 +5,18 @@ import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import java.util.Calendar
 
-// Struktur data untuk filter
-enum class ExportTimeRange { ALL, DAILY, WEEKLY, MONTHLY }
-enum class ExportType { ALL, INCOME_ONLY, EXPENSE_ONLY }
+// 🔥 Tambahan opsi CUSTOM dan DEBT_ONLY sudah disuntikkan
+enum class ExportTimeRange { ALL, DAILY, WEEKLY, MONTHLY, CUSTOM }
+enum class ExportType { ALL, INCOME_ONLY, EXPENSE_ONLY, DEBT_ONLY }
 
 class ExportViewModel : ViewModel() {
     private val repository = TransactionRepository()
 
+    // Variabel untuk menyimpan tanggal kustom
+    var customStartDate: Long = System.currentTimeMillis()
+    var customEndDate: Long = System.currentTimeMillis()
+
     init {
-        // Nyalakan aliran data saat ViewModel dipanggil
         repository.startListening()
     }
 
@@ -40,20 +43,25 @@ class ExportViewModel : ViewModel() {
                     txCal.get(Calendar.MONTH) == now.get(Calendar.MONTH) &&
                     txCal.get(Calendar.YEAR) == now.get(Calendar.YEAR)
                 }
+                ExportTimeRange.CUSTOM -> {
+                    tx.timestamp in customStartDate..customEndDate
+                }
             }
         }
 
         // 2. Saring Berdasarkan Tipe Transaksi
         return timeFiltered.filter { tx ->
-            val isIncome = tx.type == "INCOME" || tx.type == "DEBT"
-            val isExpense = tx.type == "EXPENSE" || tx.type == "RECEIVABLE"
+            val isIncome = tx.type == "INCOME"
+            val isExpense = tx.type == "EXPENSE"
+            val isDebt = tx.type == "DEBT" || tx.type == "RECEIVABLE"
             
             when (txType) {
                 ExportType.ALL -> true
                 ExportType.INCOME_ONLY -> isIncome
                 ExportType.EXPENSE_ONLY -> isExpense
+                ExportType.DEBT_ONLY -> isDebt
             }
-        }.sortedByDescending { it.timestamp } // Urutkan dari yang paling baru
+        }.sortedByDescending { it.timestamp }
     }
 
     override fun onCleared() {
