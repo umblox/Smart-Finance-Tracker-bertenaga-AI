@@ -25,8 +25,8 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
-import com.smartfinance.tracker.worker.AiWorkerManager // 🔥 Import AiWorker
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await // 🔥 Wajib untuk membaca dari database dinamis
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -153,9 +153,9 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         viewModel.saveDebt(generatedDebtId, debtMap)
                     }
 
-                    // 🔥 PEMICU AI BUDGET: Cek jika pengeluaran lumayan besar (Asumsi limit = 1.000.000)
-                    if (finalType == "EXPENSE" && amountVal >= 500000.0) {
-                        AiWorkerManager.triggerBudgetAlert(requireContext(), catName, amountVal, 1000000.0)
+                    // 🔥 CEK BUDGET DINAMIS DARI DATABASE
+                    if (finalType == "EXPENSE") {
+                        checkAndTriggerBudgetAlert(catId, catName, amountVal)
                     }
 
                     Toast.makeText(context, "Berhasil Disimpan Langsung ke Cloud Server!", Toast.LENGTH_SHORT).show()
@@ -168,6 +168,52 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         }
 
         return dialog
+    }
+
+    private suspend fun checkAndTriggerBudgetAlert(categoryId: Long, categoryName: String, newAmount: Double) {
+        val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
+        try {
+            val budgetSnap = firestore.collection("budgets")
+                .whereEqualTo("categoryId", categoryId)
+                .get()
+                .await()
+
+            if (!budgetSnap.isEmpty) {
+                val budgetDoc = budgetSnap.documents[0]
+                val limitAmount = budgetDoc.getDouble("limitAmount") ?: budgetDoc.getDouble("amount") ?: 0.0
+
+                if (limitAmount > 0.0) {
+                    val cal = Calendar.getInstance()
+                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    val startOfMonth = cal.timeInMillis
+
+                    val txSnap = firestore.collection("transactions")
+                        .whereEqualTo("categoryId", categoryId)
+                        .whereGreaterThanOrEqualTo("timestamp", startOfMonth)
+                        .get()
+                        .await()
+
+                    var totalSpent = newAmount
+                    for (doc in txSnap.documents) {
+                        totalSpent += doc.getDouble("amount") ?: 0.0
+                    }
+
+                    if (totalSpent >= (limitAmount * 0.8)) {
+                        com.smartfinance.tracker.worker.AiWorkerManager.triggerBudgetAlert(
+                            requireContext(),
+                            categoryName,
+                            totalSpent,
+                            limitAmount
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showCategoryPickerDialog() {
