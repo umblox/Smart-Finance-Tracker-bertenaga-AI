@@ -86,7 +86,8 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
 
             val layout = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.VERTICAL
-                padding = (16f * density).toInt()
+                val p = (16f * density).toInt()
+                setPadding(p, p, p, p)
             }
 
             // Header (Tipe & Waktu)
