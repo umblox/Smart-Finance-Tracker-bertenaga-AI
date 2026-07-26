@@ -57,7 +57,14 @@ class DashboardFragment : Fragment() {
         viewModel.updatePreferences(activeTimePrefs, "BULAN INI")
         updateTabUi("BULAN INI")
 
-        // 🔥 FIX: Navigasi murni tanpa hack reflection
+        // 🔥 FITUR BARU: Membuka Kotak Pesan AI saat lonceng diklik
+        binding.btnAiNotification.setOnClickListener {
+            // Sembunyikan titik merah (diasumsikan pengguna membuka inbox)
+            binding.redDotBadge.visibility = View.GONE
+            AiInboxBottomSheet().show(parentFragmentManager, "AiInboxBottomSheet")
+        }
+
+        // Navigasi murni tanpa hack reflection
         binding.btnDetailLaporan.setOnClickListener {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
