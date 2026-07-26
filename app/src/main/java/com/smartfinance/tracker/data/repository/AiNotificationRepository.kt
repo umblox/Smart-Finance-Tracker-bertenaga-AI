@@ -14,12 +14,11 @@ class AiNotificationRepository {
     private val _notifications = MutableStateFlow<List<AiNotification>>(emptyList())
     val notifications: StateFlow<List<AiNotification>> = _notifications
 
-    // 1. Pantau pesan AI baru secara Real-time
     fun startListening() {
         if (listener != null) return
         listener = firestore.collection("ai_notifications")
             .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(50) // Batasi 50 pesan terakhir agar memori ringan
+            .limit(50) 
             .addSnapshotListener { snapshot, e ->
                 if (e != null || snapshot == null) return@addSnapshotListener
 
@@ -43,7 +42,6 @@ class AiNotificationRepository {
         listener = null
     }
 
-    // 2. Simpan Nasihat AI Baru (Akan dipanggil oleh Background Worker nanti)
     suspend fun saveNotification(notif: AiNotification) {
         val notifMap = hashMapOf(
             "title" to notif.title,
@@ -52,22 +50,40 @@ class AiNotificationRepository {
             "type" to notif.type,
             "isRead" to notif.isRead
         )
-        // Gunakan UUID acak jika ID kosong
-        val docId = if (notif.id.isNotEmpty()) notif.id else java.util.UUID.randomUUID().toString()
+        val docId = notif.id.ifEmpty { java.util.UUID.randomUUID().toString() }
         firestore.collection("ai_notifications").document(docId).set(notifMap).await()
     }
 
-    // 3. Tandai semua sudah dibaca (Akan dipanggil saat tombol di UI diklik)
     suspend fun markAllAsRead() {
         val unreadDocs = firestore.collection("ai_notifications")
             .whereEqualTo("isRead", false)
             .get()
             .await()
 
-        // Batch update untuk menghemat kuota write Firestore
         val batch = firestore.batch()
         for (doc in unreadDocs) {
             batch.update(doc.reference, "isRead", true)
+        }
+        batch.commit().await()
+    }
+
+    // 🔥 FITUR BARU: Hapus Satu Notifikasi
+    suspend fun deleteNotification(id: String) {
+        firestore.collection("ai_notifications").document(id).delete().await()
+    }
+
+    // 🔥 FITUR BARU: Pembersihan Otomatis (Sampah umur > 7 Hari)
+    suspend fun cleanupOldNotifications() {
+        val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
+        val oldDocs = firestore.collection("ai_notifications")
+            .whereLessThan("timestamp", sevenDaysAgo)
+            .get()
+            .await()
+
+        if (oldDocs.isEmpty) return
+        val batch = firestore.batch()
+        for (doc in oldDocs) {
+            batch.delete(doc.reference)
         }
         batch.commit().await()
     }
