@@ -9,6 +9,8 @@ import android.net.Uri
 import com.smartfinance.tracker.data.model.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -19,8 +21,9 @@ object ExportUtils {
     private val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
     private val sdfDateTime = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
 
-    suspend fun generatePdf(context: Context, uri: Uri, transactions: List<Transaction>, title: String) {
-        withContext(Dispatchers.IO) {
+    // 🔥 Fungsi membuat file PDF Cache sementara (untuk keperluan Preview)
+    suspend fun generatePdfToTempFile(context: Context, transactions: List<Transaction>, title: String): File {
+        return withContext(Dispatchers.IO) {
             val pdfDocument = PdfDocument()
             val pageWidth = 595
             val pageHeight = 842 // Ukuran standar A4
@@ -37,7 +40,6 @@ object ExportUtils {
 
             var startY = 50f
 
-            // Fungsi helper untuk menggambar header tabel di setiap halaman baru
             fun drawHeaders() {
                 canvas.drawText(title, 50f, startY, titlePaint)
                 startY += 20f
@@ -59,7 +61,7 @@ object ExportUtils {
                 val date = sdfDate.format(Date(tx.timestamp))
                 val cat = tx.categoryName
                 var note = tx.note
-                if (note.length > 30) note = note.substring(0, 27) + "..." // Truncate rapi
+                if (note.length > 30) note = note.substring(0, 27) + "..."
                 
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
                 val prefix = if (isInc) "+" else "-"
@@ -71,11 +73,11 @@ object ExportUtils {
                 
                 textPaint.color = if (isInc) Color.parseColor("#006400") else Color.RED
                 canvas.drawText(formattedAmt, 460f, startY, textPaint)
-                textPaint.color = Color.DKGRAY // Kembalikan ke default
+                textPaint.color = Color.DKGRAY
                 
                 startY += 25f 
 
-                // 🔥 FITUR ENTERPRISE: Paginasi Otomatis Jika Kertas Penuh
+                // Jika halaman penuh, ganti halaman
                 if (startY > 780f) {
                     pdfDocument.finishPage(page)
                     pageNumber++
@@ -86,32 +88,26 @@ object ExportUtils {
                     drawHeaders()
                 }
             }
-
             pdfDocument.finishPage(page)
             
-            context.contentResolver.openOutputStream(uri)?.use { os ->
+            // Tulis PDF ke folder Cache Android
+            val tempFile = File(context.cacheDir, "preview_report.pdf")
+            FileOutputStream(tempFile).use { os ->
                 pdfDocument.writeTo(os)
             }
             pdfDocument.close()
+            
+            tempFile
         }
     }
 
-    suspend fun generateCsv(context: Context, uri: Uri, transactions: List<Transaction>) {
+    // 🔥 Fungsi untuk menduplikasi Cache ke Storage (Saat tombol Save diklik)
+    suspend fun copyFileToUri(context: Context, sourceFile: File, targetUri: Uri) {
         withContext(Dispatchers.IO) {
-            val sb = java.lang.StringBuilder()
-            sb.append("Tanggal,Catatan,Kategori,Tipe,Nominal\n")
-            
-            for (tx in transactions) {
-                val date = sdfDateTime.format(Date(tx.timestamp))
-                val note = tx.note.replace(",", " ") // Anti-error koma di CSV
-                val cat = tx.categoryName
-                val type = tx.type
-                val amt = tx.amount
-                sb.append("${date},${note},${cat},${type},${amt}\n")
-            }
-
-            context.contentResolver.openOutputStream(uri)?.use { os ->
-                os.write(sb.toString().toByteArray())
+            context.contentResolver.openOutputStream(targetUri)?.use { os ->
+                sourceFile.inputStream().use { inputStream ->
+                    inputStream.copyTo(os)
+                }
             }
         }
     }
