@@ -16,7 +16,6 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 import com.smartfinance.tracker.ui.report.DetailCategoryReportFragment
 import com.smartfinance.tracker.ui.report.QuadVerticalBarChartView
@@ -33,6 +32,8 @@ class DashboardFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: DashboardViewModel
+    // 🔥 Panggil Otak AI Notification
+    private lateinit var aiViewModel: AiNotificationViewModel
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val sdfPremiumDateTime = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
@@ -50,6 +51,9 @@ class DashboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
+        
+        // Gunakan requireActivity() agar data notif sinkron dengan yang ada di BottomSheet
+        aiViewModel = ViewModelProvider(requireActivity())[AiNotificationViewModel::class.java]
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
@@ -57,14 +61,10 @@ class DashboardFragment : Fragment() {
         viewModel.updatePreferences(activeTimePrefs, "BULAN INI")
         updateTabUi("BULAN INI")
 
-        // 🔥 FITUR BARU: Membuka Kotak Pesan AI saat lonceng diklik
         binding.btnAiNotification.setOnClickListener {
-            // Sembunyikan titik merah (diasumsikan pengguna membuka inbox)
-            binding.redDotBadge.visibility = View.GONE
             AiInboxBottomSheet().show(parentFragmentManager, "AiInboxBottomSheet")
         }
 
-        // Navigasi murni tanpa hack reflection
         binding.btnDetailLaporan.setOnClickListener {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
@@ -91,6 +91,15 @@ class DashboardFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state ->
                 renderDashboardUi(state)
+            }
+        }
+
+        // 🔥 LOGIKA ABSOLUT: Titik Merah (Red Dot)
+        // Akan terus memantau AI Notification. Jika ada 1 saja yang belum dibaca, langsung MERAH.
+        viewLifecycleOwner.lifecycleScope.launch {
+            aiViewModel.notifications.collect { notifList ->
+                val hasUnread = notifList.any { !it.isRead }
+                binding.redDotBadge.visibility = if (hasUnread) View.VISIBLE else View.GONE
             }
         }
     }
