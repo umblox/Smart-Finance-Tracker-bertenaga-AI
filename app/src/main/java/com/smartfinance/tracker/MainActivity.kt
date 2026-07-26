@@ -21,6 +21,7 @@ import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.utils.FirebaseManager
 import com.smartfinance.tracker.utils.RecurringTxWorker 
+import com.smartfinance.tracker.worker.AiWorkerManager // 🔥 Import AiWorker
 
 class MainActivity : AppCompatActivity() {
 
@@ -104,12 +105,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 1. Jadwal Worker Tagihan
         val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "RecurringTransactionWorker",
             ExistingPeriodicWorkPolicy.KEEP, 
             workRequest
         )
+
+        // 🔥 2. Jadwal Worker Notifikasi AI Mingguan (Akan otomatis jalan tiap 7 hari)
+        AiWorkerManager.scheduleWeeklyReport(this)
 
         checkBiometric()
         
@@ -155,8 +160,6 @@ class MainActivity : AppCompatActivity() {
             .commit()
             
         activeMenuId?.let { 
-            // 🔥 FIX: Hanya ubah status aktif/warna icon-nya saja!
-            // Mencegah BottomNavigation memicu listener yang me-load ulang fragment
             findViewById<BottomNavigationView>(R.id.bottomNavigation).menu.findItem(it)?.isChecked = true
         }
     }
