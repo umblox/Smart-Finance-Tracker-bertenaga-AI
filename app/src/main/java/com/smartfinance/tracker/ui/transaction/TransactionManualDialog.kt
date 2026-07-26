@@ -190,17 +190,23 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     cal.set(Calendar.SECOND, 0)
                     val startOfMonth = cal.timeInMillis
 
+                    // 🔥 FIX: Hanya cari berdasarkan Kategori agar tidak kena Error Index Firestore
                     val txSnap = firestore.collection("transactions")
                         .whereEqualTo("categoryId", categoryId)
-                        .whereGreaterThanOrEqualTo("timestamp", startOfMonth)
                         .get()
                         .await()
 
-                    var totalSpent = newAmount
+                    // 🔥 FIX: Mulai dari 0 karena transaksi baru SUDAH tersimpan di Firestore
+                    var totalSpent = 0.0 
                     for (doc in txSnap.documents) {
-                        totalSpent += doc.getDouble("amount") ?: 0.0
+                        val ts = doc.getLong("timestamp") ?: 0L
+                        // 🔥 FIX: Filter tanggalnya dilakukan di memori aplikasi
+                        if (ts >= startOfMonth) { 
+                            totalSpent += doc.getDouble("amount") ?: 0.0
+                        }
                     }
 
+                    // Jika total pengeluaran sudah mencapai 80% atau lebih dari Limit Budget
                     if (totalSpent >= (limitAmount * 0.8)) {
                         com.smartfinance.tracker.worker.AiWorkerManager.triggerBudgetAlert(
                             requireContext(),
