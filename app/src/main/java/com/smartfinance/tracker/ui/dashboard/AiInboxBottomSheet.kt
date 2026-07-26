@@ -28,6 +28,7 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
     private var _binding: DialogAiInboxBinding? = null
     private val binding get() = _binding!!
 
+    // Mengambil ViewModel milik Activity agar sinkron dengan Dashboard
     private lateinit var viewModel: AiNotificationViewModel
     private val sdf = SimpleDateFormat("dd MMM • HH:mm", Locale("id", "ID"))
 
@@ -38,19 +39,13 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        // Memaksa tinggi maksimal agar nyaman dibaca
         (dialog as? BottomSheetDialog)?.behavior?.state = BottomSheetBehavior.STATE_EXPANDED
 
-        viewModel = ViewModelProvider(this)[AiNotificationViewModel::class.java]
+        viewModel = ViewModelProvider(requireActivity())[AiNotificationViewModel::class.java]
 
         binding.btnClose.setOnClickListener { dismiss() }
+        binding.btnMarkAllRead.setOnClickListener { viewModel.markAllAsRead() }
 
-        binding.btnMarkAllRead.setOnClickListener {
-            viewModel.markAllAsRead()
-        }
-
-        // 🔥 Mulai mendengarkan aliran data asli dari ViewModel (Firestore)
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.notifications.collect { notifList ->
                 renderMessages(notifList)
@@ -77,6 +72,7 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 radius = 12f * density
                 cardElevation = 0f
                 strokeWidth = (1f * density).toInt()
+                // Garis tebal warna Primer jika BELUM dibaca, Abu-abu jika SUDAH dibaca
                 strokeColor = ContextCompat.getColor(requireContext(), if (notif.isRead) R.color.divider_color else R.color.primary)
                 setCardBackgroundColor(ContextCompat.getColor(requireContext(), if (notif.isRead) R.color.background_color else R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -90,9 +86,10 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 setPadding(p, p, p, p)
             }
 
-            // Header (Tipe & Waktu)
+            // Header Row (Icon + Tipe + Waktu + Tombol Hapus)
             val headerRow = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
 
@@ -103,18 +100,28 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 else -> "💡"
             }
 
+            // Tipe
             headerRow.addView(TextView(requireContext()).apply {
                 text = "$iconStr  ${notif.type.replace("_", " ")}"
                 textSize = 11f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+            })
+
+            // Waktu (Mengisi ruang kosong / Weight 1)
+            headerRow.addView(TextView(requireContext()).apply {
+                text = " • ${sdf.format(Date(notif.timestamp))}"
+                textSize = 10f
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
 
+            // 🔥 TOMBOL HAPUS SATUAN
             headerRow.addView(TextView(requireContext()).apply {
-                text = sdf.format(Date(notif.timestamp))
-                textSize = 10f
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+                text = "❌"
+                textSize = 14f
+                setPadding((8f*density).toInt(), 0, 0, 0)
+                setOnClickListener { viewModel.deleteNotification(notif.id) }
             })
 
             layout.addView(headerRow)
