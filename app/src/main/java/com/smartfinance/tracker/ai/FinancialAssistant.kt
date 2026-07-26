@@ -295,13 +295,15 @@ class FinancialAssistant(private val context: Context) {
 
                     val txSnap = firestore.collection("transactions")
                         .whereEqualTo("categoryId", categoryId)
-                        .whereGreaterThanOrEqualTo("timestamp", startOfMonth)
                         .get()
                         .await()
 
-                    var totalSpent = newAmount
+                    var totalSpent = 0.0
                     for (doc in txSnap.documents) {
-                        totalSpent += doc.getDouble("amount") ?: 0.0
+                        val ts = doc.getLong("timestamp") ?: 0L
+                        if (ts >= startOfMonth) {
+                            totalSpent += doc.getDouble("amount") ?: 0.0
+                        }
                     }
 
                     if (totalSpent >= (limitAmount * 0.8)) {
