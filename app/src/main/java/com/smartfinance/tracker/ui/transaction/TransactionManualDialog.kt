@@ -25,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
+import com.smartfinance.tracker.worker.AiWorkerManager // 🔥 Import AiWorker
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -150,6 +151,11 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         debtMap["isPaid"] = false
                         
                         viewModel.saveDebt(generatedDebtId, debtMap)
+                    }
+
+                    // 🔥 PEMICU AI BUDGET: Cek jika pengeluaran lumayan besar (Asumsi limit = 1.000.000)
+                    if (finalType == "EXPENSE" && amountVal >= 500000.0) {
+                        AiWorkerManager.triggerBudgetAlert(requireContext(), catName, amountVal, 1000000.0)
                     }
 
                     Toast.makeText(context, "Berhasil Disimpan Langsung ke Cloud Server!", Toast.LENGTH_SHORT).show()
