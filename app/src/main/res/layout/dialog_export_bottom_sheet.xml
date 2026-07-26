@@ -2,28 +2,30 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:background="@color/surface_white"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingTop="20dp">
 
-    <!-- Header -->
+    <!-- Header Global -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:layout_marginBottom="24dp">
-
+        android:paddingHorizontal="24dp"
+        android:layout_marginBottom="16dp">
+        
         <TextView
+            android:id="@+id/tvHeaderTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🖨️ Mesin Export Laporan"
+            android:text="🖨️ Pengaturan Cetak PDF"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
-
+            
         <ImageView
             android:id="@+id/btnClose"
             android:layout_width="28dp"
@@ -35,107 +37,192 @@
             android:focusable="true"/>
     </LinearLayout>
 
-    <!-- Format Output -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Pilih Format File:"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
-
-    <RadioGroup
-        android:id="@+id/radioGroupFormat"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="20dp">
-
-        <RadioButton
-            android:id="@+id/radioPdf"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:checked="true"
-            android:text="Dokumen PDF"
-            android:textColor="@color/text_primary"
-            android:buttonTint="@color/primary"/>
-
-        <RadioButton
-            android:id="@+id/radioCsv"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Data CSV (Excel)"
-            android:textColor="@color/text_primary"
-            android:buttonTint="@color/primary"/>
-    </RadioGroup>
-
-    <!-- Filter Waktu -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Rentang Waktu:"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
-
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        app:cardBackgroundColor="@color/background_color"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="0dp"
-        app:strokeColor="@color/divider_color"
-        app:strokeWidth="1dp"
-        android:layout_marginBottom="20dp">
-        <Spinner
-            android:id="@+id/spinnerTime"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+        
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@android:drawable/btn_dropdown"
-            android:paddingStart="12dp"/>
-    </com.google.android.material.card.MaterialCardView>
+            android:layout_height="wrap_content">
 
-    <!-- Filter Tipe Transaksi -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Jenis Transaksi:"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
+            <!-- ========================================== -->
+            <!-- HALAMAN 1: LAYOUT PENGATURAN FILTER -->
+            <!-- ========================================== -->
+            <LinearLayout
+                android:id="@+id/layoutSetup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="24dp"
+                android:visibility="visible">
 
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        app:cardBackgroundColor="@color/background_color"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="0dp"
-        app:strokeColor="@color/divider_color"
-        app:strokeWidth="1dp"
-        android:layout_marginBottom="32dp">
-        <Spinner
-            android:id="@+id/spinnerType"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@android:drawable/btn_dropdown"
-            android:paddingStart="12dp"/>
-    </com.google.android.material.card.MaterialCardView>
+                <!-- Filter Tipe Transaksi -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Jenis Transaksi:"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp"/>
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    app:cardBackgroundColor="@color/background_color"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/divider_color"
+                    app:strokeWidth="1dp"
+                    android:layout_marginBottom="16dp">
+                    <Spinner
+                        android:id="@+id/spinnerType"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@android:drawable/btn_dropdown"
+                        android:paddingStart="12dp"/>
+                </com.google.android.material.card.MaterialCardView>
 
-    <!-- Tombol Aksi -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnExport"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="BUAT LAPORAN SEKARANG"
-        android:textColor="@color/surface_white"
-        android:textStyle="bold"
-        app:backgroundTint="@color/primary"
-        app:cornerRadius="16dp" />
+                <!-- Filter Waktu -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rentang Waktu:"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp"/>
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    app:cardBackgroundColor="@color/background_color"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/divider_color"
+                    app:strokeWidth="1dp"
+                    android:layout_marginBottom="12dp">
+                    <Spinner
+                        android:id="@+id/spinnerTime"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@android:drawable/btn_dropdown"
+                        android:paddingStart="12dp"/>
+                </com.google.android.material.card.MaterialCardView>
 
+                <!-- TANGGAL KUSTOM -->
+                <LinearLayout
+                    android:id="@+id/layoutCustomDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="32dp"
+                    android:visibility="gone">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnStartDate"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:text="Mulai"
+                        android:textColor="@color/text_primary"
+                        app:strokeColor="@color/divider_color"/>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEndDate"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="Akhir"
+                        android:textColor="@color/text_primary"
+                        app:strokeColor="@color/divider_color"/>
+                </LinearLayout>
+
+                <!-- Tombol Lanjut ke Halaman 2 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnGeneratePreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:text="TAMPILKAN PREVIEW"
+                    android:textColor="@color/surface_white"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/primary"
+                    app:cornerRadius="14dp" />
+            </LinearLayout>
+
+            <!-- ========================================== -->
+            <!-- HALAMAN 2: LAYOUT PREVIEW & TOMBOL SAVE -->
+            <!-- ========================================== -->
+            <LinearLayout
+                android:id="@+id/layoutPreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="24dp"
+                android:visibility="gone">
+
+                <!-- Tombol Kembali Edit -->
+                <TextView
+                    android:id="@+id/btnBackToSetup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⬅ Kembali Edit Filter"
+                    android:textColor="@color/primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:paddingVertical="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="400dp"
+                    android:background="@color/divider_color"
+                    android:layout_marginBottom="24dp">
+                    
+                    <ImageView
+                        android:id="@+id/ivPdfPreview"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_margin="8dp"
+                        android:background="@android:color/white"
+                        android:elevation="4dp"
+                        android:scaleType="fitCenter" />
+                        
+                    <ProgressBar
+                        android:id="@+id/progressBarPreview"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:visibility="gone"/>
+
+                    <TextView
+                        android:id="@+id/tvEmptyPreview"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="TIdak ada data"
+                        android:textColor="@color/text_secondary"
+                        android:visibility="gone"/>
+                </FrameLayout>
+
+                <!-- Tombol Simpan Akhir -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSavePdf"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:text="SIMPAN SEBAGAI PDF"
+                    android:textColor="@color/surface_white"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/primary"
+                    app:cornerRadius="14dp" 
+                    android:layout_marginBottom="24dp"/>
+            </LinearLayout>
+
+        </FrameLayout>
+    </ScrollView>
 </LinearLayout>
-
