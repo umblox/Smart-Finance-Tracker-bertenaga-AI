@@ -9,24 +9,24 @@ import kotlinx.coroutines.launch
 
 class AiNotificationViewModel : ViewModel() {
     private val repository = AiNotificationRepository()
-
-    // Mengekspos aliran data notifikasi ke UI
     val notifications: StateFlow<List<AiNotification>> = repository.notifications
 
     init {
-        // Mulai memantau Firestore saat ViewModel dibuat
         repository.startListening()
+        // 🔥 AUTO-CLEANUP: Setiap kali ViewModel hidup, bersihkan notif lama!
+        viewModelScope.launch { repository.cleanupOldNotifications() }
     }
 
     fun markAllAsRead() {
-        viewModelScope.launch {
-            repository.markAllAsRead()
-        }
+        viewModelScope.launch { repository.markAllAsRead() }
+    }
+
+    fun deleteNotification(id: String) {
+        viewModelScope.launch { repository.deleteNotification(id) }
     }
 
     override fun onCleared() {
         super.onCleared()
-        // Hentikan pantauan saat UI ditutup agar hemat memori
         repository.stopListening()
     }
 }
