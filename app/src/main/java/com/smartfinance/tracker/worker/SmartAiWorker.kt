@@ -43,9 +43,12 @@ class SmartAiWorker(
                 - Jangan memakai sapaan basa-basi (seperti "Halo/Hai"), langsung to the point.
             """.trimIndent()
 
-            // 2. Tembak API AI (Gunakan metode yang ada di AIClient Anda, sesuaikan jika beda nama fungsinya)
-            // Asumsi: AIClient memiliki fungsi `sendMessage(prompt)` yang me-return String.
-            val aiResponse = AIClient.sendMessage(prompt) // <-- SESUAIKAN JIKA NAMA FUNGSINYA BEDA
+            // 2. Inisialisasi Otak AI Client sesuai dengan struktur aplikasi Anda
+            val assistant = com.smartfinance.tracker.ai.FinancialAssistant(context)
+            val aiClient = com.smartfinance.tracker.ai.AIClient(context, assistant)
+
+             // Panggil fungsi dari AiClient.kt
+            val aiResponse = aiClient.sendMessageToAI(prompt)
             
             // 3. Simpan Jawaban AI ke Firestore (Agar masuk ke Kotak Pesan)
             val repo = AiNotificationRepository()
