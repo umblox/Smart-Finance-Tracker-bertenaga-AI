@@ -1,8 +1,9 @@
-package com.smartfinance.tracker.utils // 🔥 Wajib pakai utils
+package com.smartfinance.tracker.utils
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.smartfinance.tracker.worker.AiWorkerManager // 🔥 Import AiWorker
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.Locale
@@ -14,7 +15,6 @@ class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineW
         val now = System.currentTimeMillis()
 
         try {
-            // 1. Tarik semua jadwal yang aktif dan waktunya sudah lewat/pas
             val snap = firestore.collection("recurring_transactions")
                 .whereEqualTo("isActive", true)
                 .whereLessThanOrEqualTo("nextExecutionTime", now)
@@ -34,7 +34,6 @@ class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineW
 
                 if (amount <= 0.0) continue
 
-                // 2. 🔥 EKSEKUSI PENCATATAN TRANSAKSI (Sama tangguhnya dengan AI)
                 val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
                 
                 if (type == "DEBT" || type == "RECEIVABLE") {
@@ -55,11 +54,12 @@ class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineW
                     firestore.collection("transactions").document(txId).set(txMap).await()
                 }
 
-                // 3. 🔥 HITUNG MATEMATIKA WAKTU BERIKUTNYA
+                // 🔥 PEMICU AI TAGIHAN OTOMATIS: Beritahu pengguna kalau saldonya baru saja dipotong sistem
+                AiWorkerManager.triggerRecurringAlert(applicationContext, note, amount, true)
+
                 val cal = Calendar.getInstance()
                 cal.timeInMillis = doc.getLong("nextExecutionTime") ?: now
                 
-                // Mencegah bug: Jika HP mati seminggu, dia akan terus maju sampai ketemu waktu di masa depan
                 while (cal.timeInMillis <= now) {
                     when (interval) {
                         "DAILY" -> cal.add(Calendar.DAY_OF_YEAR, 1)
@@ -71,12 +71,9 @@ class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineW
                 }
                 val nextTime = cal.timeInMillis
 
-                // 4. 🔥 UPDATE STATUS JADWAL
                 if (hasEndDate && nextTime > endDate) {
-                    // Waktunya habis, matikan jadwalnya
                     firestore.collection("recurring_transactions").document(doc.id).update("isActive", false).await()
                 } else {
-                    // Update jadwal untuk eksekusi selanjutnya
                     firestore.collection("recurring_transactions").document(doc.id).update("nextExecutionTime", nextTime).await()
                 }
             }
