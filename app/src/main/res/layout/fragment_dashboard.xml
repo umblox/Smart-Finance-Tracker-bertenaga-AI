@@ -12,6 +12,7 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
+        <!-- JUDUL APLIKASI -->
         <TextView
             android:id="@+id/tvAppTitle"
             android:layout_width="wrap_content"
@@ -21,7 +22,43 @@
             android:textSize="22sp"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="@+id/btnAiNotification"/>
+
+        <!-- 🔥 FITUR BARU: TOMBOL NOTIFIKASI AI DENGAN TITIK MERAH -->
+        <FrameLayout
+            android:id="@+id/btnAiNotification"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <!-- Ikon AI / Lonceng -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="🤖"
+                android:textSize="22sp" />
+
+            <!-- Titik Merah (Sembunyi secara default) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/redDotBadge"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="6dp"
+                android:layout_marginEnd="6dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/expense_red"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="1.5dp"
+                app:strokeColor="@color/surface_white"/>
+        </FrameLayout>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardBalance"
@@ -29,7 +66,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             app:cardBackgroundColor="@color/primary"
-            app:layout_constraintTop_toBottomOf="@id/tvAppTitle">
+            app:layout_constraintTop_toBottomOf="@id/btnAiNotification">
 
             <LinearLayout
                 android:layout_width="match_parent"
