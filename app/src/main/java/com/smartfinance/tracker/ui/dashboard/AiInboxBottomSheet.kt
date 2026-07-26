@@ -9,6 +9,8 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -16,6 +18,7 @@ import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.AiNotification
 import com.smartfinance.tracker.databinding.DialogAiInboxBinding
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,6 +28,7 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
     private var _binding: DialogAiInboxBinding? = null
     private val binding get() = _binding!!
 
+    private lateinit var viewModel: AiNotificationViewModel
     private val sdf = SimpleDateFormat("dd MMM • HH:mm", Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -38,13 +42,22 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
         // Memaksa tinggi maksimal agar nyaman dibaca
         (dialog as? BottomSheetDialog)?.behavior?.state = BottomSheetBehavior.STATE_EXPANDED
 
+        viewModel = ViewModelProvider(this)[AiNotificationViewModel::class.java]
+
         binding.btnClose.setOnClickListener { dismiss() }
 
-        // TODO: Nanti kita hubungkan dengan data asli dari Firestore/Room
-        loadDummyDataForNow()
+        binding.btnMarkAllRead.setOnClickListener {
+            viewModel.markAllAsRead()
+        }
+
+        // 🔥 Mulai mendengarkan aliran data asli dari ViewModel (Firestore)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.notifications.collect { notifList ->
+                renderMessages(notifList)
+            }
+        }
     }
 
-    // Fungsi untuk menggambar kotak pesan secara dinamis
     private fun renderMessages(notifications: List<AiNotification>) {
         binding.containerMessages.removeAllViews()
 
@@ -59,12 +72,11 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
 
         val density = requireContext().resources.displayMetrics.density
 
-        notifications.sortedByDescending { it.timestamp }.forEach { notif ->
+        notifications.forEach { notif ->
             val card = MaterialCardView(requireContext()).apply {
                 radius = 12f * density
                 cardElevation = 0f
                 strokeWidth = (1f * density).toInt()
-                // Warna beda jika belum dibaca
                 strokeColor = ContextCompat.getColor(requireContext(), if (notif.isRead) R.color.divider_color else R.color.primary)
                 setCardBackgroundColor(ContextCompat.getColor(requireContext(), if (notif.isRead) R.color.background_color else R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -120,7 +132,7 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 text = notif.message
                 textSize = 13f
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
-                setLineSpacing(4f, 1f) // Biar rapi terbaca
+                setLineSpacing(4f, 1f)
             })
 
             card.addView(layout)
@@ -128,26 +140,8 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    // Data bohongan agar Anda bisa melihat wujudnya sementara kita menyiapkan mesin AI-nya
-    private fun loadDummyDataForNow() {
-        val dummyList = listOf(
-            AiNotification(
-                id = "1", title = "Peringatan Anggaran Makanan", 
-                message = "Gawat! Pengeluaran 'Makanan & Minuman' kamu sudah menyentuh 90% dari limit bulan ini. Kurangi jajan di luar untuk 10 hari ke depan ya.",
-                timestamp = System.currentTimeMillis() - 3600000, type = "BUDGET", isRead = false
-            ),
-            AiNotification(
-                id = "2", title = "Tagihan Jatuh Tempo", 
-                message = "Jangan lupa, tagihan 'Cicilan KPR' (Rp 1.500.000) jatuh tempo besok. Saldo kamu saat ini cukup untuk membayarnya.",
-                timestamp = System.currentTimeMillis() - 86400000, type = "RECURRING", isRead = true
-            )
-        )
-        renderMessages(dummyList)
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
 }
-
