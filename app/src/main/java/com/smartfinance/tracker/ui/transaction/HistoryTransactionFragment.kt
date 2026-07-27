@@ -1,26 +1,25 @@
 package com.smartfinance.tracker.ui.transaction
 
 import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.card.MaterialCardView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.smartfinance.tracker.MainActivity
+import com.smartfinance.tracker.R
+import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.databinding.FragmentHistoryTransactionBinding
+import com.smartfinance.tracker.ui.report.ReportFragment
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.collections.HashMap
 
 class HistoryTransactionFragment : Fragment() {
 
@@ -29,13 +28,10 @@ class HistoryTransactionFragment : Fragment() {
 
     private lateinit var viewModel: TransactionViewModel
     
-    private var currentCalendar = Calendar.getInstance()
-    private var activeTab = "EXPENSE"
-    private var searchQuery = ""
-
-    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
-    private val sdfDate = SimpleDateFormat("dd MMM • HH:mm", Locale("id", "ID"))
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    private val sdfDateOnly = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
+    private val sdfDayNum = SimpleDateFormat("dd", Locale("id", "ID"))
+    private val sdfMonthYear = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHistoryTransactionBinding.inflate(inflater, container, false)
@@ -45,160 +41,159 @@ class HistoryTransactionFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        viewModel = ViewModelProvider(this)[TransactionViewModel::class.java]
+        // Kita gunakan ViewModel Transaksi global yang sudah ada
+        viewModel = ViewModelProvider(requireActivity())[TransactionViewModel::class.java]
 
-        binding.btnPrevMonth.setOnClickListener { changeMonth(-1) }
-        binding.btnNextMonth.setOnClickListener { changeMonth(1) }
+        binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext())
 
-        binding.btnTabExpense.setOnClickListener { setTab("EXPENSE") }
-        binding.btnTabIncome.setOnClickListener { setTab("INCOME") }
+        // 🔥 TOMBOL MENUJU LAPORAN
+        binding.btnViewReport.setOnClickListener {
+            // Karena kita sudah punya ReportFragment (Mesin Cetak Laporan PDF), kita panggil itu!
+            (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
+        }
 
-        // Filter Pencarian Real-time
-        binding.etSearch.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                searchQuery = s.toString().lowercase(Locale.ROOT)
-                renderList()
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
-
-        // Default Setup
-        updateMonthLabel()
-        setTab("EXPENSE")
-
-        // Observe Data dari ViewModel
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.transactions.collect {
-                renderList()
+            viewModel.transactions.collect { allTx ->
+                processAndRenderTransactions(allTx)
             }
         }
     }
 
-    private fun changeMonth(amount: Int) {
-        currentCalendar.add(Calendar.MONTH, amount)
-        updateMonthLabel()
-        renderList()
-    }
+    private fun processAndRenderTransactions(transactions: List<Transaction>) {
+        // 1. Hitung Ringkasan Bulan Ini (Asumsi transaksi yang diload adalah bulan ini)
+        var totalIncome = 0.0
+        var totalExpense = 0.0
 
-    private fun updateMonthLabel() {
-        binding.tvMonthLabel.text = sdfMonthLabel.format(currentCalendar.time).uppercase(Locale.ROOT)
-    }
-
-    private fun setTab(tab: String) {
-        activeTab = tab
-        val density = requireContext().resources.displayMetrics.density
-
-        if (tab == "EXPENSE") {
-            binding.btnTabExpense.apply { setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 10 * density; setColor(Color.parseColor("#1E293B")) } }
-            binding.btnTabIncome.apply { setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL); background = null }
-        } else {
-            binding.btnTabIncome.apply { setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 10 * density; setColor(Color.parseColor("#1E293B")) } }
-            binding.btnTabExpense.apply { setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.NORMAL); background = null }
-        }
-        renderList()
-    }
-
-    private fun renderList() {
-        if (_binding == null) return
-        val allTx = viewModel.transactions.value
-        val density = requireContext().resources.displayMetrics.density
-
-        binding.listContainer.removeAllViews()
-
-        val targetMonth = currentCalendar.get(Calendar.MONTH)
-        val targetYear = currentCalendar.get(Calendar.YEAR)
-
-        // 1. Filter by Tab & Month
-        var filteredList = allTx.filter { tx ->
-            val cal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-            tx.type == activeTab && cal.get(Calendar.MONTH) == targetMonth && cal.get(Calendar.YEAR) == targetYear
-        }
-
-        // 2. Filter by Search Query
-        if (searchQuery.isNotEmpty()) {
-            filteredList = filteredList.filter {
-                it.note.lowercase(Locale.ROOT).contains(searchQuery) ||
-                it.categoryName.lowercase(Locale.ROOT).contains(searchQuery) ||
-                it.amount.toString().contains(searchQuery)
+        for (tx in transactions) {
+            if (tx.type == "INCOME" || tx.type == "DEBT") {
+                totalIncome += tx.amount
+            } else {
+                totalExpense += tx.amount
             }
         }
+        val netBalance = totalIncome - totalExpense
 
-        // 3. Urutkan terbaru di atas
-        filteredList = filteredList.sortedByDescending { it.timestamp }
+        binding.tvTotalIncome.text = "+${formatRupiah.format(totalIncome)}"
+        binding.tvTotalExpense.text = "-${formatRupiah.format(totalExpense)}"
+        binding.tvTotalBalance.text = formatRupiah.format(netBalance)
+        binding.tvTotalBalance.setTextColor(if (netBalance >= 0) Color.WHITE else Color.parseColor("#E53935"))
 
-        if (filteredList.isEmpty()) {
-            val emptyMsg = if (searchQuery.isNotEmpty()) "Pencarian '$searchQuery' tidak ditemukan." else "Belum ada riwayat transaksi di bulan ini."
-            binding.listContainer.addView(TextView(requireContext()).apply {
-                text = "\n$emptyMsg"
-                textSize = 13.5f; setTextColor(Color.parseColor("#94A3B8")); gravity = Gravity.CENTER
-                setTypeface(null, Typeface.ITALIC)
-            })
-            return
-        }
+        // 2. KELOMPOKKAN BERDASARKAN TANGGAL (Grouping)
+        val groupedMap = transactions.sortedByDescending { it.timestamp }.groupBy { sdfDateOnly.format(Date(it.timestamp)) }
+        
+        // Buat daftar campuran (Header + Item)
+        val displayList = mutableListOf<Any>()
 
-        var totalAmount = 0.0
-
-        filteredList.forEach { tx ->
-            totalAmount += tx.amount
-
-            val itemCard = MaterialCardView(requireContext()).apply {
-                radius = 12f * density; cardElevation = 1f * density; strokeWidth = 0
-                setCardBackgroundColor(Color.WHITE)
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() }
-                
-                setOnClickListener {
-                    val passMap = HashMap<String, Any>().apply {
-                        put("id", tx.id)
-                        put("amount", tx.amount)
-                        put("type", tx.type)
-                        put("timestamp", tx.timestamp)
-                        put("categoryId", tx.categoryId)
-                        put("categoryName", tx.categoryName)
-                        put("note", tx.note)
-                        put("debtId", tx.debtId)
-                    }
-                    TransactionEditorDialog(passMap) {
-                        // ViewModel auto-updates list
-                    }.show(parentFragmentManager, "TransactionEditorDialog")
-                }
+        for ((dateStr, txList) in groupedMap) {
+            // Hitung total khusus hari itu
+            var dailyTotal = 0.0
+            txList.forEach { tx ->
+                if (tx.type == "INCOME" || tx.type == "DEBT") dailyTotal += tx.amount else dailyTotal -= tx.amount
             }
-
-            val row = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                setPadding((16f * density).toInt(), (14f * density).toInt(), (16f * density).toInt(), (14f * density).toInt())
-            }
-
-            // Kiri: Kategori & Catatan
-            val leftLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-            leftLayout.addView(TextView(requireContext()).apply { text = tx.categoryName; textSize = 12f; setTextColor(Color.parseColor("#64748B")); setTypeface(null, Typeface.BOLD) })
-            leftLayout.addView(TextView(requireContext()).apply { text = tx.note; textSize = 15f; setTextColor(Color.parseColor("#1E293B")); setPadding(0, (2f*density).toInt(), 0, 0) })
-            leftLayout.addView(TextView(requireContext()).apply { text = sdfDate.format(Date(tx.timestamp)); textSize = 11f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, (4f*density).toInt(), 0, 0) })
-            row.addView(leftLayout)
-
-            // Kanan: Nominal
-            val amountColor = if (tx.type == "EXPENSE") Color.parseColor("#EF4444") else Color.parseColor("#10B981")
-            val amountPrefix = if (tx.type == "EXPENSE") "-" else "+"
-            row.addView(TextView(requireContext()).apply {
-                text = "$amountPrefix ${formatRupiah.format(tx.amount)}"
-                textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(amountColor)
-            })
-
-            itemCard.addView(row)
-            binding.listContainer.addView(itemCard)
+            
+            // Masukkan Header Tanggal
+            displayList.add(DateHeader(txList.first().timestamp, dailyTotal))
+            
+            // Masukkan Item Transaksinya di bawah header tersebut
+            displayList.addAll(txList)
         }
 
-        // Tampilkan Summary Total di atas List
-        val summaryText = TextView(requireContext()).apply {
-            text = "Total ${if (activeTab == "EXPENSE") "Pengeluaran" else "Pemasukan"}: ${formatRupiah.format(totalAmount)}"
-            textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(Color.parseColor("#1E293B"))
-            setPadding((4f*density).toInt(), (8f*density).toInt(), 0, (8f*density).toInt())
-        }
-        binding.listContainer.addView(summaryText, 0)
+        // Pasang ke Adapter
+        binding.rvTransactions.adapter = GroupedHistoryAdapter(displayList)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    // ==============================================================================
+    // ADAPTER MULTI-TIPE KUSTOM (Langsung di dalam file ini agar ringkas)
+    // ==============================================================================
+    
+    // Model Data Pembungkus Header
+    data class DateHeader(val timestamp: Long, val dailyTotal: Double)
+
+    inner class GroupedHistoryAdapter(private val items: List<Any>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        private val TYPE_HEADER = 0
+        private val TYPE_TRANSACTION = 1
+
+        override fun getItemViewType(position: Int): Int {
+            return if (items[position] is DateHeader) TYPE_HEADER else TYPE_TRANSACTION
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val inflater = LayoutInflater.from(parent.context)
+            return if (viewType == TYPE_HEADER) {
+                val view = inflater.inflate(R.layout.item_history_header, parent, false)
+                HeaderViewHolder(view)
+            } else {
+                val view = inflater.inflate(R.layout.item_transaction, parent, false)
+                TransactionViewHolder(view)
+            }
+        }
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            val item = items[position]
+            if (holder is HeaderViewHolder && item is DateHeader) {
+                val date = Date(item.timestamp)
+                holder.tvNumber.text = sdfDayNum.format(date)
+                
+                // Menentukan "Hari ini" / "Kemarin" / Nama Hari
+                val cal = Calendar.getInstance()
+                val todayStr = sdfDateOnly.format(cal.time)
+                cal.add(Calendar.DAY_OF_YEAR, -1)
+                val yesterdayStr = sdfDateOnly.format(cal.time)
+                val itemDateStr = sdfDateOnly.format(date)
+
+                holder.tvDayName.text = when (itemDateStr) {
+                    todayStr -> "Hari ini"
+                    yesterdayStr -> "Kemarin"
+                    else -> SimpleDateFormat("EEEE", Locale("id", "ID")).format(date)
+                }
+                
+                holder.tvMonth.text = sdfMonthYear.format(date)
+                
+                val prefix = if (item.dailyTotal >= 0) "+" else "-"
+                holder.tvDailyTotal.text = "$prefix${formatRupiah.format(Math.abs(item.dailyTotal))}"
+                holder.tvDailyTotal.setTextColor(if (item.dailyTotal >= 0) Color.parseColor("#4CAF50") else Color.parseColor("#E53935"))
+                
+            } else if (holder is TransactionViewHolder && item is Transaction) {
+                val isInc = item.type == "INCOME" || item.type == "DEBT"
+                holder.tvCategory.text = item.categoryName
+                holder.tvNote.text = item.note.ifEmpty { "Tanpa catatan" }
+                
+                val prefix = if (isInc) "+" else "-"
+                holder.tvAmount.text = "$prefix${formatRupiah.format(item.amount)}"
+                holder.tvAmount.setTextColor(if (isInc) Color.parseColor("#4CAF50") else Color.parseColor("#E53935"))
+                
+                // Emoji cerdas berdasarkan tipe
+                holder.tvIcon.text = if (isInc) "📥" else "💸"
+                
+                holder.itemView.setOnClickListener {
+                    // Bisa ditambahkan dialog klik detail di sini nanti
+                    TransactionEditorDialog(
+                        hashMapOf("id" to item.id, "amount" to item.amount, "note" to item.note, "type" to item.type, "timestamp" to item.timestamp, "categoryId" to item.categoryId, "debtId" to (item.debtId ?: ""))
+                    ) { /* OnUpdate */ }.show(parentFragmentManager, "EditTx")
+                }
+            }
+        }
+
+        override fun getItemCount() = items.size
+
+        inner class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val tvNumber: TextView = view.findViewById(R.id.tvHeaderDateNumber)
+            val tvDayName: TextView = view.findViewById(R.id.tvHeaderDayName)
+            val tvMonth: TextView = view.findViewById(R.id.tvHeaderMonthYear)
+            val tvDailyTotal: TextView = view.findViewById(R.id.tvHeaderDailyTotal)
+        }
+
+        inner class TransactionViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val tvCategory: TextView = view.findViewById(R.id.tvItemCategory)
+            val tvNote: TextView = view.findViewById(R.id.tvItemNote)
+            val tvAmount: TextView = view.findViewById(R.id.tvItemAmount)
+            val tvIcon: TextView = view.findViewById(R.id.tvItemIcon)
+        }
     }
 }
