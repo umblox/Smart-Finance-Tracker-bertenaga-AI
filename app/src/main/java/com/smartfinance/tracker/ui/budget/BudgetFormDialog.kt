@@ -5,13 +5,13 @@ import android.app.Dialog
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.databinding.DialogBudgetFormBinding
+import com.smartfinance.tracker.ui.category.CategoryPickerDialog
 import kotlinx.coroutines.launch
 
 class BudgetFormDialog : DialogFragment() {
@@ -31,7 +31,7 @@ class BudgetFormDialog : DialogFragment() {
     private lateinit var viewModel: BudgetViewModel
 
     private var editingDocId: String? = null
-    private var expenseCategories = listOf<Category>()
+    private var selectedCategory: Category? = null // 🔥 Menyimpan objek kategori yang dipilih
 
     override fun onStart() {
         super.onStart()
@@ -56,17 +56,26 @@ class BudgetFormDialog : DialogFragment() {
         binding.btnClose.setOnClickListener { dismiss() }
         binding.btnSave.setOnClickListener { saveBudget() }
         binding.btnDelete.setOnClickListener { deleteCurrentBudget() }
+        
+        // 🔥 Panggil Picker Kategori saat tombol ditekan
+        binding.btnCategoryPicker.setOnClickListener { showCategoryPicker() }
+    }
+
+    private fun showCategoryPicker() {
+        // 🔥 FIX: Paksa Picker untuk HANYA menampilkan tipe PENGELUARAN (EXPENSE)
+        CategoryPickerDialog("EXPENSE", selectedCategory?.id) { selectedCat ->
+            if (selectedCat.type != "EXPENSE") {
+                Toast.makeText(context, "Budget hanya bisa diatur untuk Pengeluaran!", Toast.LENGTH_SHORT).show()
+                return@CategoryPickerDialog
+            }
+            selectedCategory = selectedCat
+            binding.btnCategoryPicker.text = selectedCat.name
+        }.show(parentFragmentManager, "CategoryPickerDialog")
     }
 
     private fun observeCategoriesAndLoadData() {
         lifecycleScope.launch {
-            viewModel.categories.collect { allCats ->
-                // Filter murni hanya Pengeluaran
-                expenseCategories = allCats.filter { it.type == "EXPENSE" }.sortedBy { it.name }
-                val names = expenseCategories.map { it.name }
-                binding.spinnerCategory.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, names)
-                
-                // Isi formulir jika ini mode Edit (setelah kategori berhasil dimuat)
+            viewModel.categories.collect { 
                 loadDataIfEditing()
             }
         }
@@ -77,28 +86,26 @@ class BudgetFormDialog : DialogFragment() {
         if (docId == null) {
             binding.tvFormTitle.text = "Anggaran Baru"
             binding.btnDelete.visibility = View.GONE
-            if (expenseCategories.isNotEmpty()) binding.spinnerCategory.setSelection(0)
         } else {
             val budget = viewModel.budgets.value.find { it.id == docId } ?: return
             binding.tvFormTitle.text = "Edit Anggaran"
             binding.btnDelete.visibility = View.VISIBLE
             binding.etLimitAmount.setText(budget.limitAmount.toLong().toString())
             
-            val index = expenseCategories.indexOfFirst { it.id == budget.categoryId }
-            if (index >= 0) binding.spinnerCategory.setSelection(index)
+            // Temukan kategori dari database dan set ke UI
+            selectedCategory = viewModel.categories.value.find { it.id == budget.categoryId }
+            binding.btnCategoryPicker.text = budget.categoryName
         }
     }
 
     private fun saveBudget() {
         val limitText = binding.etLimitAmount.text.toString()
-        val selectedCat = if (expenseCategories.isNotEmpty()) expenseCategories[binding.spinnerCategory.selectedItemPosition] else null
 
         lifecycleScope.launch {
             try {
-                // UI murni mengoper ke ViewModel
-                viewModel.validateAndSaveBudget(editingDocId, limitText, selectedCat)
+                viewModel.validateAndSaveBudget(editingDocId, limitText, selectedCategory)
                 Toast.makeText(context, "✅ Anggaran berhasil disimpan!", Toast.LENGTH_SHORT).show()
-                dismiss() // Tutup formulir dengan manis
+                dismiss() 
             } catch (e: Exception) {
                 Toast.makeText(context, "❌ ${e.message}", Toast.LENGTH_SHORT).show()
             }
