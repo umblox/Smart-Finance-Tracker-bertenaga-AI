@@ -5,7 +5,7 @@ import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import java.util.Calendar
 
-// 🔥 Tambahan opsi CUSTOM dan DEBT_ONLY sudah disuntikkan
+// 🔥 Opsi kustomisasi filter sudah lengkap
 enum class ExportTimeRange { ALL, DAILY, WEEKLY, MONTHLY, CUSTOM }
 enum class ExportType { ALL, INCOME_ONLY, EXPENSE_ONLY, DEBT_ONLY }
 
@@ -20,7 +20,14 @@ class ExportViewModel : ViewModel() {
         repository.startListening()
     }
 
-    fun getFilteredTransactions(timeRange: ExportTimeRange, txType: ExportType): List<Transaction> {
+    // 🔥 FITUR BARU: Mengambil semua daftar kategori yang unik dari riwayat transaksi
+    fun getAvailableCategories(): List<String> {
+        val allTx = repository.transactions.value
+        return allTx.map { it.categoryName }.distinct().sorted()
+    }
+
+    // 🔥 FITUR BARU: Menambahkan parameter categoryName
+    fun getFilteredTransactions(timeRange: ExportTimeRange, txType: ExportType, categoryName: String): List<Transaction> {
         val allTx = repository.transactions.value
         if (allTx.isEmpty()) return emptyList()
 
@@ -50,7 +57,7 @@ class ExportViewModel : ViewModel() {
         }
 
         // 2. Saring Berdasarkan Tipe Transaksi
-        return timeFiltered.filter { tx ->
+        val typeFiltered = timeFiltered.filter { tx ->
             val isIncome = tx.type == "INCOME"
             val isExpense = tx.type == "EXPENSE"
             val isDebt = tx.type == "DEBT" || tx.type == "RECEIVABLE"
@@ -61,6 +68,13 @@ class ExportViewModel : ViewModel() {
                 ExportType.EXPENSE_ONLY -> isExpense
                 ExportType.DEBT_ONLY -> isDebt
             }
+        }
+
+        // 3. 🔥 FITUR BARU: Saring Berdasarkan Kategori
+        return if (categoryName == "Semua Kategori") {
+            typeFiltered
+        } else {
+            typeFiltered.filter { it.categoryName == categoryName }
         }.sortedByDescending { it.timestamp }
     }
 
