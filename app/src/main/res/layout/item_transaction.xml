@@ -1,21 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:paddingHorizontal="16dp"
-    android:paddingVertical="12dp"
+    android:paddingVertical="14dp"
+    android:background="?attr/selectableItemBackground"
     android:gravity="center_vertical">
     
-    <!-- Background warna sudah diatur di File Kotlin (Adapter) -->
-
     <FrameLayout
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
         android:background="@drawable/bg_circle_icon"
-        android:backgroundTint="#2D3748"
-        android:layout_marginEnd="16dp">
+        android:backgroundTint="@color/background_color"
+        android:layout_marginEnd="12dp">
         <TextView
             android:id="@+id/tvItemIcon"
             android:layout_width="wrap_content"
@@ -59,6 +57,5 @@
         android:text="-Rp 0"
         android:textSize="15sp"
         android:textStyle="bold"
-        android:textColor="#E53935"/>
-
+        android:textColor="@color/expense_red"/>
 </LinearLayout>
