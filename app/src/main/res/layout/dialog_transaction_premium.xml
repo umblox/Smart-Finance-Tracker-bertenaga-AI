@@ -70,7 +70,6 @@
                         android:textColor="@color/text_primary" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- 🔥 FIX: Warna tombol kontak disesuaikan tema -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPickContact"
                     android:layout_width="54dp"
@@ -153,7 +152,7 @@
                     android:textColor="@color/text_primary" />
             </RadioGroup>
 
-            <!-- Kategori -->
+            <!-- 🔥 Kategori (Diubah menjadi Tombol ala Money Lover) -->
             <TextView
                 android:id="@+id/tvCategoryLabel"
                 android:layout_width="wrap_content"
@@ -164,24 +163,17 @@
                 android:textSize="12sp"
                 android:textStyle="bold" />
                 
-            <!-- 🔥 FIX: Background Spinner Transparan & 52dp -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardSpinner"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCategoryPicker"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
-                android:layout_height="52dp" 
+                android:layout_height="54dp"
                 android:layout_marginBottom="12dp"
-                app:cardBackgroundColor="@color/background_color"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/divider_color"
-                app:strokeWidth="1dp">
-                <Spinner
-                    android:id="@+id/spinnerPremiumTxCategory"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent"
-                    android:paddingHorizontal="16dp" />
-            </com.google.android.material.card.MaterialCardView>
+                android:gravity="start|center_vertical"
+                android:text="Pilih Kategori"
+                android:textColor="@color/text_primary"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/divider_color" />
 
             <!-- Tanggal -->
             <TextView
@@ -240,7 +232,6 @@
                     app:cornerRadius="24dp" />
             </LinearLayout>
 
-            <!-- 🔥 FIX: Hapus Permanen diseragamkan warnanya -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDelete"
                 android:layout_width="match_parent"
