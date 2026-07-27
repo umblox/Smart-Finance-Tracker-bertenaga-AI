@@ -1,12 +1,12 @@
 package com.smartfinance.tracker.ui.transaction
 
-import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -40,11 +40,6 @@ class HistoryTransactionFragment : Fragment() {
     private val sdfDayNum = SimpleDateFormat("dd", Locale("id", "ID"))
     private val sdfMonthYear = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
 
-    // Helper Fungsi Tema
-    private fun getThemeColor(resId: Int): Int {
-        return ContextCompat.getColor(requireContext(), resId)
-    }
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHistoryTransactionBinding.inflate(inflater, container, false)
         return binding.root
@@ -54,7 +49,11 @@ class HistoryTransactionFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProvider(requireActivity())[TransactionViewModel::class.java]
-        binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext())
+        
+        binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext()).apply {
+            // Memberi jarak atas agar blok pertama tidak menempel ke header
+            binding.rvTransactions.setPadding(0, (16f * resources.displayMetrics.density).toInt(), 0, 0)
+        }
 
         updateMonthLabel()
         binding.btnPrevMonth.setOnClickListener { changeMonth(-1) }
@@ -122,22 +121,21 @@ class HistoryTransactionFragment : Fragment() {
         binding.tvTotalIncome.text = "+${formatRupiah.format(totalIncome)}"
         binding.tvTotalExpense.text = "-${formatRupiah.format(totalExpense)}"
         binding.tvTotalBalance.text = formatRupiah.format(netBalance)
-        // 🔥 FIX TEMA: Net balance akan berwarna teks normal (hitam/putih) jika positif, merah jika negatif
-        binding.tvTotalBalance.setTextColor(if (netBalance >= 0) getThemeColor(R.color.text_primary) else Color.parseColor("#E53935"))
+        binding.tvTotalBalance.setTextColor(ContextCompat.getColor(requireContext(), if (netBalance >= 0) R.color.text_primary else R.color.expense_red))
 
+        // 🔥 LOGIKA BARU: Data dibungkus ke dalam model "DailyBlock"
         val groupedMap = filteredList.sortedByDescending { it.timestamp }.groupBy { sdfDateOnly.format(Date(it.timestamp)) }
-        val displayList = mutableListOf<Any>()
+        val displayBlocks = mutableListOf<DailyBlock>()
 
-        for ((dateStr, txList) in groupedMap) {
+        for ((_, txList) in groupedMap) {
             var dailyTotal = 0.0
             txList.forEach { tx ->
                 if (tx.type == "INCOME" || tx.type == "DEBT") dailyTotal += tx.amount else dailyTotal -= tx.amount
             }
-            displayList.add(DateHeader(txList.first().timestamp, dailyTotal))
-            displayList.addAll(txList)
+            displayBlocks.add(DailyBlock(txList.first().timestamp, dailyTotal, txList))
         }
 
-        binding.rvTransactions.adapter = GroupedHistoryAdapter(displayList)
+        binding.rvTransactions.adapter = BlockHistoryAdapter(displayBlocks)
     }
 
     override fun onDestroyView() {
@@ -145,87 +143,94 @@ class HistoryTransactionFragment : Fragment() {
         _binding = null
     }
 
-    data class DateHeader(val timestamp: Long, val dailyTotal: Double)
+    // ==============================================================================
+    // ADAPTER BARU: SATU CARDVIEW = SATU HARI
+    // ==============================================================================
+    
+    data class DailyBlock(val timestamp: Long, val dailyTotal: Double, val transactions: List<Transaction>)
 
-    inner class GroupedHistoryAdapter(private val items: List<Any>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+    inner class BlockHistoryAdapter(private val blocks: List<DailyBlock>) : RecyclerView.Adapter<BlockHistoryAdapter.BlockViewHolder>() {
 
-        private val TYPE_HEADER = 0
-        private val TYPE_TRANSACTION = 1
-
-        override fun getItemViewType(position: Int): Int {
-            return if (items[position] is DateHeader) TYPE_HEADER else TYPE_TRANSACTION
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            val inflater = LayoutInflater.from(parent.context)
-            return if (viewType == TYPE_HEADER) {
-                val view = inflater.inflate(R.layout.item_history_header, parent, false)
-                HeaderViewHolder(view)
-            } else {
-                val view = inflater.inflate(R.layout.item_transaction, parent, false)
-                TransactionViewHolder(view)
-            }
-        }
-
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val item = items[position]
-            if (holder is HeaderViewHolder && item is DateHeader) {
-                val date = Date(item.timestamp)
-                holder.tvNumber.text = sdfDayNum.format(date)
-                
-                val cal = Calendar.getInstance()
-                val todayStr = sdfDateOnly.format(cal.time)
-                cal.add(Calendar.DAY_OF_YEAR, -1)
-                val yesterdayStr = sdfDateOnly.format(cal.time)
-                val itemDateStr = sdfDateOnly.format(date)
-
-                holder.tvDayName.text = when (itemDateStr) {
-                    todayStr -> "Hari ini"
-                    yesterdayStr -> "Kemarin"
-                    else -> SimpleDateFormat("EEEE", Locale("id", "ID")).format(date)
-                }
-                
-                holder.tvMonth.text = sdfMonthYear.format(date)
-                
-                val prefix = if (item.dailyTotal >= 0) "+" else "-"
-                holder.tvDailyTotal.text = "$prefix${formatRupiah.format(Math.abs(item.dailyTotal))}"
-                holder.tvDailyTotal.setTextColor(if (item.dailyTotal >= 0) Color.parseColor("#4CAF50") else Color.parseColor("#E53935"))
-                
-            } else if (holder is TransactionViewHolder && item is Transaction) {
-                val isInc = item.type == "INCOME" || item.type == "DEBT"
-                holder.tvCategory.text = item.categoryName
-                holder.tvNote.text = item.note.ifEmpty { "Tanpa catatan" }
-                
-                val prefix = if (isInc) "+" else "-"
-                holder.tvAmount.text = "$prefix${formatRupiah.format(item.amount)}"
-                holder.tvAmount.setTextColor(if (isInc) Color.parseColor("#4CAF50") else Color.parseColor("#E53935"))
-                holder.tvIcon.text = if (isInc) "📥" else "💸"
-                
-                // 🔥 FIX TEMA: Memastikan latar belakang menggunakan tema dinamis bukan putih kaku
-                holder.itemView.setBackgroundResource(R.drawable.bg_surface_selectable)
-                
-                holder.itemView.setOnClickListener {
-                    TransactionEditorDialog(
-                        hashMapOf("id" to item.id, "amount" to item.amount, "note" to item.note, "type" to item.type, "timestamp" to item.timestamp, "categoryId" to item.categoryId, "debtId" to (item.debtId ?: ""))
-                    ) { /* OnUpdate */ }.show(parentFragmentManager, "EditTx")
-                }
-            }
-        }
-
-        override fun getItemCount() = items.size
-
-        inner class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        inner class BlockViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvNumber: TextView = view.findViewById(R.id.tvHeaderDateNumber)
             val tvDayName: TextView = view.findViewById(R.id.tvHeaderDayName)
             val tvMonth: TextView = view.findViewById(R.id.tvHeaderMonthYear)
             val tvDailyTotal: TextView = view.findViewById(R.id.tvHeaderDailyTotal)
+            val container: LinearLayout = view.findViewById(R.id.containerTransactions)
         }
 
-        inner class TransactionViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvCategory: TextView = view.findViewById(R.id.tvItemCategory)
-            val tvNote: TextView = view.findViewById(R.id.tvItemNote)
-            val tvAmount: TextView = view.findViewById(R.id.tvItemAmount)
-            val tvIcon: TextView = view.findViewById(R.id.tvItemIcon)
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BlockViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_history_block, parent, false)
+            return BlockViewHolder(view)
         }
+
+        override fun onBindViewHolder(holder: BlockViewHolder, position: Int) {
+            val block = blocks[position]
+            val date = Date(block.timestamp)
+            holder.tvNumber.text = sdfDayNum.format(date)
+            
+            val cal = Calendar.getInstance()
+            val todayStr = sdfDateOnly.format(cal.time)
+            cal.add(Calendar.DAY_OF_YEAR, -1)
+            val yesterdayStr = sdfDateOnly.format(cal.time)
+            val itemDateStr = sdfDateOnly.format(date)
+
+            holder.tvDayName.text = when (itemDateStr) {
+                todayStr -> "Hari ini"
+                yesterdayStr -> "Kemarin"
+                else -> SimpleDateFormat("EEEE", Locale("id", "ID")).format(date)
+            }
+            
+            holder.tvMonth.text = sdfMonthYear.format(date)
+            
+            val prefix = if (block.dailyTotal >= 0) "+" else "-"
+            holder.tvDailyTotal.text = "$prefix${formatRupiah.format(Math.abs(block.dailyTotal))}"
+            holder.tvDailyTotal.setTextColor(ContextCompat.getColor(requireContext(), if (block.dailyTotal >= 0) R.color.income_green else R.color.expense_red))
+            
+            // 🔥 LOOPING TRANSAKSI KE DALAM CONTAINER CARDVIEW
+            holder.container.removeAllViews()
+            val inflater = LayoutInflater.from(holder.itemView.context)
+            
+            for ((index, tx) in block.transactions.withIndex()) {
+                val txView = inflater.inflate(R.layout.item_transaction, holder.container, false)
+                
+                val tvCategory: TextView = txView.findViewById(R.id.tvItemCategory)
+                val tvNote: TextView = txView.findViewById(R.id.tvItemNote)
+                val tvAmount: TextView = txView.findViewById(R.id.tvItemAmount)
+                val tvIcon: TextView = txView.findViewById(R.id.tvItemIcon)
+                
+                val isInc = tx.type == "INCOME" || tx.type == "DEBT"
+                tvCategory.text = tx.categoryName
+                tvNote.text = tx.note.ifEmpty { "Tanpa catatan" }
+                
+                val amtPrefix = if (isInc) "+" else "-"
+                tvAmount.text = "$amtPrefix${formatRupiah.format(tx.amount)}"
+                tvAmount.setTextColor(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
+                tvIcon.text = if (isInc) "📥" else "💸"
+                
+                txView.setOnClickListener {
+                    TransactionEditorDialog(
+                        hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to (tx.debtId ?: ""))
+                    ) { /* OnUpdate */ }.show(parentFragmentManager, "EditTx")
+                }
+                
+                holder.container.addView(txView)
+                
+                // Tambahkan Garis Pembatas (Divider) jika bukan item terakhir
+                if (index < block.transactions.size - 1) {
+                    val divider = View(holder.itemView.context).apply {
+                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2).apply {
+                            // Menjorok ke dalam agar sejajar dengan teks
+                            val marginStart = (70f * resources.displayMetrics.density).toInt()
+                            setMargins(marginStart, 0, 0, 0)
+                        }
+                        setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.divider_color))
+                    }
+                    holder.container.addView(divider)
+                }
+            }
+        }
+
+        override fun getItemCount() = blocks.size
     }
 }
