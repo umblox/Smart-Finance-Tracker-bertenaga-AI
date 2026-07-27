@@ -7,7 +7,6 @@ import android.content.Intent
 import android.provider.ContactsContract
 import android.os.Bundle
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
@@ -17,7 +16,6 @@ import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
 class TransactionEditorDialog(
@@ -32,7 +30,7 @@ class TransactionEditorDialog(
 
     private var currentType = "EXPENSE"
     private var allCategoriesCloud = listOf<Map<String, Any>>()
-    private var filteredCategoriesCloud = mutableListOf<Map<String, Any>>()
+    private var selectedCategoryMap: Map<String, Any>? = null // 🔥 Menyimpan kategori yang dipilih
     private var isDebtTransaction = false
 
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
@@ -65,11 +63,15 @@ class TransactionEditorDialog(
         val currentNote = transactionData["note"] as? String ?: ""
         val currentTimestamp = (transactionData["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
         val currentCategoryId = (transactionData["categoryId"] as? Number)?.toLong() ?: 0L
+        val currentCategoryName = transactionData["categoryName"] as? String ?: "Pilih Kategori"
         val targetDebtId = transactionData["debtId"] as? String ?: ""
         
         isDebtTransaction = targetDebtId.isNotEmpty()
         binding.etPremiumTxAmount.setText(currentAmount.toString())
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
+        
+        // 🔥 Set Text Button Kategori saat form dibuka
+        binding.btnCategoryPicker.text = currentCategoryName
 
         if (isDebtTransaction) {
             binding.rbPremiumTxExpense.text = "Saya Berhutang (Hutang)"
@@ -77,7 +79,7 @@ class TransactionEditorDialog(
             
             binding.tvContactLabel.visibility = View.VISIBLE
             binding.layoutContact.visibility = View.VISIBLE
-            binding.cardSpinner.visibility = View.GONE
+            binding.btnCategoryPicker.visibility = View.GONE
             binding.tvCategoryLabel.visibility = View.GONE
             
             val isReceivableInitial = currentCategoryId == 104L || currentNote.contains("PIUTANG")
@@ -104,21 +106,32 @@ class TransactionEditorDialog(
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
             if (!isDebtTransaction) {
                 currentType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
-                mapSpinnerHierarchyCloud(currentCategoryId)
+                selectedCategoryMap = null // Reset pilihan kategori jika tipe arusnya berubah
+                binding.btnCategoryPicker.text = "Pilih Kategori"
             }
         }
+        
+        // 🔥 Sambungkan Tombol Picker ke UI Baru
+        binding.btnCategoryPicker.setOnClickListener { showCategoryPickerDialog() }
 
+        // Load Categories on background
         lifecycleScope.launch {
             try {
                 allCategoriesCloud = viewModel.getCategoriesForDropdown()
-                mapSpinnerHierarchyCloud(currentCategoryId)
             } catch (e: Exception) {
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
                     mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT")
                 )
-                mapSpinnerHierarchyCloud(currentCategoryId)
             }
+            
+            // Simpan Kategori saat ini ke dalam Map agar siap di-save ulang jika user tidak menggantinya
+            val targetSearchId = if (isDebtTransaction) {
+                if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
+            } else {
+                currentCategoryId
+            }
+            selectedCategoryMap = allCategoriesCloud.find { (it["id"] as? Long) == targetSearchId }
         }
 
         binding.btnCancel.setOnClickListener { dialog.dismiss() }
@@ -141,12 +154,27 @@ class TransactionEditorDialog(
             val noteRawVal = binding.etPremiumTxNote.text.toString().trim()
             val dateVal = binding.etPremiumTxDate.text.toString().trim()
 
-            if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && filteredCategoriesCloud.isNotEmpty() && docId.isNotEmpty()) {
+            if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && docId.isNotEmpty()) {
+                
+                // 🔥 Validasi Kategori Kosong
+                if (!isDebtTransaction && selectedCategoryMap == null) {
+                    Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
                 val parsedDate = try { sdfPremium.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
                 
-                val selectedCategory = filteredCategoriesCloud[binding.spinnerPremiumTxCategory.selectedItemPosition]
-                var catId = selectedCategory["id"] as Long
-                var catName = selectedCategory["name"] as String
+                var catId = if (isDebtTransaction) {
+                     if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
+                } else {
+                     (selectedCategoryMap!!["id"] as? Number)?.toLong() ?: 15L
+                }
+                
+                var catName = if (isDebtTransaction) {
+                     if (catId == 104L) "Piutang" else "Hutang"
+                } else {
+                     selectedCategoryMap!!["name"] as? String ?: "Umum"
+                }
 
                 lifecycleScope.launch {
                     var finalTxType = if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
@@ -160,8 +188,6 @@ class TransactionEditorDialog(
                         }
 
                         val isReceivableSelected = binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id
-                        catId = if (isReceivableSelected) 104L else 101L
-                        catName = if (isReceivableSelected) "Piutang" else "Hutang"
                         
                         val selectedDebtType = if (isReceivableSelected) "RECEIVABLE" else "DEBT"
                         finalTxType = if (isReceivableSelected) "EXPENSE" else "INCOME"
@@ -194,46 +220,21 @@ class TransactionEditorDialog(
         return dialog
     }
 
-    private fun mapSpinnerHierarchyCloud(selectedCategoryId: Long) {
-        filteredCategoriesCloud.clear()
-        val displayNames = mutableListOf<String>()
+    // 🔥 Fungsi Pemanggilan Picker Dinamis
+    private fun showCategoryPickerDialog() {
+        val typeRaw = if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
+        val currentFilter = if (isDebtTransaction) "DEBT" else typeRaw
+        val currentSelectedId = (selectedCategoryMap?.get("id") as? Number)?.toLong()
 
-        if (currentType == "DEBT") {
-            val debtSystemCategories = allCategoriesCloud.filter { (it["type"] as? String) == "DEBT" }
-            debtSystemCategories.forEach { cat ->
-                filteredCategoriesCloud.add(cat)
-                displayNames.add("🔒 ${cat["name"] as String}")
-            }
-        } else {
-            val typedList = allCategoriesCloud.filter { (it["type"] as? String) == currentType }
-            val parents = typedList.filter { it["parentCategoryId"] == null }
-            val subs = typedList.filter { it["parentCategoryId"] != null }
-
-            parents.forEach { parent ->
-                filteredCategoriesCloud.add(parent)
-                displayNames.add("📁 ${parent["name"] as String}")
-
-                val parentId = parent["id"] as Long
-                val children = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }
-                children.forEach { child ->
-                    filteredCategoriesCloud.add(child)
-                    displayNames.add("    └── 💰 ${child["name"] as String}")
-                }
-            }
-        }
-
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, displayNames)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinnerPremiumTxCategory.adapter = adapter
-
-        val targetSearchId = if (isDebtTransaction) {
-            if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
-        } else {
-            selectedCategoryId
-        }
-
-        val selectedIdx = filteredCategoriesCloud.indexOfFirst { (it["id"] as Long) == targetSearchId }
-        if (selectedIdx != -1) binding.spinnerPremiumTxCategory.setSelection(selectedIdx)
+        com.smartfinance.tracker.ui.category.CategoryPickerDialog(currentFilter, currentSelectedId) { selectedCat ->
+            val mappedCat = HashMap<String, Any>()
+            mappedCat["id"] = selectedCat.id
+            mappedCat["name"] = selectedCat.name
+            mappedCat["type"] = selectedCat.type
+            
+            selectedCategoryMap = mappedCat
+            binding.btnCategoryPicker.text = selectedCat.name
+        }.show(parentFragmentManager, "CategoryPickerDialog")
     }
 
     override fun onDestroyView() {
