@@ -28,17 +28,17 @@ object AiWorkerManager {
         enqueueOneTimeWorker(context, data)
     }
 
-    // 📊 Pemicu Rutin Mingguan: Panggil ini 1x di MainActivity untuk mengaktifkan laporan mingguan
+    // 📊 Pemicu Rutin Mingguan
     fun scheduleWeeklyReport(context: Context) {
         val data = workDataOf(
             "task_type" to "WEEKLY_REPORT",
             "title" to "Ringkasan Mingguan & Analisis",
             "raw_data" to "Tolong berikan sapaan motivasi keuangan mingguan dan tips hemat secara umum." 
-            // Catatan: Nanti raw_data ini bisa diinjeksi dengan summary(Total Kas/Pengeluaran riil)
         )
 
-        // Jadwalkan agar berjalan setiap 7 hari sekali
+        // 🔥 TAMBAHKAN setInitialDelay
         val request = PeriodicWorkRequestBuilder<SmartAiWorker>(7, TimeUnit.DAYS)
+            .setInitialDelay(7, TimeUnit.DAYS) // Jeda 7 hari dari saat aplikasi pertama diinstall
             .setInputData(data)
             .build()
             
