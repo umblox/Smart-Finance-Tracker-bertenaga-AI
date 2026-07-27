@@ -1,23 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+    
     <item
         android:id="@+id/menu_dashboard"
         android:icon="@android:drawable/ic_dialog_dialer"
         android:title="@string/nav_home" />
-    <item
-        android:id="@+id/menu_chat"
-        android:icon="@android:drawable/ic_menu_send"
-        android:title="@string/nav_ai_assistant" />
-    <item
-        android:id="@+id/menu_report"
-        android:icon="@android:drawable/ic_menu_sort_by_size"
-        android:title="@string/nav_transaction" />
+        
     <item
         android:id="@+id/menu_debt"
         android:icon="@android:drawable/ic_menu_agenda"
         android:title="@string/nav_debt" />
+        
+    <!-- 🔥 BINTANG UTAMA: AI CHAT DI TENGAH -->
+    <item
+        android:id="@+id/menu_chat"
+        android:icon="@android:drawable/ic_menu_send"
+        android:title="@string/nav_ai_assistant" />
+        
+    <!-- 🔥 FITUR BARU: TOMBOL TRANSAKSI MANUAL -->
+    <item
+        android:id="@+id/menu_manual_add"
+        android:icon="@android:drawable/ic_menu_add"
+        android:title="Catat" />
+        
     <item
         android:id="@+id/menu_settings"
         android:icon="@android:drawable/ic_menu_preferences"
         android:title="@string/nav_settings" />
+        
 </menu>
