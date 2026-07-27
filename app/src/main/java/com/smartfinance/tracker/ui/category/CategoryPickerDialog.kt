@@ -1,0 +1,190 @@
+package com.smartfinance.tracker.ui.category
+
+import android.graphics.Color
+import android.graphics.Typeface
+import android.os.Bundle
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import com.smartfinance.tracker.R
+import com.smartfinance.tracker.data.model.Category
+import com.smartfinance.tracker.databinding.DialogCategoryPickerBinding
+import kotlinx.coroutines.launch
+
+class CategoryPickerDialog(
+    private val initialFilter: String = "EXPENSE",
+    private val selectedCategoryId: Long? = null,
+    private val onCategorySelected: (Category) -> Unit
+) : DialogFragment() {
+
+    private var _binding: DialogCategoryPickerBinding? = null
+    private val binding get() = _binding!!
+    private lateinit var viewModel: CategoryViewModel
+
+    private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    }
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = DialogCategoryPickerBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
+        
+        binding.btnClose.setOnClickListener { dismiss() }
+
+        binding.btnTabExpense.setOnClickListener { switchTab("EXPENSE") }
+        binding.btnTabIncome.setOnClickListener { switchTab("INCOME") }
+        binding.btnTabDebt.setOnClickListener { switchTab("DEBT") }
+        
+        // Atur tab awal sesuai arus kas transaksi
+        switchTab(initialFilter)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collect { state -> renderList(state) }
+        }
+    }
+
+    private fun switchTab(targetFilter: String) {
+        viewModel.setFilter(targetFilter)
+        
+        val activeColor = getThemeColor(R.color.primary)
+        val inactiveColor = getThemeColor(R.color.text_secondary)
+        val transparent = Color.TRANSPARENT
+
+        binding.tvTabExpense.setTextColor(if (targetFilter == "EXPENSE") activeColor else inactiveColor)
+        binding.indicatorExpense.setBackgroundColor(if (targetFilter == "EXPENSE") activeColor else transparent)
+        binding.tvTabExpense.setTypeface(null, if (targetFilter == "EXPENSE") Typeface.BOLD else Typeface.NORMAL)
+
+        binding.tvTabIncome.setTextColor(if (targetFilter == "INCOME") activeColor else inactiveColor)
+        binding.indicatorIncome.setBackgroundColor(if (targetFilter == "INCOME") activeColor else transparent)
+        binding.tvTabIncome.setTypeface(null, if (targetFilter == "INCOME") Typeface.BOLD else Typeface.NORMAL)
+
+        binding.tvTabDebt.setTextColor(if (targetFilter == "DEBT") activeColor else inactiveColor)
+        binding.indicatorDebt.setBackgroundColor(if (targetFilter == "DEBT") activeColor else transparent)
+        binding.tvTabDebt.setTypeface(null, if (targetFilter == "DEBT") Typeface.BOLD else Typeface.NORMAL)
+    }
+
+    private fun renderList(state: CategoryUiState) {
+        binding.containerList.removeAllViews()
+        val density = requireContext().resources.displayMetrics.density
+        
+        val typedValue = android.util.TypedValue()
+        requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
+        val safeRippleId = typedValue.resourceId
+
+        // 🔥 TOMBOL "+ KATEGORI BARU" (Gaya Money Lover)
+        val btnAddNew = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((20f * density).toInt(), (16f * density).toInt(), (20f * density).toInt(), (16f * density).toInt())
+            setBackgroundResource(safeRippleId)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { 
+                // Lompat langsung ke Form Pembuatan
+                CategoryEditorDialog.newInstance(null, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
+            }
+        }
+        btnAddNew.addView(TextView(requireContext()).apply { 
+            text = "＋"
+            textSize = 20f
+            setTextColor(getThemeColor(R.color.primary))
+            setPadding(0, 0, (16f * density).toInt(), 0)
+        })
+        btnAddNew.addView(TextView(requireContext()).apply { 
+            text = "KATEGORI BARU"
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(getThemeColor(R.color.primary))
+        })
+        binding.containerList.addView(btnAddNew)
+        binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
+
+        // RENDER DAFTAR HIERARKI
+        state.parentCategories.forEach { parent ->
+            // Parent Row
+            val parentRow = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((20f * density).toInt(), (14f * density).toInt(), (20f * density).toInt(), (14f * density).toInt())
+                setBackgroundResource(safeRippleId)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { 
+                    onCategorySelected(parent)
+                    dismiss()
+                }
+            }
+            parentRow.addView(TextView(requireContext()).apply { text = "📁"; textSize = 22f; setPadding(0, 0, (16f * density).toInt(), 0) })
+            parentRow.addView(TextView(requireContext()).apply {
+                text = parent.name
+                setTextColor(getThemeColor(R.color.text_primary))
+                textSize = 16f
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            // Tanda Centang
+            if (parent.id == selectedCategoryId) {
+                parentRow.addView(TextView(requireContext()).apply { text = "✓"; textSize = 20f; setTextColor(getThemeColor(R.color.text_primary)) })
+            }
+            binding.containerList.addView(parentRow)
+
+            // Child Rows
+            val kids = state.subCategories.filter { it.parentCategoryId == parent.id }.sortedBy { it.name }
+            kids.forEach { child ->
+                val childRow = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding((30f * density).toInt(), (10f * density).toInt(), (20f * density).toInt(), (10f * density).toInt())
+                    setBackgroundResource(safeRippleId)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { 
+                        onCategorySelected(child)
+                        dismiss()
+                    }
+                }
+                // Garis Hierarki Pohon (L Shape)
+                val treeLine = View(requireContext()).apply {
+                    setBackgroundColor(getThemeColor(R.color.divider_color))
+                    layoutParams = LinearLayout.LayoutParams((2f * density).toInt(), (24f * density).toInt()).apply {
+                        rightMargin = (16f * density).toInt()
+                    }
+                }
+                childRow.addView(treeLine)
+                childRow.addView(TextView(requireContext()).apply { text = "💰"; textSize = 16f; setPadding(0, 0, (12f * density).toInt(), 0) })
+                childRow.addView(TextView(requireContext()).apply {
+                    text = child.name
+                    setTextColor(getThemeColor(R.color.text_primary))
+                    textSize = 15f
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                // Tanda Centang
+                if (child.id == selectedCategoryId) {
+                    childRow.addView(TextView(requireContext()).apply { text = "✓"; textSize = 20f; setTextColor(getThemeColor(R.color.text_primary)) })
+                }
+                binding.containerList.addView(childRow)
+            }
+            binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.background_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
