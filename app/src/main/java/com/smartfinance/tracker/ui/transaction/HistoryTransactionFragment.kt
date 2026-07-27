@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -30,7 +31,6 @@ class HistoryTransactionFragment : Fragment() {
 
     private lateinit var viewModel: TransactionViewModel
     
-    // Kembalikan variabel filter Anda yang sempat saya hapus!
     private var currentCalendar = Calendar.getInstance()
     private var searchQuery = ""
     private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
@@ -39,6 +39,11 @@ class HistoryTransactionFragment : Fragment() {
     private val sdfDateOnly = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
     private val sdfDayNum = SimpleDateFormat("dd", Locale("id", "ID"))
     private val sdfMonthYear = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
+
+    // Helper Fungsi Tema
+    private fun getThemeColor(resId: Int): Int {
+        return ContextCompat.getColor(requireContext(), resId)
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHistoryTransactionBinding.inflate(inflater, container, false)
@@ -51,12 +56,10 @@ class HistoryTransactionFragment : Fragment() {
         viewModel = ViewModelProvider(requireActivity())[TransactionViewModel::class.java]
         binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext())
 
-        // Setup Bulan
         updateMonthLabel()
         binding.btnPrevMonth.setOnClickListener { changeMonth(-1) }
         binding.btnNextMonth.setOnClickListener { changeMonth(1) }
 
-        // Filter Pencarian Real-time
         binding.etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -91,13 +94,11 @@ class HistoryTransactionFragment : Fragment() {
         val targetMonth = currentCalendar.get(Calendar.MONTH)
         val targetYear = currentCalendar.get(Calendar.YEAR)
 
-        // 1. Filter Berdasarkan Bulan yang Dipilih
         var filteredList = allTransactions.filter { tx ->
             val cal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
             cal.get(Calendar.MONTH) == targetMonth && cal.get(Calendar.YEAR) == targetYear
         }
 
-        // 2. Filter Berdasarkan Kolom Pencarian
         if (searchQuery.isNotEmpty()) {
             filteredList = filteredList.filter {
                 it.note.lowercase(Locale.ROOT).contains(searchQuery) ||
@@ -106,7 +107,6 @@ class HistoryTransactionFragment : Fragment() {
             }
         }
 
-        // 3. Hitung Ringkasan (Hanya untuk data yang sudah difilter)
         var totalIncome = 0.0
         var totalExpense = 0.0
 
@@ -122,9 +122,9 @@ class HistoryTransactionFragment : Fragment() {
         binding.tvTotalIncome.text = "+${formatRupiah.format(totalIncome)}"
         binding.tvTotalExpense.text = "-${formatRupiah.format(totalExpense)}"
         binding.tvTotalBalance.text = formatRupiah.format(netBalance)
-        binding.tvTotalBalance.setTextColor(if (netBalance >= 0) Color.WHITE else Color.parseColor("#E53935"))
+        // 🔥 FIX TEMA: Net balance akan berwarna teks normal (hitam/putih) jika positif, merah jika negatif
+        binding.tvTotalBalance.setTextColor(if (netBalance >= 0) getThemeColor(R.color.text_primary) else Color.parseColor("#E53935"))
 
-        // 4. KELOMPOKKAN BERDASARKAN TANGGAL (Grouping)
         val groupedMap = filteredList.sortedByDescending { it.timestamp }.groupBy { sdfDateOnly.format(Date(it.timestamp)) }
         val displayList = mutableListOf<Any>()
 
@@ -145,10 +145,6 @@ class HistoryTransactionFragment : Fragment() {
         _binding = null
     }
 
-    // ==============================================================================
-    // ADAPTER MULTI-TIPE (Tetap Sama Mewahnya)
-    // ==============================================================================
-    
     data class DateHeader(val timestamp: Long, val dailyTotal: Double)
 
     inner class GroupedHistoryAdapter(private val items: List<Any>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -204,6 +200,9 @@ class HistoryTransactionFragment : Fragment() {
                 holder.tvAmount.text = "$prefix${formatRupiah.format(item.amount)}"
                 holder.tvAmount.setTextColor(if (isInc) Color.parseColor("#4CAF50") else Color.parseColor("#E53935"))
                 holder.tvIcon.text = if (isInc) "📥" else "💸"
+                
+                // 🔥 FIX TEMA: Memastikan latar belakang menggunakan tema dinamis bukan putih kaku
+                holder.itemView.setBackgroundResource(R.drawable.bg_surface_selectable)
                 
                 holder.itemView.setOnClickListener {
                     TransactionEditorDialog(
