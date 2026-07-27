@@ -1,20 +1,19 @@
 package com.smartfinance.tracker.ui.category
 
+import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.databinding.DialogCategoryManagerBinding
 import kotlinx.coroutines.launch
 
@@ -40,118 +39,123 @@ class CategoryManagerDialog : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(requireActivity())[CategoryViewModel::class.java]
-        binding.btnClose.setOnClickListener { dismiss() }
-        binding.btnAdd.setOnClickListener { 
-            CategoryEditorDialog.newInstance(null, viewModel.uiState.value.currentFilter)
-                .show(parentFragmentManager, "CategoryEditorDialog")
-        }
-        binding.btnTabExpense.setOnClickListener { switchFilterTab("EXPENSE", binding.btnTabExpense, binding.btnTabIncome, binding.btnTabDebt) }
-        binding.btnTabIncome.setOnClickListener { switchFilterTab("INCOME", binding.btnTabIncome, binding.btnTabExpense, binding.btnTabDebt) }
-        binding.btnTabDebt.setOnClickListener { switchFilterTab("DEBT", binding.btnTabDebt, binding.btnTabExpense, binding.btnTabIncome) }
         
-        switchFilterTab("EXPENSE", binding.btnTabExpense, binding.btnTabIncome, binding.btnTabDebt)
+        binding.btnClose.setOnClickListener { dismiss() }
+
+        binding.btnTabExpense.setOnClickListener { switchTab("EXPENSE") }
+        binding.btnTabIncome.setOnClickListener { switchTab("INCOME") }
+        binding.btnTabDebt.setOnClickListener { switchTab("DEBT") }
+        
+        switchTab("EXPENSE")
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collect { state -> renderHierarchyCloud(state) }
+            viewModel.uiState.collect { state -> renderList(state) }
         }
     }
 
-    private fun switchFilterTab(targetFilter: String, active: TextView, in1: TextView, in2: TextView) {
-        val density = requireContext().resources.displayMetrics.density
+    private fun switchTab(targetFilter: String) {
         viewModel.setFilter(targetFilter)
-        active.setTextColor(getThemeColor(R.color.surface_white))
-        active.setTypeface(null, Typeface.BOLD)
-        active.background = GradientDrawable().apply { cornerRadius = 10f * density; setColor(getThemeColor(R.color.primary)) }
-        in1.setTextColor(getThemeColor(R.color.text_secondary)); in1.setTypeface(null, Typeface.NORMAL); in1.background = null
-        in2.setTextColor(getThemeColor(R.color.text_secondary)); in2.setTypeface(null, Typeface.NORMAL); in2.background = null
+        
+        val activeColor = getThemeColor(R.color.primary)
+        val inactiveColor = getThemeColor(R.color.text_secondary)
+        val transparent = Color.TRANSPARENT
+
+        binding.tvTabExpense.setTextColor(if (targetFilter == "EXPENSE") activeColor else inactiveColor)
+        binding.indicatorExpense.setBackgroundColor(if (targetFilter == "EXPENSE") activeColor else transparent)
+        binding.tvTabExpense.setTypeface(null, if (targetFilter == "EXPENSE") Typeface.BOLD else Typeface.NORMAL)
+
+        binding.tvTabIncome.setTextColor(if (targetFilter == "INCOME") activeColor else inactiveColor)
+        binding.indicatorIncome.setBackgroundColor(if (targetFilter == "INCOME") activeColor else transparent)
+        binding.tvTabIncome.setTypeface(null, if (targetFilter == "INCOME") Typeface.BOLD else Typeface.NORMAL)
+
+        binding.tvTabDebt.setTextColor(if (targetFilter == "DEBT") activeColor else inactiveColor)
+        binding.indicatorDebt.setBackgroundColor(if (targetFilter == "DEBT") activeColor else transparent)
+        binding.tvTabDebt.setTypeface(null, if (targetFilter == "DEBT") Typeface.BOLD else Typeface.NORMAL)
     }
 
-    private fun renderHierarchyCloud(state: CategoryUiState) {
+    private fun renderList(state: CategoryUiState) {
         binding.containerList.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
-
-        // 🔥 FIX: Mengambil ID efek sentuh (Ripple) dengan cara yang 100% AMAN
+        
         val typedValue = android.util.TypedValue()
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
         val safeRippleId = typedValue.resourceId
 
-        if (state.parentCategories.isEmpty()) {
-            binding.containerList.addView(TextView(requireContext()).apply {
-                text = "Belum ada rumpun kategori terdaftar."
-                textSize = 13.5f; setTextColor(getThemeColor(R.color.text_secondary)); gravity = Gravity.CENTER
-                setPadding(0, (40f * density).toInt(), 0, 0); setTypeface(null, Typeface.ITALIC)
-            })
-            return
+        // 🔥 TOMBOL "+ KATEGORI BARU" (Gaya Money Lover)
+        val btnAddNew = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((20f * density).toInt(), (16f * density).toInt(), (20f * density).toInt(), (16f * density).toInt())
+            setBackgroundResource(safeRippleId)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { 
+                CategoryEditorDialog.newInstance(null, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
+            }
         }
+        btnAddNew.addView(TextView(requireContext()).apply { 
+            text = "＋"
+            textSize = 20f
+            setTextColor(getThemeColor(R.color.primary))
+            setPadding(0, 0, (16f * density).toInt(), 0)
+        })
+        btnAddNew.addView(TextView(requireContext()).apply { 
+            text = "KATEGORI BARU"
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(getThemeColor(R.color.primary))
+        })
+        binding.containerList.addView(btnAddNew)
+        binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
 
+        // RENDER DAFTAR HIERARKI
         state.parentCategories.forEach { parent ->
-            val blockCard = MaterialCardView(requireContext()).apply {
-                radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0
-                setCardBackgroundColor(getThemeColor(R.color.surface_white))
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() }
-            }
-
-            val cardContentContainer = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
-
             val parentRow = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                setPadding((14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt(), (14f * density).toInt())
-                
-                // 🔥 Menerapkan Ripple secara aman
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((20f * density).toInt(), (14f * density).toInt(), (20f * density).toInt(), (14f * density).toInt())
                 setBackgroundResource(safeRippleId)
-                isClickable = true; isFocusable = true
-                setOnClickListener { 
-                    CategoryEditorDialog.newInstance(parent, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
-                }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { CategoryEditorDialog.newInstance(parent, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog") }
             }
-
-            parentRow.addView(TextView(requireContext()).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12f * density).toInt(), 0) })
+            parentRow.addView(TextView(requireContext()).apply { text = "📁"; textSize = 22f; setPadding(0, 0, (16f * density).toInt(), 0) })
             parentRow.addView(TextView(requireContext()).apply {
-                text = parent.name; setTextColor(getThemeColor(R.color.text_primary)); textSize = 14.5f; setTypeface(null, Typeface.BOLD)
+                text = parent.name
+                setTextColor(getThemeColor(R.color.text_primary))
+                textSize = 16f
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
-
-            if (parent.isLocked) parentRow.addView(TextView(requireContext()).apply { text = "🔒"; textSize = 13f; setTextColor(getThemeColor(R.color.text_secondary)); setPadding((6f * density).toInt(), 0, 0, 0) })
-            
-            cardContentContainer.addView(parentRow)
+            if (parent.isLocked) parentRow.addView(TextView(requireContext()).apply { text = "🔒"; textSize = 13f; setTextColor(getThemeColor(R.color.text_secondary)) })
+            binding.containerList.addView(parentRow)
 
             val kids = state.subCategories.filter { it.parentCategoryId == parent.id }.sortedBy { it.name }
-            
-            if (kids.isNotEmpty()) {
-                cardContentContainer.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
-            }
-
             kids.forEach { child ->
                 val childRow = LinearLayout(requireContext()).apply {
-                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    setPadding((14f * density).toInt(), (10f * density).toInt(), (14f * density).toInt(), (10f * density).toInt())
-                    
-                    // 🔥 Menerapkan Ripple secara aman
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding((30f * density).toInt(), (10f * density).toInt(), (20f * density).toInt(), (10f * density).toInt())
                     setBackgroundResource(safeRippleId)
-                    isClickable = true; isFocusable = true
-                    setOnClickListener { 
-                        CategoryEditorDialog.newInstance(child, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
-                    }
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { CategoryEditorDialog.newInstance(child, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog") }
                 }
-
                 val treeLine = View(requireContext()).apply {
                     setBackgroundColor(getThemeColor(R.color.divider_color))
-                    layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16f * density).toInt()).apply { rightMargin = (12f * density).toInt(); leftMargin = (6f * density).toInt() }
+                    layoutParams = LinearLayout.LayoutParams((2f * density).toInt(), (24f * density).toInt()).apply { rightMargin = (16f * density).toInt() }
                 }
                 childRow.addView(treeLine)
-                childRow.addView(TextView(requireContext()).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10f * density).toInt(), 0) })
+                childRow.addView(TextView(requireContext()).apply { text = "💰"; textSize = 16f; setPadding(0, 0, (12f * density).toInt(), 0) })
                 childRow.addView(TextView(requireContext()).apply {
-                    text = child.name; setTextColor(getThemeColor(R.color.text_primary)); textSize = 13.5f
+                    text = child.name
+                    setTextColor(getThemeColor(R.color.text_primary))
+                    textSize = 15f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 })
-
-                if (child.isLocked) childRow.addView(TextView(requireContext()).apply { text = "🔒"; textSize = 11f; setTextColor(getThemeColor(R.color.text_secondary)); setPadding((6f * density).toInt(), 0, 0, 0) })
-                
-                cardContentContainer.addView(childRow)
+                if (child.isLocked) childRow.addView(TextView(requireContext()).apply { text = "🔒"; textSize = 11f; setTextColor(getThemeColor(R.color.text_secondary)) })
+                binding.containerList.addView(childRow)
             }
-
-            blockCard.addView(cardContentContainer)
-            binding.containerList.addView(blockCard)
+            binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.background_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
         }
     }
 
