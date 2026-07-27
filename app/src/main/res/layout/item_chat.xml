@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/chatContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingVertical="8dp"> <!-- Spasi atas-bawah antar gelembung -->
+
+    <TextView
+        android:id="@+id/tvChatMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:textSize="15sp"
+        tools:background="@drawable/bubble_user_premium"
+        tools:text="Contoh teks chat akan muncul di sini..."
+        tools:textColor="@android:color/white" />
+
+</LinearLayout>
+
