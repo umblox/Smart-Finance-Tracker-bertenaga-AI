@@ -57,4 +57,3 @@ object AiWorkerManager {
         WorkManager.getInstance(context).enqueue(request)
     }
 }
-
