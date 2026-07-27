@@ -223,98 +223,22 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     }
 
     private fun showCategoryPickerDialog() {
-        val context = requireContext()
-        val density = context.resources.displayMetrics.density
-        
-        // 🔥 FIX: Ambil warna dari Tema secara Dinamis, BUKAN Hex Hardcode!
-        val colorBg = ContextCompat.getColor(context, com.smartfinance.tracker.R.color.background_color)
-        val colorSurface = ContextCompat.getColor(context, com.smartfinance.tracker.R.color.surface_white)
-        val colorTextPrimary = ContextCompat.getColor(context, com.smartfinance.tracker.R.color.text_primary)
-        val colorTextSecondary = ContextCompat.getColor(context, com.smartfinance.tracker.R.color.text_secondary)
-        val colorDivider = ContextCompat.getColor(context, com.smartfinance.tracker.R.color.divider_color)
-        val colorPrimary = ContextCompat.getColor(context, com.smartfinance.tracker.R.color.primary)
+        // Deteksi Tipe Arus Kas Saat Ini
+        val typeRaw = if (binding.rgManualPremiumType.checkedRadioButtonId == binding.rbManualPremiumIncome.id) "INCOME" else "EXPENSE"
+        val currentFilter = if (binding.rgManualPremiumType.checkedRadioButtonId == binding.rbManualPremiumDebt.id) "DEBT" else typeRaw
+        val currentSelectedId = (selectedCategoryMap?.get("id") as? Number)?.toLong()
 
-        val dialogLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(colorBg) }
-        
-        val tabOuterBox = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL; setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (42f * density).toInt()).apply { setMargins((16f * density).toInt(), (16f * density).toInt(), (16f * density).toInt(), (8f * density).toInt()) }
-            background = GradientDrawable().apply { cornerRadius = 12f * density; setColor(colorDivider) }
-            weightSum = 3f
-        }
-
-        val btnTabExpense = MaterialButton(context).apply { text = "Pengeluaran"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        val btnTabIncome = MaterialButton(context).apply { text = "Pemasukan"; textSize = 11.5f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-        val btnTabDebt = MaterialButton(context).apply { text = "Hutang/Piutang"; textSize = 10f; cornerRadius = (10f * density).toInt(); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f); insetTop = 0; insetBottom = 0 }
-
-        tabOuterBox.addView(btnTabExpense); tabOuterBox.addView(btnTabIncome); tabOuterBox.addView(btnTabDebt)
-        dialogLayout.addView(tabOuterBox)
-
-        val scrollView = ScrollView(context)
-        val containerList = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (16 * density).toInt()) }
-        scrollView.addView(containerList)
-        dialogLayout.addView(scrollView)
-
-        val dialog = AlertDialog.Builder(context).setView(dialogLayout).create()
-
-        fun renderList(typeFilter: String) {
-            containerList.removeAllViews()
-            val activeBg = android.content.res.ColorStateList.valueOf(colorPrimary)
-            val inactiveBg = android.content.res.ColorStateList.valueOf(Color.TRANSPARENT)
+        // Panggil Picker Baru Kita!
+        com.smartfinance.tracker.ui.category.CategoryPickerDialog(currentFilter, currentSelectedId) { selectedCat ->
+            // Saat Kategori Diklik, mapping data kembali ke format HashMap Anda
+            val mappedCat = HashMap<String, Any>()
+            mappedCat["id"] = selectedCat.id
+            mappedCat["name"] = selectedCat.name
+            mappedCat["type"] = selectedCat.type
             
-            btnTabExpense.apply { backgroundTintList = if(typeFilter == "EXPENSE") activeBg else inactiveBg; setTextColor(if(typeFilter == "EXPENSE") Color.WHITE else colorTextSecondary) }
-            btnTabIncome.apply { backgroundTintList = if(typeFilter == "INCOME") activeBg else inactiveBg; setTextColor(if(typeFilter == "INCOME") Color.WHITE else colorTextSecondary) }
-            btnTabDebt.apply { backgroundTintList = if(typeFilter == "DEBT") activeBg else inactiveBg; setTextColor(if(typeFilter == "DEBT") Color.WHITE else colorTextSecondary) }
-
-            val targetTypes = if (typeFilter == "DEBT") listOf("DEBT", "RECEIVABLE") else listOf(typeFilter)
-            val filteredList = allCategoriesCloud.filter { targetTypes.contains((it["type"] as? String)?.uppercase(Locale.ROOT)) }
-            val parentCategories = filteredList.filter { it["parentCategoryId"] == null }.sortedBy { it["name"] as? String ?: "" }
-            val subCategories = filteredList.filter { it["parentCategoryId"] != null }
-
-            if (parentCategories.isEmpty()) {
-                containerList.addView(TextView(context).apply { text = "Belum ada kategori terdaftar."; setTextColor(colorTextSecondary); gravity = Gravity.CENTER; setPadding(0, 40, 0, 40) })
-                return
-            }
-
-            parentCategories.forEach { parent ->
-                val blockCard = MaterialCardView(context).apply { radius = 14f * density; cardElevation = 1f * density; strokeWidth = 0; setCardBackgroundColor(colorSurface); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() } }
-                val cardContentContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-                val parentRow = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
-                    setOnClickListener { selectedCategoryMap = parent; binding.btnCategoryPicker.text = parent["name"] as? String ?: ""; dialog.dismiss() }
-                }
-                parentRow.addView(TextView(context).apply { text = "📁"; textSize = 16f; setPadding(0, 0, (12 * density).toInt(), 0) })
-                parentRow.addView(TextView(context).apply { text = parent["name"] as? String ?: ""; setTextColor(colorTextPrimary); textSize = 14.5f; setTypeface(null, Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-                cardContentContainer.addView(parentRow)
-
-                val parentId = (parent["id"] as? Number)?.toLong() ?: 0L
-                val kids = subCategories.filter { (it["parentCategoryId"] as? Number)?.toLong() == parentId }.sortedBy { it["name"] as? String ?: "" }
-
-                if (kids.isNotEmpty()) cardContentContainer.addView(View(context).apply { setBackgroundColor(colorDivider); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
-
-                kids.forEach { child ->
-                    val childRow = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt()); setBackgroundColor(Color.TRANSPARENT)
-                        setOnClickListener { selectedCategoryMap = child; binding.btnCategoryPicker.text = child["name"] as? String ?: ""; dialog.dismiss() }
-                    }
-                    val treeLine = View(context).apply { setBackgroundColor(colorDivider); layoutParams = LinearLayout.LayoutParams((1.5f * density).toInt(), (16 * density).toInt()).apply { rightMargin = (12 * density).toInt(); leftMargin = (6 * density).toInt() } }
-                    childRow.addView(treeLine); childRow.addView(TextView(context).apply { text = "💰"; textSize = 13f; setPadding(0, 0, (10 * density).toInt(), 0) })
-                    childRow.addView(TextView(context).apply { text = child["name"] as? String ?: ""; setTextColor(colorTextPrimary); textSize = 13.5f; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-                    cardContentContainer.addView(childRow)
-                }
-                blockCard.addView(cardContentContainer)
-                containerList.addView(blockCard)
-            }
-        }
-
-        btnTabExpense.setOnClickListener { renderList("EXPENSE") }
-        btnTabIncome.setOnClickListener { renderList("INCOME") }
-        btnTabDebt.setOnClickListener { renderList("DEBT") }
-
-        val currentType = (selectedCategoryMap?.get("type") as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
-        renderList(if (currentType == "RECEIVABLE") "DEBT" else currentType)
-
-        dialog.show()
+            selectedCategoryMap = mappedCat
+            binding.btnCategoryPicker.text = selectedCat.name
+        }.show(parentFragmentManager, "CategoryPickerDialog")
     }
 
     private fun checkContactPermissionAndOpen() {
