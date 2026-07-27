@@ -69,19 +69,48 @@
                     android:layout_marginBottom="6dp"/>
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp" 
                     app:cardBackgroundColor="@color/background_color"
                     app:cardCornerRadius="10dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/divider_color"
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="16dp">
+                    
+                    <!-- 🔥 FIX: Background Transparan & padding lega -->
                     <Spinner
                         android:id="@+id/spinnerType"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="@android:drawable/btn_dropdown"
-                        android:paddingStart="12dp"/>
+                        android:background="@android:color/transparent"
+                        android:paddingHorizontal="16dp"/>
+                </com.google.android.material.card.MaterialCardView>
+                
+                <!-- 🔥 FITUR BARU: Filter Kategori -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Kategori (Opsional):"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp"/>
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp" 
+                    app:cardBackgroundColor="@color/background_color"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/divider_color"
+                    app:strokeWidth="1dp"
+                    android:layout_marginBottom="16dp">
+                    
+                    <Spinner
+                        android:id="@+id/spinnerCategory"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@android:color/transparent"
+                        android:paddingHorizontal="16dp"/>
                 </com.google.android.material.card.MaterialCardView>
 
                 <!-- Filter Waktu -->
@@ -95,19 +124,21 @@
                     android:layout_marginBottom="6dp"/>
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp" 
                     app:cardBackgroundColor="@color/background_color"
                     app:cardCornerRadius="10dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/divider_color"
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="12dp">
+                    
+                    <!-- 🔥 FIX: Background Transparan & padding lega -->
                     <Spinner
                         android:id="@+id/spinnerTime"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="@android:drawable/btn_dropdown"
-                        android:paddingStart="12dp"/>
+                        android:background="@android:color/transparent"
+                        android:paddingHorizontal="16dp"/>
                 </com.google.android.material.card.MaterialCardView>
 
                 <!-- TANGGAL KUSTOM -->
@@ -149,7 +180,8 @@
                     android:textColor="@color/surface_white"
                     android:textStyle="bold"
                     app:backgroundTint="@color/primary"
-                    app:cornerRadius="14dp" />
+                    app:cornerRadius="14dp" 
+                    android:layout_marginBottom="24dp"/>
             </LinearLayout>
 
             <!-- ========================================== -->
