@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical">
+
+    <!-- Icon Kategori (Bulat) -->
+    <FrameLayout
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_circle_icon"
+        android:backgroundTint="#2D3748"
+        android:layout_marginEnd="16dp">
+        <TextView
+            android:id="@+id/tvItemIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💰"
+            android:textSize="18sp"
+            android:layout_gravity="center"/>
+    </FrameLayout>
+
+    <!-- Kategori & Catatan -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvItemCategory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Makanan &amp; Minuman"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:textColor="?attr/colorOnSurface"/>
+
+        <TextView
+            android:id="@+id/tvItemNote"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Teh Kota Melon"
+            android:textSize="13sp"
+            android:textColor="#808080"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+    </LinearLayout>
+
+    <!-- Nominal -->
+    <TextView
+        android:id="@+id/tvItemAmount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="-Rp 5.000,00"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#E53935"/>
+
+</LinearLayout>
