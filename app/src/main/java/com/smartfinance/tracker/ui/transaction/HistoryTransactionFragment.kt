@@ -2,6 +2,8 @@ package com.smartfinance.tracker.ui.transaction
 
 import android.graphics.Color
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +30,11 @@ class HistoryTransactionFragment : Fragment() {
 
     private lateinit var viewModel: TransactionViewModel
     
+    // Kembalikan variabel filter Anda yang sempat saya hapus!
+    private var currentCalendar = Calendar.getInstance()
+    private var searchQuery = ""
+    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
+
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     private val sdfDateOnly = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
     private val sdfDayNum = SimpleDateFormat("dd", Locale("id", "ID"))
@@ -41,14 +48,25 @@ class HistoryTransactionFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Kita gunakan ViewModel Transaksi global yang sudah ada
         viewModel = ViewModelProvider(requireActivity())[TransactionViewModel::class.java]
-
         binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext())
 
-        // 🔥 TOMBOL MENUJU LAPORAN
+        // Setup Bulan
+        updateMonthLabel()
+        binding.btnPrevMonth.setOnClickListener { changeMonth(-1) }
+        binding.btnNextMonth.setOnClickListener { changeMonth(1) }
+
+        // Filter Pencarian Real-time
+        binding.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                searchQuery = s.toString().lowercase(Locale.ROOT)
+                processAndRenderTransactions(viewModel.transactions.value)
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
         binding.btnViewReport.setOnClickListener {
-            // Karena kita sudah punya ReportFragment (Mesin Cetak Laporan PDF), kita panggil itu!
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
 
@@ -59,12 +77,40 @@ class HistoryTransactionFragment : Fragment() {
         }
     }
 
-    private fun processAndRenderTransactions(transactions: List<Transaction>) {
-        // 1. Hitung Ringkasan Bulan Ini (Asumsi transaksi yang diload adalah bulan ini)
+    private fun changeMonth(amount: Int) {
+        currentCalendar.add(Calendar.MONTH, amount)
+        updateMonthLabel()
+        processAndRenderTransactions(viewModel.transactions.value)
+    }
+
+    private fun updateMonthLabel() {
+        binding.tvMonthLabel.text = sdfMonthLabel.format(currentCalendar.time).uppercase(Locale.ROOT)
+    }
+
+    private fun processAndRenderTransactions(allTransactions: List<Transaction>) {
+        val targetMonth = currentCalendar.get(Calendar.MONTH)
+        val targetYear = currentCalendar.get(Calendar.YEAR)
+
+        // 1. Filter Berdasarkan Bulan yang Dipilih
+        var filteredList = allTransactions.filter { tx ->
+            val cal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+            cal.get(Calendar.MONTH) == targetMonth && cal.get(Calendar.YEAR) == targetYear
+        }
+
+        // 2. Filter Berdasarkan Kolom Pencarian
+        if (searchQuery.isNotEmpty()) {
+            filteredList = filteredList.filter {
+                it.note.lowercase(Locale.ROOT).contains(searchQuery) ||
+                it.categoryName.lowercase(Locale.ROOT).contains(searchQuery) ||
+                it.amount.toString().contains(searchQuery)
+            }
+        }
+
+        // 3. Hitung Ringkasan (Hanya untuk data yang sudah difilter)
         var totalIncome = 0.0
         var totalExpense = 0.0
 
-        for (tx in transactions) {
+        for (tx in filteredList) {
             if (tx.type == "INCOME" || tx.type == "DEBT") {
                 totalIncome += tx.amount
             } else {
@@ -78,27 +124,19 @@ class HistoryTransactionFragment : Fragment() {
         binding.tvTotalBalance.text = formatRupiah.format(netBalance)
         binding.tvTotalBalance.setTextColor(if (netBalance >= 0) Color.WHITE else Color.parseColor("#E53935"))
 
-        // 2. KELOMPOKKAN BERDASARKAN TANGGAL (Grouping)
-        val groupedMap = transactions.sortedByDescending { it.timestamp }.groupBy { sdfDateOnly.format(Date(it.timestamp)) }
-        
-        // Buat daftar campuran (Header + Item)
+        // 4. KELOMPOKKAN BERDASARKAN TANGGAL (Grouping)
+        val groupedMap = filteredList.sortedByDescending { it.timestamp }.groupBy { sdfDateOnly.format(Date(it.timestamp)) }
         val displayList = mutableListOf<Any>()
 
         for ((dateStr, txList) in groupedMap) {
-            // Hitung total khusus hari itu
             var dailyTotal = 0.0
             txList.forEach { tx ->
                 if (tx.type == "INCOME" || tx.type == "DEBT") dailyTotal += tx.amount else dailyTotal -= tx.amount
             }
-            
-            // Masukkan Header Tanggal
             displayList.add(DateHeader(txList.first().timestamp, dailyTotal))
-            
-            // Masukkan Item Transaksinya di bawah header tersebut
             displayList.addAll(txList)
         }
 
-        // Pasang ke Adapter
         binding.rvTransactions.adapter = GroupedHistoryAdapter(displayList)
     }
 
@@ -108,10 +146,9 @@ class HistoryTransactionFragment : Fragment() {
     }
 
     // ==============================================================================
-    // ADAPTER MULTI-TIPE KUSTOM (Langsung di dalam file ini agar ringkas)
+    // ADAPTER MULTI-TIPE (Tetap Sama Mewahnya)
     // ==============================================================================
     
-    // Model Data Pembungkus Header
     data class DateHeader(val timestamp: Long, val dailyTotal: Double)
 
     inner class GroupedHistoryAdapter(private val items: List<Any>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -140,7 +177,6 @@ class HistoryTransactionFragment : Fragment() {
                 val date = Date(item.timestamp)
                 holder.tvNumber.text = sdfDayNum.format(date)
                 
-                // Menentukan "Hari ini" / "Kemarin" / Nama Hari
                 val cal = Calendar.getInstance()
                 val todayStr = sdfDateOnly.format(cal.time)
                 cal.add(Calendar.DAY_OF_YEAR, -1)
@@ -167,12 +203,9 @@ class HistoryTransactionFragment : Fragment() {
                 val prefix = if (isInc) "+" else "-"
                 holder.tvAmount.text = "$prefix${formatRupiah.format(item.amount)}"
                 holder.tvAmount.setTextColor(if (isInc) Color.parseColor("#4CAF50") else Color.parseColor("#E53935"))
-                
-                // Emoji cerdas berdasarkan tipe
                 holder.tvIcon.text = if (isInc) "📥" else "💸"
                 
                 holder.itemView.setOnClickListener {
-                    // Bisa ditambahkan dialog klik detail di sini nanti
                     TransactionEditorDialog(
                         hashMapOf("id" to item.id, "amount" to item.amount, "note" to item.note, "type" to item.type, "timestamp" to item.timestamp, "categoryId" to item.categoryId, "debtId" to (item.debtId ?: ""))
                     ) { /* OnUpdate */ }.show(parentFragmentManager, "EditTx")
