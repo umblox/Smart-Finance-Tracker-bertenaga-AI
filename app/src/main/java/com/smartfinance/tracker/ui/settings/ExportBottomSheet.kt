@@ -85,6 +85,22 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
         binding.spinnerTime.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, timeOptions)
         binding.spinnerType.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, typeOptions)
         
+        // 🔥 FITUR BARU: Setup Spinner Kategori secara dinamis
+        val categoryOptions = mutableListOf("Semua Kategori")
+        categoryOptions.addAll(viewModel.getAvailableCategories())
+        val categoryAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, categoryOptions)
+        binding.spinnerCategory.adapter = categoryAdapter
+        
+        // Jaring pengaman (Safety Net) jika data dari Cloud sedikit butuh waktu untuk termuat
+        viewLifecycleOwner.lifecycleScope.launch {
+            kotlinx.coroutines.delay(600)
+            val newCats = viewModel.getAvailableCategories()
+            if (newCats.isNotEmpty() && categoryOptions.size == 1) {
+                categoryOptions.addAll(newCats)
+                categoryAdapter.notifyDataSetChanged()
+            }
+        }
+
         binding.spinnerTime.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val isCustom = timeEnums[position] == ExportTimeRange.CUSTOM
@@ -113,20 +129,19 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
                 binding.btnEndDate.text = sdfDisplayDate.format(endCal.time)
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
-
-        // ==========================================
-        // NAVIGASI ANTAR HALAMAN (WIZARD FLOW)
-        // ==========================================
         
-        // 1. KLIK "TAMPILKAN PREVIEW" (Pindah ke Halaman 2)
+        // 1. KLIK "TAMPILKAN PREVIEW"
         binding.btnGeneratePreview.setOnClickListener {
             val selectedTime = timeEnums[binding.spinnerTime.selectedItemPosition]
             val selectedType = typeEnums[binding.spinnerType.selectedItemPosition]
             
-            // Validasi data kosong
-            val data = viewModel.getFilteredTransactions(selectedTime, selectedType)
+            // 🔥 FITUR BARU: Ambil Kategori yang dipilih
+            val selectedCategory = binding.spinnerCategory.selectedItem.toString()
+            
+            // Validasi data kosong (Filter baru sudah diterapkan)
+            val data = viewModel.getFilteredTransactions(selectedTime, selectedType, selectedCategory)
             if (data.isEmpty()) {
-                Toast.makeText(requireContext(), "Tidak ada data pada rentang ini!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Tidak ada data pada rentang dan kategori ini!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -138,7 +153,7 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
             generatePreviewDataAndRender(data)
         }
 
-        // 2. KLIK "KEMBALI EDIT FILTER" (Pindah kembali ke Halaman 1)
+        // 2. KLIK "KEMBALI EDIT FILTER"
         binding.btnBackToSetup.setOnClickListener {
             binding.layoutPreview.visibility = View.GONE
             binding.layoutSetup.visibility = View.VISIBLE
