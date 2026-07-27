@@ -6,10 +6,10 @@
     android:orientation="horizontal"
     android:paddingHorizontal="16dp"
     android:paddingVertical="12dp"
-    android:background="?attr/selectableItemBackground"
     android:gravity="center_vertical">
+    
+    <!-- Background warna sudah diatur di File Kotlin (Adapter) -->
 
-    <!-- Icon Kategori (Bulat) -->
     <FrameLayout
         android:layout_width="40dp"
         android:layout_height="40dp"
@@ -25,7 +25,6 @@
             android:layout_gravity="center"/>
     </FrameLayout>
 
-    <!-- Kategori & Catatan -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -36,29 +35,28 @@
             android:id="@+id/tvItemCategory"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Makanan &amp; Minuman"
+            android:text="Kategori"
             android:textStyle="bold"
             android:textSize="15sp"
-            android:textColor="?attr/colorOnSurface"/>
+            android:textColor="@color/text_primary"/>
 
         <TextView
             android:id="@+id/tvItemNote"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Teh Kota Melon"
+            android:text="Catatan"
             android:textSize="13sp"
-            android:textColor="#808080"
+            android:textColor="@color/text_secondary"
             android:layout_marginTop="2dp"
             android:maxLines="1"
             android:ellipsize="end"/>
     </LinearLayout>
 
-    <!-- Nominal -->
     <TextView
         android:id="@+id/tvItemAmount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="-Rp 5.000,00"
+        android:text="-Rp 0"
         android:textSize="15sp"
         android:textStyle="bold"
         android:textColor="#E53935"/>
