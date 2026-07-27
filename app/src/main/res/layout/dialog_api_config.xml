@@ -42,13 +42,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp" 
                 android:layout_marginBottom="16dp"
-                app:cardBackgroundColor="@color/background_color" <!-- 🔥 FIX: Background dibedakan agar tidak menyatu dengan modal -->
+                app:cardBackgroundColor="@color/background_color"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/divider_color"
                 app:strokeWidth="1dp">
                 
-                <!-- 🔥 FIX: Background bawaan dicabut, dipaksa transparan, spasi dirapikan -->
                 <Spinner
                     android:id="@+id/spinnerAiModel"
                     android:layout_width="match_parent"
