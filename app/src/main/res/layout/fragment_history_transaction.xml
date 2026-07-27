@@ -4,15 +4,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?attr/colorSurface">
+    android:background="?attr/colorSurfaceVariant"> <!-- Warna Latar Belakang Dasar -->
 
-    <!-- Header Ringkasan Atas (Dark Mode) -->
+    <!-- Header Ringkasan Atas -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="20dp"
-        android:background="#121212"> 
+        android:background="?attr/colorSurface"> <!-- Mengikuti warna Surface (Putih/Hitam) -->
 
         <!-- Kolom Pencarian -->
         <com.google.android.material.card.MaterialCardView
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#1E1E1E"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant" 
             android:layout_marginBottom="16dp">
             
             <EditText
@@ -29,13 +29,13 @@
                 android:layout_height="48dp"
                 android:background="@null"
                 android:hint="Cari catatan, kategori, nominal..."
-                android:textColorHint="#808080"
-                android:textColor="@android:color/white"
+                android:textColorHint="?attr/colorOnSurfaceVariant"
+                android:textColor="?attr/colorOnSurface"
                 android:textSize="14sp"
                 android:paddingHorizontal="16dp"
                 android:drawableStart="@android:drawable/ic_menu_search"
                 android:drawablePadding="8dp"
-                android:drawableTint="#808080"
+                app:drawableTint="?attr/colorOnSurfaceVariant"
                 android:inputType="text"
                 android:maxLines="1"/>
         </com.google.android.material.card.MaterialCardView>
@@ -54,7 +54,7 @@
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_media_previous"
-                app:tint="#808080"/>
+                app:tint="?attr/colorOnSurfaceVariant"/>
                 
             <TextView
                 android:id="@+id/tvMonthLabel"
@@ -63,7 +63,7 @@
                 android:layout_height="wrap_content"
                 android:text="JULI 2026"
                 android:textAlignment="center"
-                android:textColor="@android:color/white"
+                android:textColor="?attr/colorOnSurface"
                 android:textStyle="bold"
                 android:textSize="14sp" />
                 
@@ -73,7 +73,7 @@
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_media_next"
-                app:tint="#808080"/>
+                app:tint="?attr/colorOnSurfaceVariant"/>
         </LinearLayout>
 
         <TextView
@@ -81,7 +81,7 @@
             android:layout_height="wrap_content"
             android:text="Saldo Total Periode Ini"
             android:textAlignment="center"
-            android:textColor="#A0A0A0"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="13sp" />
 
         <TextView
@@ -90,7 +90,7 @@
             android:layout_height="wrap_content"
             android:text="Rp 0"
             android:textAlignment="center"
-            android:textColor="@android:color/white"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="26sp"
             android:textStyle="bold"
             android:layout_marginTop="4dp"
@@ -106,7 +106,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="Pemasukan"
-                android:textColor="#A0A0A0"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp"/>
             <TextView
                 android:id="@+id/tvTotalIncome"
@@ -127,7 +127,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="Pengeluaran"
-                android:textColor="#A0A0A0"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp"/>
             <TextView
                 android:id="@+id/tvTotalExpense"
@@ -138,10 +138,11 @@
                 android:textStyle="bold"/>
         </LinearLayout>
 
+        <!-- Garis Pemisah -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#333333"
+            android:background="?attr/colorOutlineVariant"
             android:layout_marginVertical="12dp"/>
 
         <com.google.android.material.button.MaterialButton
@@ -162,7 +163,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="4dp"
-        android:background="#000000"/>
+        android:background="?attr/colorSurfaceVariant"/>
 
     <!-- List Transaksi -->
     <androidx.recyclerview.widget.RecyclerView
