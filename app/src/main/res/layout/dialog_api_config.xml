@@ -40,19 +40,21 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="52dp" 
                 android:layout_marginBottom="16dp"
-                app:cardBackgroundColor="@color/surface_white"
+                app:cardBackgroundColor="@color/background_color" <!-- 🔥 FIX: Background dibedakan agar tidak menyatu dengan modal -->
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/divider_color"
                 app:strokeWidth="1dp">
+                
+                <!-- 🔥 FIX: Background bawaan dicabut, dipaksa transparan, spasi dirapikan -->
                 <Spinner
                     android:id="@+id/spinnerAiModel"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="@android:drawable/btn_dropdown"
-                    android:paddingStart="12dp" />
+                    android:background="@android:color/transparent"
+                    android:paddingHorizontal="16dp" />
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
@@ -73,6 +75,7 @@
                 app:boxCornerRadiusTopEnd="12dp"
                 app:boxCornerRadiusTopStart="12dp"
                 app:boxStrokeColor="@color/primary">
+                
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etApiKey"
                     android:layout_width="match_parent"
