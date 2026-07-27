@@ -48,32 +48,27 @@
                     android:focusable="true"/>
             </LinearLayout>
 
+            <!-- 🔥 FIX: Menggunakan Button Category Picker ala Money Lover -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="Pilih Kategori Pengeluaran:"
+                android:layout_marginBottom="6dp"
+                android:text="Kategori Pengeluaran:"
                 android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textStyle="bold"/>
 
-            <com.google.android.material.card.MaterialCardView
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCategoryPicker"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
-                android:layout_height="52dp" 
+                android:layout_height="54dp"
                 android:layout_marginBottom="16dp"
-                app:cardBackgroundColor="@color/background_color"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/divider_color"
-                app:strokeWidth="1dp">
-                
-                <!-- 🔥 FIX: Background dibuat transparan dan padding disesuaikan agar simetris -->
-                <Spinner
-                    android:id="@+id/spinnerCategory"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent"
-                    android:paddingHorizontal="16dp" />
-            </com.google.android.material.card.MaterialCardView>
+                android:gravity="start|center_vertical"
+                android:text="Pilih Kategori"
+                android:textColor="@color/text_primary"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/divider_color" />
 
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
