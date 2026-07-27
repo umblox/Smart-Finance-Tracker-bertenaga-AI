@@ -19,9 +19,10 @@ import com.smartfinance.tracker.ui.chat.ChatFragment
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
+import com.smartfinance.tracker.ui.transaction.TransactionManualDialog // 🔥 Import Dialog Transaksi Manual
 import com.smartfinance.tracker.utils.FirebaseManager
 import com.smartfinance.tracker.utils.RecurringTxWorker 
-import com.smartfinance.tracker.worker.AiWorkerManager // 🔥 Import AiWorker
+import com.smartfinance.tracker.worker.AiWorkerManager 
 
 class MainActivity : AppCompatActivity() {
 
@@ -138,21 +139,41 @@ class MainActivity : AppCompatActivity() {
         }
 
         bottomNavigation.setOnItemSelectedListener { item ->
+            
+            // ==========================================
+            // 🔥 KODE PENCEGAT TRANSAKSI MANUAL
+            // ==========================================
+            if (item.itemId == R.id.menu_manual_add) {
+                // Tampilkan Popup Dialog melayang, TANPA berpindah Fragment
+                TransactionManualDialog {
+                    // Blok ini akan dieksekusi saat user menekan tombol "Simpan"
+                    // Karena aplikasi sudah pakai StateFlow/ViewModel, UI akan update otomatis
+                }.show(supportFragmentManager, "TransactionManualDialog")
+                
+                // Return false mencegah ikon "Catat" menyala/aktif di navigasi bawah
+                return@setOnItemSelectedListener false 
+            }
+
+            // ==========================================
+            // ROUTING FRAGMENT NORMAL
+            // ==========================================
             val selectedFragment: Fragment = when (item.itemId) {
                 R.id.menu_dashboard -> DashboardFragment()
-                R.id.menu_chat -> ChatFragment()
-                R.id.menu_report -> HistoryTransactionFragment()
                 R.id.menu_debt -> AddDebtFragment()
+                R.id.menu_chat -> ChatFragment() // 🔥 AI Chat sekarang jadi fitur utama
                 R.id.menu_settings -> SettingsFragment()
                 else -> DashboardFragment()
             }
+            
             supportFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainer, selectedFragment)
                 .commit()
+                
             true
         }
     }
 
+    // Fungsi ini sangat berguna jika tombol "Lihat Semua" di Dashboard ditekan
     fun navigateToSpecificFragment(fragment: Fragment, activeMenuId: Int? = null) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
