@@ -61,7 +61,8 @@ class DebtManualDialog(
 
         binding.tvDialogTitle.text = "Tambah Utang-Piutang"
         
-        binding.cardSpinner.visibility = View.GONE
+        // 🔥 FIX: Hapus cardSpinner dan gunakan btnCategoryPicker
+        binding.btnCategoryPicker.visibility = View.GONE
         binding.tvCategoryLabel.visibility = View.GONE
         binding.tvContactLabel.visibility = View.VISIBLE
         binding.layoutContact.visibility = View.VISIBLE
