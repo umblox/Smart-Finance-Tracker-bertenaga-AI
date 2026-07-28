@@ -11,7 +11,6 @@ import java.util.Calendar
 
 enum class TimeFilter { DAILY, WEEKLY, MONTHLY }
 
-// Variabel diubah menjadi generik (Current/Previous) agar fleksibel
 data class ReportUiState(
     val filterLabel: String = "Bulan Ini",
     val incomeCurrent: Double = 0.0,
@@ -21,7 +20,13 @@ data class ReportUiState(
     val expensePrevious: Double = 0.0,
     val topExpenses: List<Pair<String, Double>> = emptyList(),
     val topExpensesTotal: Double = 0.0,
-    val hasData: Boolean = false
+    val hasData: Boolean = false,
+    // 🔥 DATA UNTUK INSIGHT CERDAS
+    val insightTitle: String = "💡 Statistik Pengeluaran",
+    val insightAverageLabel: String = "Rata-rata pengeluaran:",
+    val insightAverageValue: Double = 0.0,
+    val insightProjectionLabel: String = "Proyeksi total akhir periode:",
+    val insightProjectionValue: Double = 0.0
 )
 
 class ReportViewModel : ViewModel() {
@@ -54,7 +59,6 @@ class ReportViewModel : ViewModel() {
             return
         }
 
-        // Hitung rentang waktu saat ini dan rentang waktu sebelumnya
         val currentRange = getTimeRange(currentFilter, 0, baseTimeMillis)
         val prevRange = getTimeRange(currentFilter, -1, baseTimeMillis)
 
@@ -65,7 +69,6 @@ class ReportViewModel : ViewModel() {
         allTx.forEach { tx ->
             val time = tx.timestamp
             
-            // Logika pengecekan yang jauh lebih ringan dibanding Calendar matching
             if (time in currentRange.first..currentRange.second) {
                 if (tx.type == "INCOME" || tx.type == "DEBT") incCurr += tx.amount
                 if (tx.type == "EXPENSE" || tx.type == "RECEIVABLE") {
@@ -90,6 +93,48 @@ class ReportViewModel : ViewModel() {
             TimeFilter.MONTHLY -> "Bulan Ini"
         }
 
+        // =========================================
+        // 🔥 LOGIKA KALKULASI PROYEKSI CERDAS
+        // =========================================
+        var avgLabel = ""
+        var projLabel = ""
+        var avgVal = 0.0
+        var projVal = 0.0
+        
+        val calNow = Calendar.getInstance()
+        val calBase = Calendar.getInstance().apply { timeInMillis = baseTimeMillis }
+        val isCurrentYear = calNow.get(Calendar.YEAR) == calBase.get(Calendar.YEAR)
+        
+        when (currentFilter) {
+            TimeFilter.DAILY -> {
+                val isCurrentDay = isCurrentYear && calNow.get(Calendar.DAY_OF_YEAR) == calBase.get(Calendar.DAY_OF_YEAR)
+                val elapsedHours = if (isCurrentDay) calNow.get(Calendar.HOUR_OF_DAY).coerceAtLeast(1) else 24
+                avgVal = expCurr / elapsedHours
+                projVal = avgVal * 24
+                avgLabel = "Rata-rata pengeluaran per jam:"
+                projLabel = "Proyeksi total hari ini:"
+            }
+            TimeFilter.WEEKLY -> {
+                val isCurrentWeek = isCurrentYear && calNow.get(Calendar.WEEK_OF_YEAR) == calBase.get(Calendar.WEEK_OF_YEAR)
+                var currentDayOfWeek = calNow.get(Calendar.DAY_OF_WEEK) - 1
+                if (currentDayOfWeek == 0) currentDayOfWeek = 7 // Adjust agar Sen=1, Min=7
+                val elapsedDays = if (isCurrentWeek) currentDayOfWeek.coerceAtLeast(1) else 7
+                avgVal = expCurr / elapsedDays
+                projVal = avgVal * 7
+                avgLabel = "Rata-rata pengeluaran harian:"
+                projLabel = "Proyeksi akhir minggu ini:"
+            }
+            TimeFilter.MONTHLY -> {
+                val isCurrentMonth = isCurrentYear && calNow.get(Calendar.MONTH) == calBase.get(Calendar.MONTH)
+                val totalDays = calBase.getActualMaximum(Calendar.DAY_OF_MONTH)
+                val elapsedDays = if (isCurrentMonth) calNow.get(Calendar.DAY_OF_MONTH).coerceAtLeast(1) else totalDays
+                avgVal = expCurr / elapsedDays
+                projVal = avgVal * totalDays
+                avgLabel = "Rata-rata pengeluaran harian:"
+                projLabel = "Proyeksi total akhir bulan:"
+            }
+        }
+
         _uiState.value = ReportUiState(
             filterLabel = label,
             incomeCurrent = incCurr,
@@ -99,11 +144,17 @@ class ReportViewModel : ViewModel() {
             expensePrevious = expPrev,
             topExpenses = aggregated,
             topExpensesTotal = totalFilteredExpense,
-            hasData = currentPeriodExpenses.isNotEmpty()
+            hasData = currentPeriodExpenses.isNotEmpty(),
+            
+            // Masukkan data insight ke UI State
+            insightTitle = "💡 Statistik Pengeluaran $label",
+            insightAverageLabel = avgLabel,
+            insightAverageValue = avgVal,
+            insightProjectionLabel = projLabel,
+            insightProjectionValue = projVal
         )
     }
 
-    // Engine Pengekstraksi Batas Waktu
     private fun getTimeRange(filter: TimeFilter, offset: Int, timeMillis: Long): Pair<Long, Long> {
         val cal = Calendar.getInstance().apply { timeInMillis = timeMillis }
         
@@ -117,11 +168,11 @@ class ReportViewModel : ViewModel() {
         val endCal = cal.clone() as Calendar
 
         when (filter) {
-            TimeFilter.DAILY -> { /* Day already set by offset */ }
+            TimeFilter.DAILY -> { }
             TimeFilter.WEEKLY -> {
                 startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
                 endCal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-                endCal.add(Calendar.WEEK_OF_YEAR, 1) // Sunday is technically next week in US calendar
+                endCal.add(Calendar.WEEK_OF_YEAR, 1) 
             }
             TimeFilter.MONTHLY -> {
                 startCal.set(Calendar.DAY_OF_MONTH, 1)
@@ -129,11 +180,9 @@ class ReportViewModel : ViewModel() {
             }
         }
 
-        // Set to 00:00:00
         startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0)
         startCal.set(Calendar.SECOND, 0); startCal.set(Calendar.MILLISECOND, 0)
         
-        // Set to 23:59:59
         endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59)
         endCal.set(Calendar.SECOND, 59); endCal.set(Calendar.MILLISECOND, 999)
 
