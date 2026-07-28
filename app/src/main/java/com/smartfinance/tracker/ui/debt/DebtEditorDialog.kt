@@ -53,15 +53,12 @@ class DebtEditorDialog(
 
                 binding.tvDialogTitle.text = "Bayar/Cicil $contactName"
                 
-                // Menyembunyikan elemen yang tidak perlu untuk form Bayar/Cicil
-                binding.cardSpinner.visibility = View.GONE
+                // 🔥 FIX: Hapus cardSpinner dan gunakan btnCategoryPicker
+                binding.btnCategoryPicker.visibility = View.GONE
                 binding.tvCategoryLabel.visibility = View.GONE
                 binding.rgPremiumTxType.visibility = View.GONE
                 binding.tvTypeLabel.visibility = View.GONE
-                binding.btnCategoryPicker.visibility = View.GONE
 
-                // 🔥 FIX: Perbaiki Tabrakan Teks!
-                // Hint harus diberikan ke TextInputLayout (parent), BUKAN ke TextInputEditText (child).
                 val parentAmountLayout = binding.etPremiumTxAmount.parent.parent as? com.google.android.material.textfield.TextInputLayout
                 val parentNoteLayout = binding.etPremiumTxNote.parent.parent as? com.google.android.material.textfield.TextInputLayout
                 
