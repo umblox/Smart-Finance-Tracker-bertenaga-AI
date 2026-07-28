@@ -16,27 +16,33 @@ class TransactionRepository {
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
     val transactions: StateFlow<List<Transaction>> = _transactions
 
-    fun startListening() {
-        if (listener != null) return
-        listener = firestore.collection("transactions")
-            .addSnapshotListener { snapshot, e ->
-                if (e != null || snapshot == null) return@addSnapshotListener
+    // 🔥 FIX: Parameter DIWAJIBKAN! Tidak ada lagi toleransi null.
+    // Siapapun yang memanggil fungsi ini WAJIB memberikan batas waktu.
+    fun startListening(startTime: Long, endTime: Long) {
+        listener?.remove()
 
-                val list = snapshot.documents.mapNotNull { doc ->
-                    val data = doc.data ?: return@mapNotNull null
-                    Transaction(
-                        id = doc.id,
-                        amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
-                        type = (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT),
-                        timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                        categoryId = (data["categoryId"] as? Number)?.toLong() ?: 0L,
-                        categoryName = data["categoryName"] as? String ?: "Umum",
-                        note = data["note"] as? String ?: "Transaksi AI",
-                        debtId = data["debtId"] as? String ?: ""
-                    )
-                }
-                _transactions.value = list
+        val query = firestore.collection("transactions")
+            .whereGreaterThanOrEqualTo("timestamp", startTime)
+            .whereLessThanOrEqualTo("timestamp", endTime)
+
+        listener = query.addSnapshotListener { snapshot, e ->
+            if (e != null || snapshot == null) return@addSnapshotListener
+
+            val list = snapshot.documents.mapNotNull { doc ->
+                val data = doc.data ?: return@mapNotNull null
+                Transaction(
+                    id = doc.id,
+                    amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
+                    type = (data["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT),
+                    timestamp = (data["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                    categoryId = (data["categoryId"] as? Number)?.toLong() ?: 0L,
+                    categoryName = data["categoryName"] as? String ?: "Umum",
+                    note = data["note"] as? String ?: "Transaksi AI",
+                    debtId = data["debtId"] as? String ?: ""
+                )
             }
+            _transactions.value = list
+        }
     }
 
     fun stopListening() {
@@ -44,7 +50,6 @@ class TransactionRepository {
         listener = null
     }
 
-    // --- TAMBAHAN FUNGSI WRITE MVVM ---
     suspend fun saveTransaction(txId: String, txMap: HashMap<String, Any>) {
         firestore.collection("transactions").document(txId).set(txMap).await()
     }
