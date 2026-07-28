@@ -18,22 +18,24 @@ class TransactionViewModel : ViewModel() {
     val transactions: StateFlow<List<Transaction>> = txRepository.transactions
 
     init {
-        // 🔥 FITUR BARU: Otomatis membatasi penarikan data hanya untuk bulan ini
+        // Default saat pertama dibuka: Kita amankan dengan rentang Bulan Ini
         val cal = Calendar.getInstance()
-        cal.set(Calendar.DAY_OF_MONTH, 1)
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        val startTime = cal.timeInMillis
+        val start = cal.apply { 
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
         
-        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
-        cal.set(Calendar.HOUR_OF_DAY, 23)
-        cal.set(Calendar.MINUTE, 59)
-        cal.set(Calendar.SECOND, 59)
-        cal.set(Calendar.MILLISECOND, 999)
-        val endTime = cal.timeInMillis
+        val end = cal.apply {
+            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+        }.timeInMillis
+        
+        loadDataForTimeRange(start, end)
+    }
 
+    // 🔥 FITUR BARU: MESIN WAKTU ABSOLUT (Harian, Mingguan, Bulanan, Tahunan)
+    // Fragment / UI tinggal melempar millisecond titik awal dan titik akhir!
+    fun loadDataForTimeRange(startTime: Long, endTime: Long) {
         txRepository.startListening(startTime, endTime)
     }
 
