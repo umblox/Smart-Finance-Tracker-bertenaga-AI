@@ -2,17 +2,18 @@ package com.smartfinance.tracker.ui.settings
 
 import android.app.AlertDialog
 import android.app.Dialog
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.RecurringTransaction
 import com.smartfinance.tracker.databinding.DialogRecurringTxBinding
 import kotlinx.coroutines.launch
@@ -25,6 +26,9 @@ class RecurringTxListDialog : DialogFragment() {
     private val binding get() = _binding!!
     private lateinit var viewModel: RecurringTxViewModel
 
+    // 🔥 FIX: Helper untuk menarik warna tema secara dinamis
+    private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
+
     override fun onStart() {
         super.onStart()
         dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -35,7 +39,6 @@ class RecurringTxListDialog : DialogFragment() {
         _binding = DialogRecurringTxBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
 
-        // 🔥 KUNCI MVVM: Gunakan requireActivity() agar ViewModel dibagikan dengan Form
         viewModel = ViewModelProvider(requireActivity())[RecurringTxViewModel::class.java]
 
         binding.btnAddSchedule.setOnClickListener {
@@ -58,7 +61,8 @@ class RecurringTxListDialog : DialogFragment() {
         if (schedules.isEmpty()) {
             binding.listContainer.addView(TextView(requireContext()).apply { 
                 text = "Belum ada transaksi terjadwal.\nKlik tombol di bawah untuk membuat baru."
-                setTextColor(Color.GRAY); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER; setPadding(0, 40, 0, 40) 
+                // 🔥 FIX: Menggunakan warna tema
+                setTextColor(getThemeColor(R.color.text_secondary)); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER; setPadding(0, 40, 0, 40) 
             })
             return
         }
@@ -66,17 +70,21 @@ class RecurringTxListDialog : DialogFragment() {
         val formatRp = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
         for (doc in schedules) {
             val card = MaterialCardView(requireContext()).apply {
-                radius = 12 * density; cardElevation = 1 * density; setCardBackgroundColor(Color.parseColor("#F8FAFC"))
+                radius = 12 * density; cardElevation = 1 * density; 
+                // 🔥 FIX: Menggunakan warna tema
+                setCardBackgroundColor(getThemeColor(R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
                 
                 setOnClickListener {
-                    // 🔥 Buka Layar Form dengan mengirimkan ID Dokumen
                     RecurringTxFormDialog.newInstance(doc.id).show(parentFragmentManager, "FormTx")
                 }
             }
             val row = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt()) }
-            row.addView(TextView(requireContext()).apply { text = doc.note; setTextColor(Color.parseColor("#1E293B")); setTypeface(null, Typeface.BOLD); textSize = 16f })
-            row.addView(TextView(requireContext()).apply { text = "${formatRp.format(doc.amount)} • ${doc.interval}"; setTextColor(Color.parseColor("#0D9488")); textSize = 14f; setPadding(0, 4, 0, 0) })
+            
+            // 🔥 FIX: Menggunakan warna tema
+            row.addView(TextView(requireContext()).apply { text = doc.note; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(null, Typeface.BOLD); textSize = 16f })
+            row.addView(TextView(requireContext()).apply { text = "${formatRp.format(doc.amount)} • ${doc.interval}"; setTextColor(getThemeColor(R.color.primary)); textSize = 14f; setPadding(0, 4, 0, 0) })
+            
             card.addView(row)
             binding.listContainer.addView(card)
         }
