@@ -8,18 +8,33 @@ import com.smartfinance.tracker.utils.FirebaseManager
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
 import java.util.ArrayList
+import java.util.Calendar
 import java.util.HashMap
 
 class TransactionViewModel : ViewModel() {
     private val txRepository = TransactionRepository()
     private val debtRepository = DebtRepository()
 
-    // Membuka akses aliran data riwayat transaksi untuk UI
     val transactions: StateFlow<List<Transaction>> = txRepository.transactions
 
     init {
-        // Mulai mendengarkan database secara real-time saat ViewModel dipanggil
-        txRepository.startListening()
+        // 🔥 FITUR BARU: Otomatis membatasi penarikan data hanya untuk bulan ini
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val startTime = cal.timeInMillis
+        
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val endTime = cal.timeInMillis
+
+        txRepository.startListening(startTime, endTime)
     }
 
     suspend fun getCategoriesForDropdown(): List<Map<String, Any>> {
