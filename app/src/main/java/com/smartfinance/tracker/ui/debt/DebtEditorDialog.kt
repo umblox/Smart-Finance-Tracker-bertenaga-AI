@@ -52,13 +52,22 @@ class DebtEditorDialog(
                 payDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
                 binding.tvDialogTitle.text = "Bayar/Cicil $contactName"
+                
+                // Menyembunyikan elemen yang tidak perlu untuk form Bayar/Cicil
                 binding.cardSpinner.visibility = View.GONE
                 binding.tvCategoryLabel.visibility = View.GONE
                 binding.rgPremiumTxType.visibility = View.GONE
                 binding.tvTypeLabel.visibility = View.GONE
+                binding.btnCategoryPicker.visibility = View.GONE
 
-                binding.etPremiumTxAmount.hint = "Nominal Pembayaran (Rp)"
-                binding.etPremiumTxNote.hint = "Keterangan cicilan (Opsional)"
+                // 🔥 FIX: Perbaiki Tabrakan Teks!
+                // Hint harus diberikan ke TextInputLayout (parent), BUKAN ke TextInputEditText (child).
+                val parentAmountLayout = binding.etPremiumTxAmount.parent.parent as? com.google.android.material.textfield.TextInputLayout
+                val parentNoteLayout = binding.etPremiumTxNote.parent.parent as? com.google.android.material.textfield.TextInputLayout
+                
+                parentAmountLayout?.hint = "Nominal Pembayaran (Rp)"
+                parentNoteLayout?.hint = "Keterangan cicilan (Opsional)"
+                
                 binding.etPremiumTxDate.setText(sdfPremium.format(Date()))
 
                 binding.btnCancel.setOnClickListener { payDialog.dismiss() }
