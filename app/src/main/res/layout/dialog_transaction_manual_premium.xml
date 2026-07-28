@@ -116,11 +116,7 @@
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
 
-            <Spinner
-                android:id="@+id/spinnerManualPremiumCategory"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
+            <!-- 🔥 FIX: Tag Spinner yang mati sudah resmi dihanguskan dari sini -->
 
             <!-- Catatan -->
             <com.google.android.material.textfield.TextInputLayout
@@ -201,7 +197,6 @@
                         android:textColor="@color/text_primary" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- 🔥 FIX: Warna tombol kontak disesuaikan tema -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnManualPremiumPick"
                     android:layout_width="54dp"
