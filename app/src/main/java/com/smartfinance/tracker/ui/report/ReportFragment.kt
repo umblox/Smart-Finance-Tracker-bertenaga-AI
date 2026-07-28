@@ -64,7 +64,6 @@ class ReportFragment : Fragment() {
     private fun renderReportUi(state: ReportUiState) {
         val density = requireContext().resources.displayMetrics.density
 
-        // 🔥 FIX: Mengambil ID efek sentuh secara AMAN!
         val typedValue = android.util.TypedValue()
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
         val safeRippleId = typedValue.resourceId
@@ -85,6 +84,11 @@ class ReportFragment : Fragment() {
         binding.btnSeeAllDetails.setOnClickListener {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
         }
+        
+        // 🔥 FIX: Render Insight Cerdas!
+        binding.tvInsightTitle.text = state.insightTitle
+        binding.tvInsightDailyAvg.text = "${state.insightAverageLabel} ${formatRupiah.format(state.insightAverageValue)}"
+        binding.tvInsightProjection.text = "${state.insightProjectionLabel} ${formatRupiah.format(state.insightProjectionValue)}"
 
         binding.topBorosContainer.removeAllViews()
         if (!state.hasData || state.topExpenses.isEmpty()) {
@@ -100,7 +104,6 @@ class ReportFragment : Fragment() {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
                     
-                    // 🔥 TERAPKAN RIPPLE YANG AMAN DI SINI!
                     setBackgroundResource(safeRippleId)
                     isClickable = true; isFocusable = true
                     
