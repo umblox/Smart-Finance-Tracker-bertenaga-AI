@@ -126,7 +126,7 @@
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="24dp"
-        android:text="SIMPAN KE CLOUD"
+        android:text="SIMPAN"
         android:textColor="@color/surface_white"
         android:textStyle="bold"
         app:backgroundTint="@color/primary"
