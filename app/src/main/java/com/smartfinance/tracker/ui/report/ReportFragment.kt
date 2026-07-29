@@ -60,22 +60,36 @@ class ReportFragment : Fragment() {
     }
     
     private fun setupNavigationListeners() {
-        // [Fase 2] Menuju Detail Ringkasan
+        // [Fase 2] Menuju Detail Ringkasan (Sementara masih Toast, akan dikerjakan nanti)
         binding.btnDetailPemasukanBersih.setOnClickListener {
             Toast.makeText(context, "Membuka Detail Ringkasan...", Toast.LENGTH_SHORT).show()
         }
         
-        // [Fase 2] Menuju Rincian Biaya/Pendapatan
+        // [Fase 2] Menuju Rincian Pendapatan (Menuju Layar Dinamis Baru)
         binding.btnBoxIncome.setOnClickListener {
-            Toast.makeText(context, "Membuka Rincian Pendapatan...", Toast.LENGTH_SHORT).show()
-        }
-        binding.btnBoxExpense.setOnClickListener {
-            Toast.makeText(context, "Membuka Rincian Biaya...", Toast.LENGTH_SHORT).show()
+            val fragment = CategoryTrendReportFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_TARGET_MODE", "ALL_INCOME")
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // [Fase 2] Menuju Laporan Ekstensif Kategori (Blueprint 2)
+        // [Fase 2] Menuju Rincian Biaya (Menuju Layar Dinamis Baru)
+        binding.btnBoxExpense.setOnClickListener {
+            val fragment = CategoryTrendReportFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
+        }
+        
+        // [Fase 2] Tombol Lihat Kategori (Kita arahkan ke ALL_EXPENSE sebagai default)
         binding.btnLihatKategoriPenuh.setOnClickListener {
-            Toast.makeText(context, "Membuka Menu Kategori Dinamis...", Toast.LENGTH_SHORT).show()
+            binding.btnBoxExpense.performClick()
         }
     }
 
