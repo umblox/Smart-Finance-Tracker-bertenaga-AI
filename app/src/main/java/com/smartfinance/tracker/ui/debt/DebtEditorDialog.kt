@@ -30,7 +30,6 @@ class DebtEditorDialog(
 
         val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
         
-        // Form utama (Daftar Opsi)
         return AlertDialog.Builder(requireContext())
             .setTitle("Aksi Kontak: $contactName")
             .setItems(options) { _, which ->
@@ -40,9 +39,6 @@ class DebtEditorDialog(
                         return@setItems
                     }
 
-                    // 🔥 FIX KEBOCORAN MEMORI DAN NULL POINTER:
-                    // Kita gunakan 'localBinding' mandiri. Jangan pakai binding bawaan fragment
-                    // karena fragment ini akan langsung mati setelah opsi diklik.
                     val localBinding = DialogTransactionPremiumBinding.inflate(layoutInflater)
                     val activityContext = requireActivity()
                     
@@ -51,13 +47,11 @@ class DebtEditorDialog(
 
                     localBinding.tvDialogTitle.text = "Bayar/Cicil $contactName"
                     
-                    // Sembunyikan elemen yang tidak perlu untuk form Bayar/Cicil
                     localBinding.btnCategoryPicker.visibility = View.GONE
                     localBinding.tvCategoryLabel.visibility = View.GONE
                     localBinding.rgPremiumTxType.visibility = View.GONE
                     localBinding.tvTypeLabel.visibility = View.GONE
 
-                    // 🔥 FIX TABRAKAN TEKS: Hint disuntikkan ke pembungkusnya (TextInputLayout)
                     val parentAmountLayout = localBinding.etPremiumTxAmount.parent.parent as? com.google.android.material.textfield.TextInputLayout
                     val parentNoteLayout = localBinding.etPremiumTxNote.parent.parent as? com.google.android.material.textfield.TextInputLayout
                     
@@ -76,14 +70,18 @@ class DebtEditorDialog(
 
                         if (payValue > 0.0 && payDateVal.isNotEmpty() && docId.isNotEmpty()) {
                             
-                            // 🔥 FIX LIFECYCLE COROUTINE:
-                            // Pinjam nyawa (Scope) dari Activity agar proses simpan Cloud tidak terbunuh
                             val safeScope = activityContext.lifecycleScope
                             val safeViewModel = ViewModelProvider(activityContext)[DebtViewModel::class.java]
                             
                             safeScope.launch {
                                 try {
-                                    val payTimestamp = try { sdfPremium.parse(payDateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                                    // 🔥 LOGIKA WAKTU CERDAS (Mencegah Tabrakan Pembulatan)
+                                    val currentFormattedDate = sdfPremium.format(Date())
+                                    val payTimestamp = try { 
+                                        if (payDateVal == currentFormattedDate) System.currentTimeMillis()
+                                        else sdfPremium.parse(payDateVal)?.time ?: System.currentTimeMillis() 
+                                    } catch (e: Exception) { System.currentTimeMillis() }
+                                    
                                     val newRemaining = (remainingAmount - payValue).coerceAtLeast(0.0)
                                     
                                     val flowType = if (debtType == "DEBT") "EXPENSE" else "INCOME"
@@ -97,7 +95,7 @@ class DebtEditorDialog(
                                     payTransactionMap["type"] = flowType
                                     payTransactionMap["categoryId"] = targetCatId
                                     payTransactionMap["categoryName"] = targetCatName
-                                    payTransactionMap["note"] = "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL CLOUD" }.uppercase(Locale.ROOT)}"
+                                    payTransactionMap["note"] = "[$targetCatName] ${contactName.uppercase(Locale.ROOT)} - ${userPayNote.ifEmpty { "CICILAN MANUAL" }.uppercase(Locale.ROOT)}"
                                     payTransactionMap["timestamp"] = payTimestamp
                                     payTransactionMap["debtId"] = docId
                                     
@@ -127,7 +125,7 @@ class DebtEditorDialog(
                             safeScope.launch {
                                 try {
                                     safeViewModel.deleteDebtPermanently(docId)
-                                    Toast.makeText(requireActivity(), "Catatan berhasil dihapus dari awan!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(requireActivity(), "Catatan berhasil dihapus!", Toast.LENGTH_SHORT).show()
                                     onUpdateAction()
                                 } catch (e: Exception) {
                                     Toast.makeText(requireActivity(), "Gagal menghapus!", Toast.LENGTH_SHORT).show()
