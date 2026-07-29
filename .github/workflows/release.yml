@@ -1,12 +1,12 @@
-name: Release Signed APK
+Name: Release Signed APK
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versi rilis (contoh: 1.0.0)'
+        description: 'Versi rilis (contoh: 2.0.1)'
         required: true
-        default: '1.0.0'
+        default: '2.0.1' # ⬅️ UBAH DEFAULTNYA DI SINI
 
 jobs:
   build:
