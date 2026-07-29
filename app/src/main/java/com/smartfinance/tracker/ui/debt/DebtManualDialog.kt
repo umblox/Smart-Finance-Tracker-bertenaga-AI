@@ -29,7 +29,6 @@ class DebtManualDialog(
     private var _binding: DialogTransactionPremiumBinding? = null
     private val binding get() = _binding!!
 
-    // Menggunakan ViewModel kita yang sudah ada
     private lateinit var viewModel: DebtViewModel
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
@@ -56,12 +55,10 @@ class DebtManualDialog(
         val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        // Inisialisasi ViewModel
         viewModel = ViewModelProvider(this)[DebtViewModel::class.java]
 
         binding.tvDialogTitle.text = "Tambah Utang-Piutang"
         
-        // 🔥 FIX: Hapus cardSpinner dan gunakan btnCategoryPicker
         binding.btnCategoryPicker.visibility = View.GONE
         binding.tvCategoryLabel.visibility = View.GONE
         binding.tvContactLabel.visibility = View.VISIBLE
@@ -85,7 +82,14 @@ class DebtManualDialog(
 
             if (name.isNotEmpty() && amountVal > 0.0 && dateVal.isNotEmpty()) {
                 lifecycleScope.launch {
-                    val targetTimestamp = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                    
+                    // 🔥 LOGIKA WAKTU CERDAS (Smart Timestamp Anti-Tabrakan)
+                    val currentFormattedDate = sdfPremium.format(Date())
+                    val targetTimestamp = try { 
+                        if (dateVal == currentFormattedDate) System.currentTimeMillis()
+                        else sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() 
+                    } catch (e: Exception) { System.currentTimeMillis() }
+                    
                     val debtId = "debt_${System.currentTimeMillis()}"
                     
                     val debtMap = HashMap<String, Any>()
@@ -114,10 +118,10 @@ class DebtManualDialog(
                     txMap["timestamp"] = targetTimestamp
                     txMap["debtId"] = debtId
                     
-                    // Semua diserahkan ke ViewModel
                     viewModel.saveNewDebtAndTransaction(debtId, debtMap, txId, txMap)
                     
-                    Toast.makeText(context, "Pinjaman Tersimpan ke Cloud!", Toast.LENGTH_SHORT).show()
+                    // 🔥 UPDATE TEKS (Karena kita sudah Offline-First)
+                    Toast.makeText(context, "Berhasil Disimpan ke Database!", Toast.LENGTH_SHORT).show()
                     onSavedAction()
                     dialog.dismiss()
                 }
