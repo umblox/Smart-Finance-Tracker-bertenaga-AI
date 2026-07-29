@@ -7,20 +7,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.snackbar.Snackbar
-import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.FragmentSettingsBinding
 import com.smartfinance.tracker.ui.category.CategoryManagerDialog
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 class SettingsFragment : Fragment() {
 
@@ -29,21 +24,6 @@ class SettingsFragment : Fragment() {
 
     private lateinit var viewModel: SettingsViewModel
     private var isUserInteracting = false
-
-    private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            try {
-                val inputStream = requireContext().contentResolver.openInputStream(it)
-                val jsonString = BufferedReader(InputStreamReader(inputStream)).use { r -> r.readText() }
-                
-                requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-                    .edit().putString("custom_firebase_json", jsonString).commit()
-                
-                (requireActivity() as? MainActivity)?.reinitializeFirebase()
-                Snackbar.make(binding.root, "✅ Database di-load!", Snackbar.LENGTH_SHORT).show()
-            } catch (e: Exception) {}
-        }
-    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
@@ -64,14 +44,15 @@ class SettingsFragment : Fragment() {
         }
 
         binding.switchBiometric.setOnCheckedChangeListener { _, isChecked -> viewModel.setBiometricStatus(isChecked) }
-        binding.menuFirebaseJson.setOnClickListener { filePickerLauncher.launch("application/json") }
+        
+        // 🔥 HAPUS: Sembunyikan tombol upload JSON Firebase karena sudah murni Offline
+        binding.menuFirebaseJson.visibility = View.GONE
         
         binding.menuExportReport.setOnClickListener { ExportBottomSheet().show(parentFragmentManager, "ExportBottomSheet") }
         binding.menuManageCategories.setOnClickListener { CategoryManagerDialog().show(parentFragmentManager, "CategoryManagerDialog") }
         binding.menuBudgeting.setOnClickListener { com.smartfinance.tracker.ui.budget.BudgetManagerDialog().show(parentFragmentManager, "BudgetManagerDialog") }
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
-        // 🔥 LOGIKA AI SEKARANG DI-LEMPAR KE FILE TERPISAH
         binding.menuApiConfig.setOnClickListener { AiSettingsDialog.showApiConfig(requireContext(), layoutInflater, prefs, binding.root) }
         binding.menuExpertMode.setOnClickListener { AiSettingsDialog.showExpertMode(requireContext(), layoutInflater, prefs) }
     }
