@@ -1,7 +1,10 @@
 package com.smartfinance.tracker.data.model
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
+@Entity(tableName = "categories")
 data class Category(
-    val docId: String = "",
+    @PrimaryKey val docId: String = "",
     val id: Long = 0L,
     val name: String = "",
     val type: String = "EXPENSE",
@@ -9,4 +12,3 @@ data class Category(
     val parentCategoryId: Long? = null,
     val isLocked: Boolean = false
 )
-
