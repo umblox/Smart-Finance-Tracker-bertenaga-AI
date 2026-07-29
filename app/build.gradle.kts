@@ -69,6 +69,10 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // 🚀 Google Sign In & Gson (Untuk konversi Database ke JSON)
+    implementation("com.google.android.gms:play-services-auth:21.0.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // 🚀 TAMBAHAN: Room Database Offline-First
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
