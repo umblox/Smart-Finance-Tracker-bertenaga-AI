@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.view.LayoutInflater
 import com.google.android.material.snackbar.Snackbar
-import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.ai.AIClient
 import com.smartfinance.tracker.databinding.DialogApiConfigBinding
 import com.smartfinance.tracker.databinding.DialogExpertModeBinding
@@ -35,7 +34,6 @@ object AiSettingsDialog {
                 .putString("ai_api_key", dialogBinding.etApiKey.text.toString().trim())
                 .apply()
                 
-            (context as? MainActivity)?.reinitializeFirebase()
             Snackbar.make(viewToSnackbar, "AI Config Saved!", Snackbar.LENGTH_SHORT).show()
             dialog.dismiss()
         }
