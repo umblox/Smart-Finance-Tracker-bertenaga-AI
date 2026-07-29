@@ -30,7 +30,7 @@ class TransactionEditorDialog(
 
     private var currentType = "EXPENSE"
     private var allCategoriesCloud = listOf<Map<String, Any>>()
-    private var selectedCategoryMap: Map<String, Any>? = null // 🔥 Menyimpan kategori yang dipilih
+    private var selectedCategoryMap: Map<String, Any>? = null
     private var isDebtTransaction = false
 
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
@@ -69,8 +69,6 @@ class TransactionEditorDialog(
         isDebtTransaction = targetDebtId.isNotEmpty()
         binding.etPremiumTxAmount.setText(currentAmount.toString())
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
-        
-        // 🔥 Set Text Button Kategori saat form dibuka
         binding.btnCategoryPicker.text = currentCategoryName
 
         if (isDebtTransaction) {
@@ -106,15 +104,13 @@ class TransactionEditorDialog(
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
             if (!isDebtTransaction) {
                 currentType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
-                selectedCategoryMap = null // Reset pilihan kategori jika tipe arusnya berubah
+                selectedCategoryMap = null
                 binding.btnCategoryPicker.text = "Pilih Kategori"
             }
         }
         
-        // 🔥 Sambungkan Tombol Picker ke UI Baru
         binding.btnCategoryPicker.setOnClickListener { showCategoryPickerDialog() }
 
-        // Load Categories on background
         lifecycleScope.launch {
             try {
                 allCategoriesCloud = viewModel.getCategoriesForDropdown()
@@ -125,7 +121,6 @@ class TransactionEditorDialog(
                 )
             }
             
-            // Simpan Kategori saat ini ke dalam Map agar siap di-save ulang jika user tidak menggantinya
             val targetSearchId = if (isDebtTransaction) {
                 if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
             } else {
@@ -156,13 +151,17 @@ class TransactionEditorDialog(
 
             if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && docId.isNotEmpty()) {
                 
-                // 🔥 Validasi Kategori Kosong
                 if (!isDebtTransaction && selectedCategoryMap == null) {
                     Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
-                val parsedDate = try { sdfPremium.parse(dateVal)?.time ?: currentTimestamp } catch (e: Exception) { currentTimestamp }
+                // 🔥 LOGIKA WAKTU CERDAS
+                val originalFormattedDate = sdfPremium.format(Date(currentTimestamp))
+                val parsedDate = try { 
+                    if (dateVal == originalFormattedDate) currentTimestamp 
+                    else sdfPremium.parse(dateVal)?.time ?: currentTimestamp 
+                } catch (e: Exception) { currentTimestamp }
                 
                 var catId = if (isDebtTransaction) {
                      if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
@@ -220,7 +219,6 @@ class TransactionEditorDialog(
         return dialog
     }
 
-    // 🔥 Fungsi Pemanggilan Picker Dinamis
     private fun showCategoryPickerDialog() {
         val typeRaw = if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
         val currentFilter = if (isDebtTransaction) "DEBT" else typeRaw
