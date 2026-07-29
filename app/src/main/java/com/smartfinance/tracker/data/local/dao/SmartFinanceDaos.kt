@@ -1,8 +1,20 @@
 package com.smartfinance.tracker.data.local.dao
 
-import androidx.room.*
+// 🔥 FIX: Import Spesifik, BUKAN memakai bintang (*) untuk mencegah konflik dengan androidx.room.Transaction
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
-import com.smartfinance.tracker.data.model.*
+
+// 🔥 FIX: Import Spesifik setiap Model Data
+import com.smartfinance.tracker.data.model.AiNotification
+import com.smartfinance.tracker.data.model.Budget
+import com.smartfinance.tracker.data.model.Category
+import com.smartfinance.tracker.data.model.Debt
+import com.smartfinance.tracker.data.model.RecurringTransaction
+import com.smartfinance.tracker.data.model.Transaction
 
 @Dao
 interface TransactionDao {
