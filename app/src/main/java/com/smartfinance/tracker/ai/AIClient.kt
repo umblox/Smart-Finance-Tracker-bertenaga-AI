@@ -2,7 +2,6 @@ package com.smartfinance.tracker.ai
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,12 +13,12 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.smartfinance.tracker.utils.FirebaseManager // Import Manager yang baru kita buat
+import com.smartfinance.tracker.data.local.DatabaseProvider
 
 class AIClient(private val context: Context, private val assistant: FinancialAssistant) {
 
-    // 🔥 FIX: Gunakan FirebaseManager agar tidak nabrak instance kosong
-    private val firestore = FirebaseManager.getFirestore()
+    // 🔥 FIX: Menggunakan Room Database secara langsung
+    private val db = DatabaseProvider.db
 
     companion object {
         val DEFAULT_PROMPT = """
@@ -63,7 +62,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
         val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
         
-        if (apiKey.isEmpty()) return@withContext "⚠️ Sistem dikunci! Silakan masukkan API Key AI di menu Pengaturan (Kecerdasan & Server) terlebih dahulu."
+        if (apiKey.isEmpty()) return@withContext "⚠️ Sistem dikunci! Silakan masukkan API Key AI di menu Pengaturan terlebih dahulu."
 
         val catContext = java.lang.StringBuilder()
         val myDebtContext = java.lang.StringBuilder()
@@ -72,57 +71,39 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         var currentBalanceStr = "Rp 0"
 
         try {
-            // 🔥 TAHAP 1: EKSTRAKSI DATA DARI FIRESTORE UNTUK "MEMBERI MAKAN" OTAK AI
-            val allTxSnapshot = firestore.collection("transactions").get().await()
+            // 🔥 MENGGUNAKAN ROOM DATABASE SINKRON (Jauh lebih cepat dari Firestore)
+            val allTx = db.transactionDao().getAllSync()
             var totalInc = 0.0
             var totalExp = 0.0
-            val sortedTx = allTxSnapshot.documents.sortedByDescending { it.getLong("timestamp") ?: 0L }
             
-            for (doc in sortedTx) {
-                val amt = doc.getDouble("amount") ?: 0.0
-                val type = doc.getString("type") ?: "EXPENSE"
-                if (type == "INCOME" || type == "DEBT") totalInc += amt else totalExp += amt
+            for (tx in allTx) {
+                if (tx.type == "INCOME" || tx.type == "DEBT") totalInc += tx.amount else totalExp += tx.amount
             }
             val formatter = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
             currentBalanceStr = formatter.format(totalInc - totalExp)
 
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
-            for (doc in sortedTx.take(50)) {
-                val amt = doc.getDouble("amount") ?: 0.0
-                val type = doc.getString("type") ?: "EXPENSE"
-                val catName = doc.getString("categoryName") ?: "Umum"
-                val note = doc.getString("note") ?: "Transaksi"
-                val ts = doc.getLong("timestamp") ?: System.currentTimeMillis()
-                txContext.append("- [${sdfTx.format(Date(ts))}] $note | Kategori: $catName | Tipe: $type | Nominal: Rp$amt\n")
+            for (tx in allTx.take(50)) {
+                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} | Kategori: ${tx.categoryName} | Tipe: ${tx.type} | Nominal: Rp${tx.amount}\n")
             }
 
-            val categorySnapshot = firestore.collection("categories").get().await()
-            val allCats = categorySnapshot.documents.mapNotNull { it.data }
-            val parents = allCats.filter { it["parentCategoryId"] == null }
-            val subs = allCats.filter { it["parentCategoryId"] != null }
+            val allCats = db.categoryDao().getAllSync()
+            val parents = allCats.filter { it.parentCategoryId == null }
+            val subs = allCats.filter { it.parentCategoryId != null }
 
             for (p in parents) {
-                val pId = p["id"] as? Long ?: 0L
-                val pName = p["name"] as? String ?: "Tanpa Nama"
-                val pType = p["type"] as? String ?: "EXPENSE"
-                catContext.append("📁 [INDUK - $pType] ID: $pId | Nama: $pName\n")
-                val kids = subs.filter { (it["parentCategoryId"] as? Number)?.toLong() == pId }
+                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} | Nama: ${p.name}\n")
+                val kids = subs.filter { it.parentCategoryId == p.id }
                 for (k in kids) {
-                    val kId = k["id"] as? Long ?: 0L
-                    val kName = k["name"] as? String ?: "Tanpa Nama"
-                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: $kId | Nama: $kName\n")
+                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} | Nama: ${k.name}\n")
                 }
             }
 
-            val debtSnapshot = firestore.collection("debts").get().await()
-            for (doc in debtSnapshot.documents) {
-                val isPaid = doc.getBoolean("isPaid") ?: false
-                if (!isPaid) {
-                    val contactName = doc.getString("contactName") ?: "TEMAN"
-                    val remaining = doc.getDouble("remainingAmount") ?: 0.0
-                    val type = doc.getString("type") ?: "DEBT"
-                    if (type == "DEBT") myDebtContext.append("- Saya berhutang ke: $contactName | Sisa: Rp $remaining\n")
-                    else otherReceivableContext.append("- $contactName berhutang ke saya | Sisa: Rp $remaining\n")
+            val allDebts = db.debtDao().getAllSync()
+            for (debt in allDebts) {
+                if (!debt.isPaid) {
+                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} | Sisa: Rp ${debt.remainingAmount}\n")
+                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya | Sisa: Rp ${debt.remainingAmount}\n")
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
@@ -130,7 +111,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
 
-        // 🔥 TAHAP 2: MERAKIT PROMPT RAKSASA
         var finalSystemPrompt = prefs.getString("expert_system_prompt", DEFAULT_PROMPT) ?: DEFAULT_PROMPT
         if (finalSystemPrompt.contains("{TODAY_DATE}")) {
             finalSystemPrompt = finalSystemPrompt.replace("{TODAY_DATE}", todayString)
@@ -141,19 +121,17 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 .replace("{TX_CONTEXT}", if (txContext.isEmpty()) "Belum ada riwayat" else txContext.toString())
         }
 
-        // 🔥 TAHAP 3: MESIN ROUTER MULTI-AI YANG MERESPON JSON
         try {
             val rawResponse = when {
                 aiModel.startsWith("gpt-") -> callOpenAICompatible("https://api.openai.com/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage)
                 aiModel.startsWith("deepseek") -> callOpenAICompatible("https://api.deepseek.com/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage)
                 aiModel.startsWith("gemini") -> callGemini(aiModel, apiKey, finalSystemPrompt, userMessage)
                 aiModel.startsWith("claude") -> callAnthropic(aiModel, apiKey, finalSystemPrompt, userMessage)
-                else -> callOpenAICompatible("https://api.groq.com/openai/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage) // Groq Default
+                else -> callOpenAICompatible("https://api.groq.com/openai/v1/chat/completions", aiModel, apiKey, finalSystemPrompt, userMessage)
             }
             
             if (rawResponse.startsWith("⚠️")) return@withContext rawResponse 
             
-            // 🔥 TAHAP 4: MENYERAHKAN RESPON MENTAH AI KE FINANCIAL ASSISTANT UNTUK DIEKSEKUSI
             return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
             
         } catch (e: Exception) {
@@ -178,7 +156,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             put("model", model)
             put("messages", messagesArray)
             put("temperature", 0.7)
-            // 🔥 WAJIB: Memaksa server merespon dalam format JSON Strict
             put("response_format", JSONObject().apply { put("type", "json_object") })
         }
 
@@ -212,7 +189,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 })
             })
             put("generationConfig", JSONObject().apply {
-                // 🔥 WAJIB: Memaksa Gemini merespon dengan format JSON
                 put("responseMimeType", "application/json")
                 put("temperature", 0.7)
             })
@@ -241,7 +217,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.doOutput = true
 
         val messagesArray = JSONArray().apply {
-            // Claude tidak punya param JSON strict, jadi kita suntikkan di user message agar dia mengerti
             put(JSONObject().apply { put("role", "user"); put("content", "$userMessage\n\n[RESPOND STRICTLY IN JSON FORMAT]") })
         }
 
