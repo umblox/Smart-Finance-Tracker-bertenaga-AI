@@ -8,7 +8,6 @@ import com.smartfinance.tracker.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await // ✅ FIX: Import dimasukkan di sini
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.HashMap
@@ -24,8 +23,6 @@ data class DebtUiState(
 
 class DebtViewModel : ViewModel() {
     private val repository = DebtRepository()
-    
-    // Kita panggil TransactionRepository yang sudah ada di Tahap 3
     private val txRepository = TransactionRepository()
     
     private val _uiState = MutableStateFlow(DebtUiState())
@@ -90,22 +87,16 @@ class DebtViewModel : ViewModel() {
         )
     }
 
-    // --- FUNGSI BARU UNTUK MVVM WRITE ---
-
     suspend fun saveNewDebtAndTransaction(debtId: String, debtMap: HashMap<String, Any>, txId: String, txMap: HashMap<String, Any>) {
         repository.saveDebt(debtId, debtMap)
-        
-        val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
-        // ✅ FIX: Dipanggil dengan benar menggunakan .await()
-        firestore.collection("transactions").document(txId).set(txMap).await() 
+        // 🔥 FIX: Menggunakan Repositori Lokal (Room)
+        txRepository.saveTransaction(txId, txMap) 
     }
 
     suspend fun processDebtInstallment(debtId: String, newRemaining: Double, isPaid: Boolean, txId: String, txMap: HashMap<String, Any>) {
         repository.updateDebtFields(debtId, mapOf("remainingAmount" to newRemaining, "isPaid" to isPaid))
-        
-        val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
-        // ✅ FIX: Dipanggil dengan benar menggunakan .await()
-        firestore.collection("transactions").document(txId).set(txMap).await()
+        // 🔥 FIX: Menggunakan Repositori Lokal (Room)
+        txRepository.saveTransaction(txId, txMap)
     }
 
     suspend fun deleteDebtPermanently(debtId: String) {
