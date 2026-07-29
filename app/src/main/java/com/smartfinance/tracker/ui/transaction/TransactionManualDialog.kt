@@ -6,27 +6,21 @@ import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.database.Cursor
-import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
-import android.widget.*
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
+import com.smartfinance.tracker.data.local.DatabaseProvider
 import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await // 🔥 Wajib untuk membaca dari database dinamis
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -146,19 +140,18 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         debtMap["amount"] = amountVal
                         debtMap["remainingAmount"] = amountVal
                         debtMap["type"] = selectedDebtType
-                        debtMap["note"] = "Input Manual Form Cloud"
+                        debtMap["note"] = "Input Manual Form DB"
                         debtMap["timestamp"] = targetTime
                         debtMap["isPaid"] = false
                         
                         viewModel.saveDebt(generatedDebtId, debtMap)
                     }
 
-                    // 🔥 CEK BUDGET DINAMIS DARI DATABASE
                     if (finalType == "EXPENSE") {
                         checkAndTriggerBudgetAlert(catId, catName, amountVal)
                     }
 
-                    Toast.makeText(context, "Berhasil Disimpan Langsung ke Cloud Server!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Berhasil Disimpan ke Database!", Toast.LENGTH_SHORT).show()
                     onSaved()
                     dialog.dismiss()
                 }
@@ -170,50 +163,38 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    private suspend fun checkAndTriggerBudgetAlert(categoryId: Long, categoryName: String, newAmount: Double) {
-        val firestore = com.smartfinance.tracker.utils.FirebaseManager.getFirestore()
+    // 🔥 FIX: Check Budget pindah sepenuhnya ke Room Database
+    private suspend fun checkAndTriggerBudgetAlert(categoryId: Long, categoryName: String, newAmount: Double) = withContext(Dispatchers.IO) {
+        val db = DatabaseProvider.db
         try {
-            val budgetSnap = firestore.collection("budgets")
-                .whereEqualTo("categoryId", categoryId)
-                .get()
-                .await()
+            val budgetDoc = db.budgetDao().getByCategoryId(categoryId)
 
-            if (!budgetSnap.isEmpty) {
-                val budgetDoc = budgetSnap.documents[0]
-                val limitAmount = budgetDoc.getDouble("limitAmount") ?: budgetDoc.getDouble("amount") ?: 0.0
+            if (budgetDoc != null) {
+                val limitAmount = budgetDoc.limitAmount
 
                 if (limitAmount > 0.0) {
                     val cal = Calendar.getInstance()
-                    cal.set(Calendar.DAY_OF_MONTH, 1)
-                    cal.set(Calendar.HOUR_OF_DAY, 0)
-                    cal.set(Calendar.MINUTE, 0)
-                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.DAY_OF_MONTH, 1); cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
                     val startOfMonth = cal.timeInMillis
 
-                    // 🔥 FIX: Hanya cari berdasarkan Kategori agar tidak kena Error Index Firestore
-                    val txSnap = firestore.collection("transactions")
-                        .whereEqualTo("categoryId", categoryId)
-                        .get()
-                        .await()
-
-                    // 🔥 FIX: Mulai dari 0 karena transaksi baru SUDAH tersimpan di Firestore
+                    val txs = db.transactionDao().getByCategoryId(categoryId)
                     var totalSpent = 0.0 
-                    for (doc in txSnap.documents) {
-                        val ts = doc.getLong("timestamp") ?: 0L
-                        // 🔥 FIX: Filter tanggalnya dilakukan di memori aplikasi
-                        if (ts >= startOfMonth) { 
-                            totalSpent += doc.getDouble("amount") ?: 0.0
+                    for (tx in txs) {
+                        if (tx.timestamp >= startOfMonth && (tx.type == "EXPENSE" || tx.type == "RECEIVABLE")) { 
+                            totalSpent += tx.amount
                         }
                     }
 
-                    // Jika total pengeluaran sudah mencapai 80% atau lebih dari Limit Budget
                     if (totalSpent >= (limitAmount * 0.8)) {
-                        com.smartfinance.tracker.worker.AiWorkerManager.triggerBudgetAlert(
-                            requireContext(),
-                            categoryName,
-                            totalSpent,
-                            limitAmount
-                        )
+                        withContext(Dispatchers.Main) {
+                            com.smartfinance.tracker.worker.AiWorkerManager.triggerBudgetAlert(
+                                requireContext(),
+                                categoryName,
+                                totalSpent,
+                                limitAmount
+                            )
+                        }
                     }
                 }
             }
@@ -223,14 +204,11 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     }
 
     private fun showCategoryPickerDialog() {
-        // Deteksi Tipe Arus Kas Saat Ini
         val typeRaw = if (binding.rgManualPremiumType.checkedRadioButtonId == binding.rbManualPremiumIncome.id) "INCOME" else "EXPENSE"
         val currentFilter = if (binding.rgManualPremiumType.checkedRadioButtonId == binding.rbManualPremiumDebt.id) "DEBT" else typeRaw
         val currentSelectedId = (selectedCategoryMap?.get("id") as? Number)?.toLong()
 
-        // Panggil Picker Baru Kita!
         com.smartfinance.tracker.ui.category.CategoryPickerDialog(currentFilter, currentSelectedId) { selectedCat ->
-            // Saat Kategori Diklik, mapping data kembali ke format HashMap Anda
             val mappedCat = HashMap<String, Any>()
             mappedCat["id"] = selectedCat.id
             mappedCat["name"] = selectedCat.name
