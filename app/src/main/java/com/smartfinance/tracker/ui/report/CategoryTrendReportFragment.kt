@@ -42,16 +42,45 @@ class CategoryTrendReportFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(this)[CategoryTrendViewModel::class.java]
 
-        val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" // ALL_EXPENSE, ALL_INCOME, atau "Nama Kategori"
+        val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" 
         val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
 
         viewModel.loadData(targetMode, baseTime)
 
         binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
         
+        // ==========================================
+        // [FASE 3] LOGIKA DROPDOWN PEMILIH KATEGORI
+        // ==========================================
         binding.btnDropdownCategory.setOnClickListener {
-            // [Fase 2.5] Panggil CategoryPickerDialog di sini!
-            Toast.makeText(context, "Membuka Pemilih Kategori...", Toast.LENGTH_SHORT).show()
+            val state = viewModel.uiState.value
+            val options = mutableListOf<String>()
+            
+            // Opsi 1: Kembali ke Root (Semua Pengeluaran/Pendapatan)
+            options.add(if (state.isExpenseMode) "ALL_EXPENSE" else "ALL_INCOME")
+            
+            // Opsi 2: Tambahkan semua kategori yang ada di bulan ini
+            val categoryNames = state.breakdownItems.map { it.label }
+            options.addAll(categoryNames)
+
+            // Ubah kode mesin menjadi teks cantik untuk User
+            val displayOptions = options.map { 
+                when (it) {
+                    "ALL_EXPENSE" -> "Semua Pengeluaran (Utama)"
+                    "ALL_INCOME" -> "Semua Pendapatan (Utama)"
+                    else -> it
+                }
+            }.toTypedArray()
+
+            // Tampilkan Dialog
+            android.app.AlertDialog.Builder(requireContext())
+                .setTitle("Pilih Kategori Laporan")
+                .setItems(displayOptions) { _, which ->
+                    val selectedTarget = options[which]
+                    // Boom! Transformasi layar secara instan tanpa loading
+                    viewModel.loadData(selectedTarget, baseTime) 
+                }
+                .show()
         }
 
         binding.toggleReportMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -74,31 +103,27 @@ class CategoryTrendReportFragment : Fragment() {
         binding.tvDailyAvg.text = "$prefix${formatRupiah.format(state.dailyAverage)}"
         binding.tvDailyAvg.setTextColor(themeColor)
 
-        // Injeksi Data ke Grafik
         binding.chartBreakdownDonut.setChartData(state.donutValues, chartColors)
         binding.chartTrendBar.setChartData(state.trendBarValues, state.isExpenseMode)
 
-        // Render List secara default (mengikuti tab aktif)
         val isBreakdown = binding.toggleReportMode.checkedButtonId == R.id.btnModeBreakdown
         renderVisualMode(isBreakdown)
     }
 
     private fun renderVisualMode(isBreakdown: Boolean) {
         val state = viewModel.uiState.value
-        val density = requireContext().resources.displayMetrics.density
-        
         if (isBreakdown) {
             binding.chartBreakdownDonut.visibility = View.VISIBLE
             binding.chartTrendBar.visibility = View.GONE
-            renderList(state.breakdownItems, state.isExpenseMode, showPercentage = true)
+            renderList(state.breakdownItems, state.isExpenseMode, showPercentage = true, isBreakdown = true)
         } else {
             binding.chartBreakdownDonut.visibility = View.GONE
             binding.chartTrendBar.visibility = View.VISIBLE
-            renderList(state.trendItems, state.isExpenseMode, showPercentage = false)
+            renderList(state.trendItems, state.isExpenseMode, showPercentage = false, isBreakdown = false)
         }
     }
 
-    private fun renderList(items: List<TrendItem>, isExpense: Boolean, showPercentage: Boolean) {
+    private fun renderList(items: List<TrendItem>, isExpense: Boolean, showPercentage: Boolean, isBreakdown: Boolean) {
         binding.listContainer.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
         val prefix = if (isExpense) "-" else "+"
@@ -110,13 +135,44 @@ class CategoryTrendReportFragment : Fragment() {
                 setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
                 background = ContextCompat.getDrawable(requireContext(), android.R.attr.selectableItemBackground)
                 isClickable = true
+                
+                // ==========================================
+                // [FASE 3] LOGIKA NAVIGASI DRILL-DOWN BERLAPIS
+                // ==========================================
                 setOnClickListener {
-                    // [Fase 3] Lanjut ke HistoryTransactionFragment saat diklik!
-                    Toast.makeText(context, "Membedah: ${item.label}", Toast.LENGTH_SHORT).show()
+                    val state = viewModel.uiState.value
+                    val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
+                    
+                    if (isBreakdown) {
+                        // DRILL-DOWN LEVEL 2: 
+                        // Mengklik Kategori -> Buka Laporan Trend Spesifik Kategori Tersebut (Contoh: Buka Laporan Pertamax)
+                        val fragment = CategoryTrendReportFragment().apply {
+                            arguments = Bundle().apply {
+                                putString("EXTRA_TARGET_MODE", item.label)
+                                putLong("EXTRA_BASE_TIME", baseTime)
+                            }
+                        }
+                        (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
+                        
+                    } else {
+                        // DRILL-DOWN LEVEL 3: 
+                        // Mengklik Tanggal (Trend) -> Buka Daftar Transaksi Murni (CategoryAnalyticsFragment)
+                        if (state.targetName == "Rincian Biaya" || state.targetName == "Rincian Pendapatan") {
+                            Toast.makeText(context, "Silakan pilih spesifik Kategori di tab Breakdown terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val fragment = CategoryAnalyticsFragment().apply {
+                                arguments = Bundle().apply {
+                                    putString("EXTRA_CATEGORY_NAME", state.targetName)
+                                    putString("EXTRA_TIME_FILTER", "MONTHLY")
+                                    putLong("EXTRA_BASE_TIME", baseTime)
+                                }
+                            }
+                            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
+                        }
+                    }
                 }
             }
             
-            // Warna Lingkaran (Jika Breakdown)
             if (showPercentage) {
                 val colorDot = chartColors.getOrElse(index) { ContextCompat.getColor(requireContext(), R.color.text_secondary) }
                 val dot = View(requireContext()).apply {
