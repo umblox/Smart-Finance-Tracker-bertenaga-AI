@@ -1,7 +1,10 @@
 package com.smartfinance.tracker.data.model
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
+@Entity(tableName = "recurring_transactions")
 data class RecurringTransaction(
-    val id: String = "",
+    @PrimaryKey val id: String = "",
     val note: String = "",
     val amount: Double = 0.0,
     val type: String = "EXPENSE",
@@ -15,4 +18,3 @@ data class RecurringTransaction(
     val isActive: Boolean = true,
     val createdAt: Long = 0L
 )
-
