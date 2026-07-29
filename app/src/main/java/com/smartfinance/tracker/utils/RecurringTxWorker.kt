@@ -3,34 +3,34 @@ package com.smartfinance.tracker.utils
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.smartfinance.tracker.worker.AiWorkerManager // 🔥 Import AiWorker
-import kotlinx.coroutines.tasks.await
+import com.smartfinance.tracker.data.local.DatabaseProvider
+import com.smartfinance.tracker.data.model.Debt
+import com.smartfinance.tracker.data.model.Transaction
+import com.smartfinance.tracker.worker.AiWorkerManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
 
 class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
-        val firestore = FirebaseManager.getFirestore()
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val db = DatabaseProvider.db
         val now = System.currentTimeMillis()
 
         try {
-            val snap = firestore.collection("recurring_transactions")
-                .whereEqualTo("isActive", true)
-                .whereLessThanOrEqualTo("nextExecutionTime", now)
-                .get()
-                .await()
+            val dueSchedules = db.recurringTxDao().getDueTransactions(now)
 
-            for (doc in snap.documents) {
-                val amount = doc.getDouble("amount") ?: 0.0
-                val type = (doc.getString("type") ?: "EXPENSE").uppercase(Locale.ROOT)
-                val catId = doc.getLong("categoryId") ?: 15L
-                val catName = doc.getString("categoryName") ?: "Umum"
-                val note = doc.getString("note") ?: "Transaksi Berkala"
-                val interval = doc.getString("interval") ?: "MONTHLY"
-                val hasEndDate = doc.getBoolean("hasEndDate") ?: false
-                val endDate = doc.getLong("endDate") ?: Long.MAX_VALUE
-                val contactName = doc.getString("contactName") ?: ""
+            for (doc in dueSchedules) {
+                val amount = doc.amount
+                val type = doc.type.uppercase(Locale.ROOT)
+                val catId = doc.categoryId
+                val catName = doc.categoryName
+                val note = doc.note
+                val interval = doc.interval
+                val hasEndDate = doc.hasEndDate
+                val endDate = doc.endDate ?: Long.MAX_VALUE
+                val contactName = doc.contactName
 
                 if (amount <= 0.0) continue
 
@@ -44,21 +44,29 @@ class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineW
                     val realCatName = if (type == "RECEIVABLE") "Piutang" else "Hutang"
                     val stNote = if (type == "RECEIVABLE") "MEMBERIKAN PINJAMAN KEPADA $cName" else "MENERIMA PINJAMAN DARI $cName"
 
-                    val debtMap = hashMapOf("id" to debtId, "contactName" to cName, "contactPhoneNumber" to "", "amount" to amount, "remainingAmount" to amount, "type" to type, "note" to note, "timestamp" to now, "isPaid" to false)
-                    firestore.collection("debts").document(debtId).set(debtMap).await()
+                    val debt = Debt(
+                        id = debtId, contactName = cName, contactPhoneNumber = "", amount = amount, 
+                        remainingAmount = amount, type = type, note = note, timestamp = now, isPaid = false
+                    )
+                    db.debtDao().insert(debt)
 
-                    val txMap = hashMapOf("id" to txId, "amount" to amount, "type" to flowType, "categoryId" to realCatId, "categoryName" to realCatName, "note" to "$stNote ($note)", "timestamp" to now, "debtId" to debtId)
-                    firestore.collection("transactions").document(txId).set(txMap).await()
+                    val tx = Transaction(
+                        id = txId, amount = amount, type = flowType, categoryId = realCatId, 
+                        categoryName = realCatName, note = "$stNote ($note)", timestamp = now, debtId = debtId
+                    )
+                    db.transactionDao().insert(tx)
                 } else {
-                    val txMap = hashMapOf("id" to txId, "amount" to amount, "type" to type, "categoryId" to catId, "categoryName" to catName, "note" to note, "timestamp" to now)
-                    firestore.collection("transactions").document(txId).set(txMap).await()
+                    val tx = Transaction(
+                        id = txId, amount = amount, type = type, categoryId = catId, 
+                        categoryName = catName, note = note, timestamp = now
+                    )
+                    db.transactionDao().insert(tx)
                 }
 
-                // 🔥 PEMICU AI TAGIHAN OTOMATIS: Beritahu pengguna kalau saldonya baru saja dipotong sistem
                 AiWorkerManager.triggerRecurringAlert(applicationContext, note, amount, true)
 
                 val cal = Calendar.getInstance()
-                cal.timeInMillis = doc.getLong("nextExecutionTime") ?: now
+                cal.timeInMillis = if (doc.nextExecutionTime > 0) doc.nextExecutionTime else now
                 
                 while (cal.timeInMillis <= now) {
                     when (interval) {
@@ -72,15 +80,15 @@ class RecurringTxWorker(context: Context, params: WorkerParameters) : CoroutineW
                 val nextTime = cal.timeInMillis
 
                 if (hasEndDate && nextTime > endDate) {
-                    firestore.collection("recurring_transactions").document(doc.id).update("isActive", false).await()
+                    db.recurringTxDao().update(doc.copy(isActive = false))
                 } else {
-                    firestore.collection("recurring_transactions").document(doc.id).update("nextExecutionTime", nextTime).await()
+                    db.recurringTxDao().update(doc.copy(nextExecutionTime = nextTime))
                 }
             }
-            return Result.success()
+            Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
-            return Result.retry() 
+            Result.retry() 
         }
     }
 }
