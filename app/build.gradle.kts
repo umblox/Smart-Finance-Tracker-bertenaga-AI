@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.gms.google-services") // PLUGIN GOOGLE SERVICES UNTUK FIRESTORE
+    id("kotlin-kapt") // 🚀 TAMBAHAN: KAPT untuk Room Compiler
 }
 
 android {
@@ -13,7 +13,6 @@ android {
         minSdk = 26
         targetSdk = 34
         
-        // 🚀 UPDATE UNTUK RILIS V2.0.1
         versionCode = 2
         versionName = "2.0.1"
 
@@ -21,7 +20,6 @@ android {
         multiDexEnabled = true
     }
 
-    // ⬅️ TAMBAHAN: Blok signingConfigs
     signingConfigs {
         create("release") {
             storeFile = file("my-release-key.keystore")
@@ -38,7 +36,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // ⬅️ TAMBAHAN: Hubungkan dengan signing config di atas
             signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -69,11 +66,12 @@ dependencies {
     implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
 
     implementation("com.google.ai.client.generativeai:generativeai:0.2.2")
-
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-
-    implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
-    implementation("com.google.firebase:firebase-firestore")
-
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // 🚀 TAMBAHAN: Room Database Offline-First
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
 }
