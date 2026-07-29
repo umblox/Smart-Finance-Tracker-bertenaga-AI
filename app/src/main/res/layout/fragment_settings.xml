@@ -119,6 +119,90 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- 🔥 Group BARU: Sinkronisasi Cloud -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="4dp"
+            android:paddingBottom="8dp"
+            android:text="SINKRONISASI CLOUD"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/menuDriveAuth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="@color/surface_white"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp"
+            android:clickable="true"
+            android:focusable="true">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="☁️"
+                    android:textSize="24sp"
+                    android:layout_marginEnd="16dp"/>
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Google Drive"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold"
+                        android:textSize="15sp"/>
+                    <TextView
+                        android:id="@+id/tvDriveStatusSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Belum Terhubung"
+                        android:textColor="@color/expense_red"
+                        android:textSize="13sp"/>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Tombol Aksi Cloud (Akan muncul jika sudah login) -->
+        <LinearLayout
+            android:id="@+id/layoutDriveActions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDriveBackup"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="Backup Now" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDriveRestore"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="Restore" />
+        </LinearLayout>
+
         <!-- Group: Manajemen Data -->
         <TextView
             android:layout_width="match_parent"
@@ -140,12 +224,6 @@
             app:strokeWidth="0dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                 
-                <LinearLayout android:id="@+id/menuFirebaseJson" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_upload_json" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_upload_json_desc" android:textColor="@color/text_secondary" android:textSize="12sp"/>
-                </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
-                
                 <LinearLayout android:id="@+id/menuBudgeting" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎯 Anggaran Bulanan (Budgeting)" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kendalikan limit pengeluaran per kategori" android:textColor="@color/text_secondary" android:textSize="12sp"/>
@@ -162,7 +240,6 @@
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
                 
-                <!-- 🔥 FIX: MENU EXPORT GABUNGAN BARU -->
                 <LinearLayout 
                     android:id="@+id/menuExportReport" 
                     android:layout_width="match_parent" 
