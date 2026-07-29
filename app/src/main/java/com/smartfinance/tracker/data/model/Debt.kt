@@ -1,7 +1,10 @@
 package com.smartfinance.tracker.data.model
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
+@Entity(tableName = "debts")
 data class Debt(
-    val id: String = "",
+    @PrimaryKey val id: String = "",
     val contactName: String = "TEMAN",
     val contactPhoneNumber: String = "",
     val amount: Double = 0.0,
@@ -11,4 +14,3 @@ data class Debt(
     val timestamp: Long = 0L,
     val isPaid: Boolean = false
 )
-
