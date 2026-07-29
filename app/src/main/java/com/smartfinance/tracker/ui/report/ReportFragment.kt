@@ -1,14 +1,12 @@
 package com.smartfinance.tracker.ui.report
 
 import android.content.Context
-import android.graphics.Typeface
 import android.os.Bundle
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -53,91 +51,63 @@ class ReportFragment : Fragment() {
                 }
             }
         }
+        
+        setupNavigationListeners()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collect { state ->
-                renderReportUi(state)
-            }
+            viewModel.uiState.collect { state -> renderReportUi(state) }
+        }
+    }
+    
+    private fun setupNavigationListeners() {
+        // [Fase 2] Menuju Detail Ringkasan
+        binding.btnDetailPemasukanBersih.setOnClickListener {
+            Toast.makeText(context, "Membuka Detail Ringkasan...", Toast.LENGTH_SHORT).show()
+        }
+        
+        // [Fase 2] Menuju Rincian Biaya/Pendapatan
+        binding.btnBoxIncome.setOnClickListener {
+            Toast.makeText(context, "Membuka Rincian Pendapatan...", Toast.LENGTH_SHORT).show()
+        }
+        binding.btnBoxExpense.setOnClickListener {
+            Toast.makeText(context, "Membuka Rincian Biaya...", Toast.LENGTH_SHORT).show()
+        }
+        
+        // [Fase 2] Menuju Laporan Ekstensif Kategori (Blueprint 2)
+        binding.btnLihatKategoriPenuh.setOnClickListener {
+            Toast.makeText(context, "Membuka Menu Kategori Dinamis...", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun renderReportUi(state: ReportUiState) {
-        val density = requireContext().resources.displayMetrics.density
+        // Render Card 1: Pemasukan Bersih
+        val prefix = if (state.netBalance >= 0) "+" else ""
+        binding.tvNetIncome.text = "$prefix${formatRupiah.format(state.netBalance)}"
+        binding.tvNetIncome.setTextColor(if (state.netBalance >= 0) getThemeColor(R.color.income_green) else getThemeColor(R.color.expense_red))
 
-        val typedValue = android.util.TypedValue()
-        requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
-        val safeRippleId = typedValue.resourceId
-
-        binding.tvReportIncome.text = "Pemasukan (${state.filterLabel}): ${formatRupiah.format(state.incomeCurrent)}"
-        binding.tvReportExpense.text = "Pengeluaran (${state.filterLabel}): ${formatRupiah.format(state.expenseCurrent)}"
-        binding.tvReportNet.text = "Sisa Bersih: ${formatRupiah.format(state.netBalance)}"
-        binding.tvReportNet.setTextColor(if (state.netBalance >= 0) getThemeColor(R.color.income_green) else getThemeColor(R.color.expense_red))
-
-        binding.chartContainer.removeAllViews()
-        val barView = QuadVerticalBarChartView(
-            requireContext(),
-            state.incomePrevious.toFloat(), state.incomeCurrent.toFloat(),
-            state.expensePrevious.toFloat(), state.expenseCurrent.toFloat()
-        )
-        binding.chartContainer.addView(barView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
-
-        binding.btnSeeAllDetails.setOnClickListener {
-            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
-        }
+        binding.tvTotalIncomeBar.text = "+${formatRupiah.format(state.incomeCurrent)}"
+        binding.tvTotalExpenseBar.text = "-${formatRupiah.format(state.expenseCurrent)}"
         
-        // 🔥 FIX: Render Insight Cerdas!
-        binding.tvInsightTitle.text = state.insightTitle
-        binding.tvInsightDailyAvg.text = "${state.insightAverageLabel} ${formatRupiah.format(state.insightAverageValue)}"
-        binding.tvInsightProjection.text = "${state.insightProjectionLabel} ${formatRupiah.format(state.insightProjectionValue)}"
+        val totalFlow = state.incomeCurrent + state.expenseCurrent
+        val incWeight = if (totalFlow > 0) ((state.incomeCurrent / totalFlow) * 100).toFloat() else 50f
+        val expWeight = if (totalFlow > 0) ((state.expenseCurrent / totalFlow) * 100).toFloat() else 50f
+        
+        (binding.barIncomeFill.layoutParams as LinearLayout.LayoutParams).weight = incWeight
+        (binding.barIncomeEmpty.layoutParams as LinearLayout.LayoutParams).weight = 100f - incWeight
+        (binding.barExpenseFill.layoutParams as LinearLayout.LayoutParams).weight = expWeight
+        (binding.barExpenseEmpty.layoutParams as LinearLayout.LayoutParams).weight = 100f - expWeight
 
-        binding.topBorosContainer.removeAllViews()
-        if (!state.hasData || state.topExpenses.isEmpty()) {
-            binding.topBorosContainer.addView(TextView(requireContext()).apply { 
-                text = "Belum ada pengeluaran pada ${state.filterLabel.lowercase()}."
-                setTextColor(getThemeColor(R.color.text_secondary)); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER 
-            })
-        } else {
-            state.topExpenses.forEach { (catName, amt) ->
-                val pct = if (state.topExpensesTotal > 0) ((amt / state.topExpensesTotal) * 100).toInt() else 0
-                
-                val rowLayout = LinearLayout(requireContext()).apply { 
-                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
-                    
-                    setBackgroundResource(safeRippleId)
-                    isClickable = true; isFocusable = true
-                    
-                    setOnClickListener {
-                        val fragmentBaru = CategoryAnalyticsFragment().apply {
-                            arguments = Bundle().apply {
-                                putString("EXTRA_CATEGORY_NAME", catName)
-                                putString("EXTRA_TIME_FILTER", viewModel.getCurrentFilter().name)
-                                putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                            }
-                        }
-                        (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragmentBaru)
-                    }
-                }
-                
-                val centerInfo = LinearLayout(requireContext()).apply { 
-                    orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                centerInfo.addView(TextView(requireContext()).apply { text = catName; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(null, Typeface.BOLD); textSize = 14f })
-                centerInfo.addView(TextView(requireContext()).apply { text = formatRupiah.format(amt); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 12f; setPadding(0, 2, 0, 0) })
-                
-                rowLayout.addView(centerInfo)
-                rowLayout.addView(TextView(requireContext()).apply { 
-                    text = "$pct%"
-                    setTextColor(getThemeColor(R.color.expense_red))
-                    setTypeface(null, Typeface.BOLD); textSize = 14f
-                })
-                binding.topBorosContainer.addView(rowLayout)
-                binding.topBorosContainer.addView(View(requireContext()).apply { 
-                    setBackgroundColor(getThemeColor(R.color.divider_color))
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) 
-                })
-            }
-        }
+        // Render Card 2: Laporan Kategori (Donat)
+        binding.tvBoxIncomeVal.text = "+${formatRupiah.format(state.incomeCurrent)}"
+        binding.tvBoxExpenseVal.text = "-${formatRupiah.format(state.expenseCurrent)}"
+        
+        binding.chartIncome.setChartData(state.topIncomeValues, state.topIncomeColors)
+        binding.chartExpense.setChartData(state.topExpenseValues, state.topExpenseColors)
+
+        // Render Card 3: Hutang Piutang
+        binding.tvHutangVal.text = "+${formatRupiah.format(state.totalHutang)}"
+        binding.tvPiutangVal.text = "-${formatRupiah.format(state.totalPiutang)}"
+        binding.tvLainnyaVal.text = formatRupiah.format(state.totalLainnya)
     }
 
     override fun onDestroyView() {
