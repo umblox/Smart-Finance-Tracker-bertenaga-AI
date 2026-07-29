@@ -107,7 +107,12 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
             if (amountVal > 0.0 && noteVal.isNotEmpty()) {
                 lifecycleScope.launch {
-                    val targetTime = try { sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                    // 🔥 LOGIKA WAKTU CERDAS
+                    val currentFormattedDate = sdfPremium.format(Date())
+                    val targetTime = try { 
+                        if (dateVal == currentFormattedDate) System.currentTimeMillis()
+                        else sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() 
+                    } catch (e: Exception) { System.currentTimeMillis() }
 
                     val finalType = when (catId) {
                         101L, 103L -> "INCOME"     
@@ -151,7 +156,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         checkAndTriggerBudgetAlert(catId, catName, amountVal)
                     }
 
-                    Toast.makeText(context, "Berhasil Disimpan ke Database!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
                     onSaved()
                     dialog.dismiss()
                 }
@@ -163,7 +168,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         return dialog
     }
 
-    // 🔥 FIX: Check Budget pindah sepenuhnya ke Room Database
     private suspend fun checkAndTriggerBudgetAlert(categoryId: Long, categoryName: String, newAmount: Double) = withContext(Dispatchers.IO) {
         val db = DatabaseProvider.db
         try {
