@@ -22,6 +22,7 @@ import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.ui.transaction.TransactionManualDialog
 import com.smartfinance.tracker.utils.RecurringTxWorker 
 import com.smartfinance.tracker.worker.AiWorkerManager 
+import com.smartfinance.tracker.worker.CloudSyncWorker // 🔥 Import Worker Auto-Sync Cloud
 
 class MainActivity : AppCompatActivity() {
 
@@ -67,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 1. Jadwal Worker Tagihan Berkala (15 Menit)
         val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "RecurringTransactionWorker",
@@ -74,7 +76,16 @@ class MainActivity : AppCompatActivity() {
             workRequest
         )
 
+        // 2. Jadwal Worker Notifikasi Analisis AI Mingguan
         AiWorkerManager.scheduleWeeklyReport(this)
+
+        // 🔥 3. Jadwal Worker Auto-Sync Google Drive (Setiap 12 Jam)
+        val syncRequest = PeriodicWorkRequestBuilder<CloudSyncWorker>(12, TimeUnit.HOURS).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "CloudSyncWorker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
 
         checkBiometric()
         
