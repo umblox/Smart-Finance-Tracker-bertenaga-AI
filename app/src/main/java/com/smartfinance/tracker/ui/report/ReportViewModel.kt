@@ -150,4 +150,13 @@ class ReportViewModel : ViewModel() {
 
         return Pair(startCal.timeInMillis, endCal.timeInMillis)
     }
+
+    // 🔥 FIX: Fungsi Getter yang Sempat Hilang
+    fun getCurrentFilter(): TimeFilter = currentFilter
+    fun getBaseTime(): Long = baseTimeMillis
+
+    override fun onCleared() {
+        super.onCleared()
+        repository.stopListening()
+    }
 }
