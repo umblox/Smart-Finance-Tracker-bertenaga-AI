@@ -19,16 +19,11 @@ import com.smartfinance.tracker.ui.chat.ChatFragment
 import com.smartfinance.tracker.ui.debt.AddDebtFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
 import com.smartfinance.tracker.ui.settings.SettingsFragment
-import com.smartfinance.tracker.ui.transaction.TransactionManualDialog // 🔥 Import Dialog Transaksi Manual
-import com.smartfinance.tracker.utils.FirebaseManager
+import com.smartfinance.tracker.ui.transaction.TransactionManualDialog
 import com.smartfinance.tracker.utils.RecurringTxWorker 
 import com.smartfinance.tracker.worker.AiWorkerManager 
 
 class MainActivity : AppCompatActivity() {
-
-    companion object {
-        var isFirebaseReady = false
-    }
 
     private fun checkBiometric() {
         val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
@@ -47,44 +42,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun reinitializeFirebase(): Boolean {
-        if (isFirebaseReady) return true 
-
-        val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-        val customFirebaseJson = prefs.getString("custom_firebase_json", null)
-        
-        if (customFirebaseJson.isNullOrEmpty()) {
-            isFirebaseReady = false
-            return false
-        }
-
-        isFirebaseReady = FirebaseManager.init(this, customFirebaseJson)
-        
-        if (isFirebaseReady) {
-            runFirebaseDependentTasks()
-        }
-        
-        return isFirebaseReady
-    }
-
-    private fun runFirebaseDependentTasks() {
-        try {
-            val prefs = getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-            val db = FirebaseManager.getFirestore()
-            
-            db.collection("app_config").document("security").get().addOnSuccessListener { doc ->
-                if (doc.exists()) {
-                    val cloudBiometric = doc.getBoolean("use_biometric") ?: false
-                    prefs.edit().putBoolean("use_biometric", cloudBiometric).apply()
-                }
-            }
-        } catch (e: Exception) { e.printStackTrace() }
-    }
-
     private fun showSetupRequiredDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("⚙️ Persiapan Aplikasi")
-            .setMessage("Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan File Database (google-services.json) dan API Key Mesin AI terlebih dahulu.")
+            .setMessage("Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan API Key Mesin AI terlebih dahulu.")
             .setCancelable(false)
             .setPositiveButton("Buka Pengaturan") { _, _ ->
                 findViewById<BottomNavigationView>(R.id.bottomNavigation).selectedItemId = R.id.menu_settings
@@ -106,7 +67,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Jadwal Worker Tagihan
         val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "RecurringTransactionWorker",
@@ -114,20 +74,13 @@ class MainActivity : AppCompatActivity() {
             workRequest
         )
 
-        // 🔥 2. Jadwal Worker Notifikasi AI Mingguan (Akan otomatis jalan tiap 7 hari)
         AiWorkerManager.scheduleWeeklyReport(this)
 
         checkBiometric()
         
-        val hasFirebaseJson = !prefs.getString("custom_firebase_json", "").isNullOrEmpty()
         val isAiConfigured = !prefs.getString("ai_api_key", "").isNullOrEmpty() || !prefs.getString("groq_key_override", "").isNullOrEmpty()
-
-        if (!hasFirebaseJson || !isAiConfigured) {
+        if (!isAiConfigured) {
             showSetupRequiredDialog()
-        } else {
-            if (!isFirebaseReady) {
-                reinitializeFirebase()
-            }
         }
 
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
@@ -139,28 +92,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         bottomNavigation.setOnItemSelectedListener { item ->
-            
-            // ==========================================
-            // 🔥 KODE PENCEGAT TRANSAKSI MANUAL
-            // ==========================================
             if (item.itemId == R.id.menu_manual_add) {
-                // Tampilkan Popup Dialog melayang, TANPA berpindah Fragment
                 TransactionManualDialog {
-                    // Blok ini akan dieksekusi saat user menekan tombol "Simpan"
-                    // Karena aplikasi sudah pakai StateFlow/ViewModel, UI akan update otomatis
                 }.show(supportFragmentManager, "TransactionManualDialog")
-                
-                // Return false mencegah ikon "Catat" menyala/aktif di navigasi bawah
                 return@setOnItemSelectedListener false 
             }
 
-            // ==========================================
-            // ROUTING FRAGMENT NORMAL
-            // ==========================================
             val selectedFragment: Fragment = when (item.itemId) {
                 R.id.menu_dashboard -> DashboardFragment()
                 R.id.menu_debt -> AddDebtFragment()
-                R.id.menu_chat -> ChatFragment() // 🔥 AI Chat sekarang jadi fitur utama
+                R.id.menu_chat -> ChatFragment()
                 R.id.menu_settings -> SettingsFragment()
                 else -> DashboardFragment()
             }
@@ -173,7 +114,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Fungsi ini sangat berguna jika tombol "Lihat Semua" di Dashboard ditekan
     fun navigateToSpecificFragment(fragment: Fragment, activeMenuId: Int? = null) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
