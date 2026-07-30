@@ -24,6 +24,7 @@ import com.smartfinance.tracker.databinding.FragmentSettingsBinding
 import com.smartfinance.tracker.ui.category.CategoryManagerDialog
 import com.smartfinance.tracker.utils.BackupEngine
 import com.smartfinance.tracker.utils.GoogleDriveManager
+import com.smartfinance.tracker.utils.LocalBackupUtil
 import kotlinx.coroutines.launch
 
 class SettingsFragment : Fragment() {
@@ -105,6 +106,20 @@ class SettingsFragment : Fragment() {
         binding.menuBudgeting.setOnClickListener { com.smartfinance.tracker.ui.budget.BudgetManagerDialog().show(parentFragmentManager, "BudgetManagerDialog") }
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
+        // 🔥 TAMBAHAN AKSI: Backup & Restore Lokal
+        binding.menuLocalBackup.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("🛠️ Backup & Restore Lokal")
+                .setItems(arrayOf("📤 Export Database ke HP", "📥 Import Database dari HP")) { _, which ->
+                    if (which == 0) {
+                        LocalBackupUtil.exportDatabase(requireContext())
+                    } else {
+                        LocalBackupUtil.importDatabase(requireContext())
+                    }
+                }
+                .show()
+        }
+
         binding.menuApiConfig.setOnClickListener { AiSettingsDialog.showApiConfig(requireContext(), layoutInflater, prefs, binding.root) }
         binding.menuExpertMode.setOnClickListener { AiSettingsDialog.showExpertMode(requireContext(), layoutInflater, prefs) }
     }
@@ -176,7 +191,6 @@ class SettingsFragment : Fragment() {
     }
 
     private fun setupThemeAndLanguageSpinners() {
-        // [Sama persis seperti kode Anda sebelumnya]
         val themeNames = listOf(getString(R.string.theme_system), getString(R.string.theme_light), getString(R.string.theme_dark))
         val themeValues = listOf(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM, AppCompatDelegate.MODE_NIGHT_NO, AppCompatDelegate.MODE_NIGHT_YES)
         binding.spinnerTheme.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, themeNames).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
