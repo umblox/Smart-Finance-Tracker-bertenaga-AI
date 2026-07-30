@@ -144,7 +144,6 @@ class CategoryTrendReportFragment : Fragment() {
         val prefix = if (isExpense) "-" else "+"
         val colorMain = ContextCompat.getColor(requireContext(), if (isExpense) R.color.expense_red else R.color.income_green)
         
-        // Memuat efek Ripple dengan cara yang BENAR
         val typedValue = TypedValue()
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
         
@@ -152,10 +151,7 @@ class CategoryTrendReportFragment : Fragment() {
             val row = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
-                
-                // 🔥 FIX: Menggunakan setBackgroundResource untuk efek Ripple
                 setBackgroundResource(typedValue.resourceId)
-                
                 isClickable = true
                 
                 setOnClickListener {
@@ -172,14 +168,15 @@ class CategoryTrendReportFragment : Fragment() {
                         (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         
                     } else {
+                        // 🔥 FIX: Arahkan ke CategoryAnalyticsFragment dengan parameter rentang tanggal (EXTRA_DAY_RANGE)
                         if (state.targetName == "Rincian Biaya" || state.targetName == "Rincian Pendapatan") {
                             Toast.makeText(context, "Silakan pilih spesifik Kategori di tab Breakdown terlebih dahulu.", Toast.LENGTH_SHORT).show()
                         } else {
                             val fragment = CategoryAnalyticsFragment().apply {
                                 arguments = Bundle().apply {
                                     putString("EXTRA_CATEGORY_NAME", state.targetName)
-                                    putString("EXTRA_TIME_FILTER", "MONTHLY")
                                     putLong("EXTRA_BASE_TIME", baseTime)
+                                    putString("EXTRA_DAY_RANGE", item.label)
                                 }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
