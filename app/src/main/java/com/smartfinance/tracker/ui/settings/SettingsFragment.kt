@@ -48,6 +48,20 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    // 🔥 PELUNCUR FILE PICKER UNTUK EXPORT (MENYIMPAN FILE)
+    private val exportBackupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let {
+            LocalBackupUtil.exportDataToUri(requireContext(), it)
+        }
+    }
+
+    // 🔥 PELUNCUR FILE PICKER UNTUK IMPORT (MEMILIH FILE)
+    private val importBackupLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            LocalBackupUtil.importDataFromUri(requireContext(), it)
+        }
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
         return binding.root
@@ -67,7 +81,6 @@ class SettingsFragment : Fragment() {
         }
         binding.switchBiometric.setOnCheckedChangeListener { _, isChecked -> viewModel.setBiometricStatus(isChecked) }
 
-        // Cek Status Login Google Saat Ini
         val currentAccount = GoogleSignIn.getLastSignedInAccount(requireContext())
         updateDriveUi(currentAccount != null)
 
@@ -106,15 +119,18 @@ class SettingsFragment : Fragment() {
         binding.menuBudgeting.setOnClickListener { com.smartfinance.tracker.ui.budget.BudgetManagerDialog().show(parentFragmentManager, "BudgetManagerDialog") }
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
-        // 🔥 TAMBAHAN AKSI: Backup & Restore Lokal
+        // 🔥 AKSI TOMBOL LOKAL BACKUP MENGGUNAKAN FILE PICKER
         binding.menuLocalBackup.setOnClickListener {
             AlertDialog.Builder(requireContext())
                 .setTitle("🛠️ Backup & Restore Lokal")
-                .setItems(arrayOf("📤 Export Database ke HP", "📥 Import Database dari HP")) { _, which ->
+                .setItems(arrayOf("📤 Export Database (Simpan File)", "📥 Import Database (Pilih File)")) { _, which ->
                     if (which == 0) {
-                        LocalBackupUtil.exportDatabase(requireContext())
+                        // Membuka jendela penyimpanan dengan nama default
+                        val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale("id", "ID"))
+                        exportBackupLauncher.launch("SmartFinance_Backup_${sdf.format(java.util.Date())}.json")
                     } else {
-                        LocalBackupUtil.importDatabase(requireContext())
+                        // Membuka jendela pemilihan file untuk mengambil file backup
+                        importBackupLauncher.launch(arrayOf("application/json", "*/*"))
                     }
                 }
                 .show()
