@@ -21,20 +21,21 @@ object BackupEngine {
         Gson().toJson(data)
     }
 
+    // Fungsi asli untuk sinkronisasi Google Drive (Tidak diubah agar tidak merusak SettingsFragment)
     suspend fun importJsonToDb(jsonString: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val data = Gson().fromJson(jsonString, BackupData::class.java)
             val db = DatabaseProvider.db
             
-            // ⚠️ Hapus semua data lama sebelum menimpa dengan data Cloud
             db.clearAllTables()
             
-            data.categories.forEach { db.categoryDao().insert(it) }
-            data.transactions.forEach { db.transactionDao().insert(it) }
-            data.debts.forEach { db.debtDao().insert(it) }
-            data.budgets.forEach { db.budgetDao().insert(it) }
-            data.recurringTransactions.forEach { db.recurringTxDao().insert(it) }
-            data.aiNotifications.forEach { db.aiNotificationDao().insert(it) }
+            // 🔥 PERBAIKAN: Tambahkan safe-call (?.) agar kebal terhadap data kosong/null dari GDrive
+            data.categories?.forEach { db.categoryDao().insert(it) }
+            data.transactions?.forEach { db.transactionDao().insert(it) }
+            data.debts?.forEach { db.debtDao().insert(it) }
+            data.budgets?.forEach { db.budgetDao().insert(it) }
+            data.recurringTransactions?.forEach { db.recurringTxDao().insert(it) }
+            data.aiNotifications?.forEach { db.aiNotificationDao().insert(it) }
             
             true
         } catch (e: Exception) {
@@ -42,5 +43,19 @@ object BackupEngine {
             false
         }
     }
-}
 
+    // 🔥 FUNGSI BARU: Khusus untuk Import Lokal agar pesan Error ASLI bisa dilempar ke UI
+    suspend fun importJsonToDbLocal(jsonString: String) = withContext(Dispatchers.IO) {
+        val data = Gson().fromJson(jsonString, BackupData::class.java)
+        val db = DatabaseProvider.db
+        
+        db.clearAllTables()
+        
+        data.categories?.forEach { db.categoryDao().insert(it) }
+        data.transactions?.forEach { db.transactionDao().insert(it) }
+        data.debts?.forEach { db.debtDao().insert(it) }
+        data.budgets?.forEach { db.budgetDao().insert(it) }
+        data.recurringTransactions?.forEach { db.recurringTxDao().insert(it) }
+        data.aiNotifications?.forEach { db.aiNotificationDao().insert(it) }
+    }
+}
