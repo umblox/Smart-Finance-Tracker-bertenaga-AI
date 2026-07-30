@@ -14,7 +14,7 @@ class SmartFinanceApp : Application() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             val prefs = getSharedPreferences("smart_finance_crash", Context.MODE_PRIVATE)
-            prefs.edit().putString("LAST_CRASH", throwable.stackTraceToString()).apply()
+            prefs.edit().putString("LAST_CRASH", throwable.stackTraceToString()).commit()
             
             // Lanjutkan proses crash bawaan Android
             defaultHandler?.uncaughtException(thread, throwable)
