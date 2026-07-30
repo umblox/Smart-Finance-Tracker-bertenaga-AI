@@ -3,6 +3,7 @@ package com.smartfinance.tracker.utils
 import android.content.Context
 import android.os.Environment
 import android.widget.Toast
+import com.smartfinance.tracker.data.local.DatabaseProvider
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -28,7 +29,7 @@ object LocalBackupUtil {
                     count++
                 }
             }
-            Toast.makeText(context, "Berhasil export $count file DB ke folder Downloads/SmartFinanceBackup", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Berhasil export $count file DB ke Downloads/SmartFinanceBackup", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(context, "Export Gagal: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -41,16 +42,29 @@ object LocalBackupUtil {
             
             val dbFiles = listOf(currentDB, File("${currentDB.path}-shm"), File("${currentDB.path}-wal"))
 
+            // 🔥 PERBAIKAN 1: Matikan mesin/koneksi Database sebelum menimpa filenya
+            if (DatabaseProvider.db.isOpen) {
+                DatabaseProvider.db.close()
+            }
+
+            var count = 0
             dbFiles.forEach { file ->
                 val backupFile = File(importDir, file.name)
                 if (backupFile.exists()) {
                     copyFile(backupFile, file)
+                    count++
                 }
             }
-            Toast.makeText(context, "Import Sukses! Aplikasi akan ditutup paksa. Silakan buka kembali.", Toast.LENGTH_LONG).show()
-            System.exit(0) 
+
+            if (count > 0) {
+                Toast.makeText(context, "Import $count file Sukses! Aplikasi akan ditutup paksa untuk memuat ulang.", Toast.LENGTH_LONG).show()
+                System.exit(0) 
+            } else {
+                Toast.makeText(context, "Import Gagal: File DB tidak ditemukan di folder SmartFinanceBackup.", Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
-            Toast.makeText(context, "Import Gagal: Pastikan ada file backup di folder Downloads.", Toast.LENGTH_LONG).show()
+            // 🔥 PERBAIKAN 2: Tampilkan pesan error ASLI dari sistem Android agar tidak buta
+            Toast.makeText(context, "Import Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
