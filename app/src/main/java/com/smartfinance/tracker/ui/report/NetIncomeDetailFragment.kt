@@ -94,7 +94,6 @@ class NetIncomeDetailFragment : Fragment() {
 
         binding.listRangesContainer.removeAllViews()
         
-        // Memuat efek Ripple dengan cara yang BENAR
         val typedValue = TypedValue()
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
 
@@ -103,13 +102,20 @@ class NetIncomeDetailFragment : Fragment() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
-                
-                // 🔥 FIX: Menggunakan setBackgroundResource untuk efek Ripple
                 setBackgroundResource(typedValue.resourceId)
-                
                 isClickable = true
+                
+                // 🔥 FIX: Navigasi ke Daftar Transaksi
                 setOnClickListener {
-                    Toast.makeText(context, "Membuka riwayat: ${chunk.label}", Toast.LENGTH_SHORT).show()
+                    val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
+                    val fragment = CategoryAnalyticsFragment().apply {
+                        arguments = Bundle().apply {
+                            putString("EXTRA_CATEGORY_NAME", "ALL_NET_INCOME")
+                            putLong("EXTRA_BASE_TIME", baseTime)
+                            putString("EXTRA_DAY_RANGE", chunk.label) // Kirim rentang tanggal (Contoh: "27/07 - 31/07")
+                        }
+                    }
+                    (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                 }
             }
 
