@@ -1,32 +1,28 @@
 package com.smartfinance.tracker.utils
 
 import android.content.Context
-import android.os.Environment
+import android.net.Uri
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 object LocalBackupUtil {
 
-    // 🔥 NAMA FILE DISAMAKAN PERSIS DENGAN GOOGLE DRIVE
-    private const val BACKUP_FILE_NAME = "SmartFinance_Backup.json"
-
-    fun exportDatabase(context: Context) {
+    // Menyimpan data menggunakan jalur aman (URI) dari File Picker
+    fun exportDataToUri(context: Context, uri: Uri) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val jsonString = BackupEngine.exportDbToJson()
                 
-                val exportDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SmartFinanceBackup")
-                if (!exportDir.exists()) exportDir.mkdirs()
-
-                val backupFile = File(exportDir, BACKUP_FILE_NAME)
-                backupFile.writeText(jsonString)
-
+                // Menulis teks JSON ke dalam file yang dipilih user
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(jsonString.toByteArray())
+                }
+                
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "✅ Export Sukses!\nFile: Downloads/SmartFinanceBackup/$BACKUP_FILE_NAME", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "✅ Export Sukses! File berhasil disimpan.", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -36,35 +32,30 @@ object LocalBackupUtil {
         }
     }
 
-    fun importDatabase(context: Context) {
+    // Membaca data menggunakan jalur aman (URI) dari File Picker
+    fun importDataFromUri(context: Context, uri: Uri) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val importDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SmartFinanceBackup")
-                val backupFile = File(importDir, BACKUP_FILE_NAME)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "⏳ Sedang memulihkan data...", Toast.LENGTH_SHORT).show()
+                }
 
-                if (backupFile.exists()) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "⏳ Sedang memulihkan data...", Toast.LENGTH_SHORT).show()
-                    }
+                // Membaca isi file JSON langsung dari memori tanpa halangan perizinan
+                val jsonString = context.contentResolver.openInputStream(uri)?.bufferedReader().use { it?.readText() }
 
-                    // 1. Baca isi file JSON
-                    val jsonString = backupFile.readText()
-                    
-                    // 2. Suntikkan ke DB (Jika ada error parsing/format, akan meledak di sini dan ditangkap oleh catch)
+                if (!jsonString.isNullOrEmpty()) {
                     BackupEngine.importJsonToDbLocal(jsonString)
-
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "✅ Import Sukses! Aplikasi akan dimuat ulang.", Toast.LENGTH_LONG).show()
                         System.exit(0)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "❌ Gagal: File '$BACKUP_FILE_NAME' tidak ditemukan di folder SmartFinanceBackup!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "❌ Import Gagal: File kosong atau tidak dapat dibaca.", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    // 🔥 Jika terjadi Permission Denied atau Gagal Parsing, kita akan bisa membaca alasannya di Toast ini!
                     Toast.makeText(context, "❌ Import Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
