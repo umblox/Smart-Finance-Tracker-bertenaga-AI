@@ -38,16 +38,18 @@ class CategoryAnalyticsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(this)[CategoryAnalyticsViewModel::class.java]
 
-        // 1. Ambil Paket Data dari Layar Sebelumnya
         val targetCategory = arguments?.getString("EXTRA_CATEGORY_NAME") ?: "Kategori"
         val timeFilterString = arguments?.getString("EXTRA_TIME_FILTER") ?: "MONTHLY"
         val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
+        
+        // 🔥 FIX: Tangkap string rentang waktu yang dilempar dari Grafik (Misal: "27/07 - 31/07")
+        val dayRange = arguments?.getString("EXTRA_DAY_RANGE")
 
-        binding.tvCategoryTitle.text = targetCategory
+        binding.tvCategoryTitle.text = if (targetCategory == "ALL_NET_INCOME") "Riwayat Transaksi" else targetCategory
         binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
 
-        // 2. Perintahkan Otak untuk Mulai Memfilter
-        viewModel.loadCategoryData(targetCategory, timeFilterString, baseTime)
+        // Lempar semua parameter ke otak aplikasi
+        viewModel.loadCategoryData(targetCategory, timeFilterString, baseTime, dayRange)
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state -> renderUi(state) }
@@ -57,31 +59,55 @@ class CategoryAnalyticsFragment : Fragment() {
     private fun renderUi(state: CategoryAnalyticsUiState) {
         val density = requireContext().resources.displayMetrics.density
         
-        binding.tvTimePeriod.text = "Periode Analitik: ${state.timeLabel}"
-        binding.tvTotalAmount.text = formatRupiah.format(state.totalSpent)
+        binding.tvTimePeriod.text = "Periode: ${state.timeLabel}"
+        
+        // 🔥 FIX: Pewarnaan dinamis untuk Pemasukan (Hijau) & Pengeluaran (Merah) di Header
+        val isIncomeTarget = state.categoryName == "Rincian Pendapatan" || (!state.isEmpty && state.transactions.first().type in listOf("INCOME", "DEBT"))
+        
+        if (state.categoryName == "ALL_NET_INCOME") {
+            val netPrefix = if (state.totalSpent < 0) "-" else ""
+            binding.tvTotalAmount.text = "$netPrefix${formatRupiah.format(Math.abs(state.totalSpent))}"
+            binding.tvTotalAmount.setTextColor(getThemeColor(if (state.totalSpent < 0) R.color.expense_red else R.color.text_primary))
+        } else {
+            val typePrefix = if (isIncomeTarget) "+" else "-"
+            val colorRes = if (isIncomeTarget) R.color.income_green else R.color.expense_red
+            binding.tvTotalAmount.text = "$typePrefix${formatRupiah.format(Math.abs(state.totalSpent))}"
+            binding.tvTotalAmount.setTextColor(getThemeColor(colorRes))
+        }
+
         binding.transactionListContainer.removeAllViews()
 
         if (state.isEmpty) {
             binding.transactionListContainer.addView(TextView(requireContext()).apply {
-                text = "Tidak ada transaksi untuk kategori ini."
+                text = "Tidak ada transaksi untuk periode ini."
                 setTextColor(getThemeColor(R.color.text_secondary)); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER
                 setPadding(0, (16*density).toInt(), 0, (16*density).toInt())
             })
             return
         }
 
+        // Render List Transaksi
         state.transactions.forEach { tx ->
+            val isInc = tx.type == "INCOME" || tx.type == "DEBT"
+            
             val txRow = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
             }
 
             val txInfo = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-            txInfo.addView(TextView(requireContext()).apply { text = tx.note.ifEmpty { "Tanpa Catatan" }; setTextColor(getThemeColor(R.color.text_primary)); textSize = 14f })
+            // Tampilkan Note, jika kosong tampilkan Kategori
+            val titleText = if (tx.note.isEmpty()) tx.categoryName else tx.note
+            txInfo.addView(TextView(requireContext()).apply { text = titleText; setTextColor(getThemeColor(R.color.text_primary)); textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD) })
             txInfo.addView(TextView(requireContext()).apply { text = sdfDateTime.format(java.util.Date(tx.timestamp)); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 12f; setPadding(0, 4, 0, 0) })
             txRow.addView(txInfo)
 
-            txRow.addView(TextView(requireContext()).apply { text = "-" + formatRupiah.format(tx.amount); setTextColor(getThemeColor(R.color.expense_red)); textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD) })
+            // 🔥 FIX: Tanda minus dan warna merah untuk pengeluaran, Tanda plus dan hijau untuk pemasukan
+            txRow.addView(TextView(requireContext()).apply { 
+                text = (if (isInc) "+" else "-") + formatRupiah.format(tx.amount)
+                setTextColor(getThemeColor(if (isInc) R.color.income_green else R.color.expense_red))
+                textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD) 
+            })
 
             binding.transactionListContainer.addView(txRow)
             binding.transactionListContainer.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
