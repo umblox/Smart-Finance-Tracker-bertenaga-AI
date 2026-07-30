@@ -68,11 +68,13 @@ class DashboardFragment : Fragment() {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
         
-        // 🔥 PENYAMBUNGAN FASE 5: Meluncur ke Rincian Biaya (Money Lover Style)
+        // 🔥 FIX: Arahkan ke Kategori Pengeluaran #1, jangan ke "ALL_EXPENSE" (Rincian Biaya)
         binding.btnLihatAnalisis.setOnClickListener {
+            val topCategory = viewModel.uiState.value.topExpenses.firstOrNull()?.categoryName ?: "ALL_EXPENSE"
+            
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
-                    putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
+                    putString("EXTRA_TARGET_MODE", topCategory)
                     putLong("EXTRA_BASE_TIME", activeTimePrefs)
                 }
             }
