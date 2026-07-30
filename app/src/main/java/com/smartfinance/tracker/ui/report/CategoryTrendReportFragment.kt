@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -34,61 +35,76 @@ class CategoryTrendReportFragment : Fragment() {
     )
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        _binding = FragmentCategoryTrendBinding.inflate(inflater, container, false)
-        return binding.root
+        // 🔥 TAMENG 1: Tangkap error jika XML atau Custom View gagal dimuat
+        return try {
+            _binding = FragmentCategoryTrendBinding.inflate(inflater, container, false)
+            binding.root
+        } catch (e: Throwable) {
+            ScrollView(requireContext()).apply {
+                addView(TextView(requireContext()).apply {
+                    text = "🔥 CRASH XML CATEGORY TREND:\n\n${e.stackTraceToString()}"
+                    setTextColor(Color.RED)
+                    setPadding(40, 40, 40, 40)
+                })
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(this)[CategoryTrendViewModel::class.java]
+        // 🔥 TAMENG 2: Tangkap error logika
+        try {
+            super.onViewCreated(view, savedInstanceState)
+            if (_binding == null) return // Hentikan jika XML gagal
 
-        val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" 
-        val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
+            viewModel = ViewModelProvider(this)[CategoryTrendViewModel::class.java]
 
-        viewModel.loadData(targetMode, baseTime)
+            val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" 
+            val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
 
-        binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
-        
-        // ==========================================
-        // [FASE 3] LOGIKA DROPDOWN PEMILIH KATEGORI
-        // ==========================================
-        binding.btnDropdownCategory.setOnClickListener {
-            val state = viewModel.uiState.value
-            val options = mutableListOf<String>()
+            viewModel.loadData(targetMode, baseTime)
+
+            binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
             
-            // Opsi 1: Kembali ke Root (Semua Pengeluaran/Pendapatan)
-            options.add(if (state.isExpenseMode) "ALL_EXPENSE" else "ALL_INCOME")
-            
-            // Opsi 2: Tambahkan semua kategori yang ada di bulan ini
-            val categoryNames = state.breakdownItems.map { it.label }
-            options.addAll(categoryNames)
+            binding.btnDropdownCategory.setOnClickListener {
+                val state = viewModel.uiState.value
+                val options = mutableListOf<String>()
+                
+                options.add(if (state.isExpenseMode) "ALL_EXPENSE" else "ALL_INCOME")
+                val categoryNames = state.breakdownItems.map { it.label }
+                options.addAll(categoryNames)
 
-            // Ubah kode mesin menjadi teks cantik untuk User
-            val displayOptions = options.map { 
-                when (it) {
-                    "ALL_EXPENSE" -> "Semua Pengeluaran (Utama)"
-                    "ALL_INCOME" -> "Semua Pendapatan (Utama)"
-                    else -> it
+                val displayOptions = options.map { 
+                    when (it) {
+                        "ALL_EXPENSE" -> "Semua Pengeluaran (Utama)"
+                        "ALL_INCOME" -> "Semua Pendapatan (Utama)"
+                        else -> it
+                    }
+                }.toTypedArray()
+
+                android.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Pilih Kategori Laporan")
+                    .setItems(displayOptions) { _, which ->
+                        val selectedTarget = options[which]
+                        viewModel.loadData(selectedTarget, baseTime) 
+                    }
+                    .show()
+            }
+
+            binding.toggleReportMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
+                if (isChecked) renderVisualMode(checkedId == R.id.btnModeBreakdown)
+            }
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewModel.uiState.collect { state -> 
+                    try {
+                        renderUi(state) 
+                    } catch (e: Throwable) {
+                        Toast.makeText(requireContext(), "Crash Render Trend: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
-            }.toTypedArray()
-
-            // Tampilkan Dialog
-            android.app.AlertDialog.Builder(requireContext())
-                .setTitle("Pilih Kategori Laporan")
-                .setItems(displayOptions) { _, which ->
-                    val selectedTarget = options[which]
-                    // Boom! Transformasi layar secara instan tanpa loading
-                    viewModel.loadData(selectedTarget, baseTime) 
-                }
-                .show()
-        }
-
-        binding.toggleReportMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked) renderVisualMode(checkedId == R.id.btnModeBreakdown)
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collect { state -> renderUi(state) }
+            }
+        } catch (e: Throwable) {
+            Toast.makeText(requireContext(), "Crash Logika Trend: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -136,16 +152,11 @@ class CategoryTrendReportFragment : Fragment() {
                 background = ContextCompat.getDrawable(requireContext(), android.R.attr.selectableItemBackground)
                 isClickable = true
                 
-                // ==========================================
-                // [FASE 3] LOGIKA NAVIGASI DRILL-DOWN BERLAPIS
-                // ==========================================
                 setOnClickListener {
                     val state = viewModel.uiState.value
                     val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
                     
                     if (isBreakdown) {
-                        // DRILL-DOWN LEVEL 2: 
-                        // Mengklik Kategori -> Buka Laporan Trend Spesifik Kategori Tersebut (Contoh: Buka Laporan Pertamax)
                         val fragment = CategoryTrendReportFragment().apply {
                             arguments = Bundle().apply {
                                 putString("EXTRA_TARGET_MODE", item.label)
@@ -155,8 +166,6 @@ class CategoryTrendReportFragment : Fragment() {
                         (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         
                     } else {
-                        // DRILL-DOWN LEVEL 3: 
-                        // Mengklik Tanggal (Trend) -> Buka Daftar Transaksi Murni (CategoryAnalyticsFragment)
                         if (state.targetName == "Rincian Biaya" || state.targetName == "Rincian Pendapatan") {
                             Toast.makeText(context, "Silakan pilih spesifik Kategori di tab Breakdown terlebih dahulu.", Toast.LENGTH_SHORT).show()
                         } else {
