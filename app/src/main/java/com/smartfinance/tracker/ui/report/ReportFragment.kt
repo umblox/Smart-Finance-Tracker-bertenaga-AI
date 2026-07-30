@@ -60,9 +60,14 @@ class ReportFragment : Fragment() {
     }
     
     private fun setupNavigationListeners() {
-        // [Fase 2] Menuju Detail Ringkasan (Sementara masih Toast, akan dikerjakan nanti)
+        // [Fase 4] Menuju Detail Ringkasan (Pemasukan Bersih)
         binding.btnDetailPemasukanBersih.setOnClickListener {
-            Toast.makeText(context, "Membuka Detail Ringkasan...", Toast.LENGTH_SHORT).show()
+            val fragment = NetIncomeDetailFragment().apply {
+                arguments = Bundle().apply {
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
         // [Fase 2] Menuju Rincian Pendapatan (Menuju Layar Dinamis Baru)
