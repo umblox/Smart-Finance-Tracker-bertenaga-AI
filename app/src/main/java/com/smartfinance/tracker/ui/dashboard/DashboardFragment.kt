@@ -18,7 +18,7 @@ import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
-import com.smartfinance.tracker.ui.report.DetailCategoryReportFragment
+import com.smartfinance.tracker.ui.report.CategoryTrendReportFragment
 import com.smartfinance.tracker.ui.report.QuadVerticalBarChartView
 import com.smartfinance.tracker.ui.report.ReportFragment
 import com.smartfinance.tracker.ui.transaction.HistoryTransactionFragment
@@ -33,7 +33,6 @@ class DashboardFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: DashboardViewModel
-    // 🔥 Panggil Otak AI Notification
     private lateinit var aiViewModel: AiNotificationViewModel
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
@@ -53,7 +52,6 @@ class DashboardFragment : Fragment() {
 
         viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
         
-        // Gunakan requireActivity() agar data notif sinkron dengan yang ada di BottomSheet
         aiViewModel = ViewModelProvider(requireActivity())[AiNotificationViewModel::class.java]
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
@@ -69,9 +67,23 @@ class DashboardFragment : Fragment() {
         binding.btnDetailLaporan.setOnClickListener {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
+        
+        // 🔥 PENYAMBUNGAN FASE 5: Meluncur ke Rincian Biaya (Money Lover Style)
         binding.btnLihatAnalisis.setOnClickListener {
-            (activity as? MainActivity)?.navigateToSpecificFragment(DetailCategoryReportFragment())
+            val fragment = CategoryTrendReportFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
+                    putLong("EXTRA_BASE_TIME", activeTimePrefs)
+                }
+            }
+            (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
         }
+        
+        // Bikin seluruh area card juga bisa diklik agar UX lebih baik
+        binding.cardTopExpense.setOnClickListener {
+            binding.btnLihatAnalisis.performClick()
+        }
+
         binding.btnLihatSemua.setOnClickListener {
             try {
                 (activity as? MainActivity)?.navigateToSpecificFragment(HistoryTransactionFragment(), R.id.menu_report)
@@ -95,8 +107,6 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // 🔥 LOGIKA ABSOLUT: Titik Merah (Red Dot)
-        // Akan terus memantau AI Notification. Jika ada 1 saja yang belum dibaca, langsung MERAH.
         viewLifecycleOwner.lifecycleScope.launch {
             aiViewModel.notifications.collect { notifList ->
                 val hasUnread = notifList.any { !it.isRead }
