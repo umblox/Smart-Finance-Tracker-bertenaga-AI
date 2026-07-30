@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -29,21 +30,45 @@ class NetIncomeDetailFragment : Fragment() {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        _binding = FragmentNetIncomeDetailBinding.inflate(inflater, container, false)
-        return binding.root
+        // 🔥 TAMENG 1: Tangkap error jika XML atau Custom View gagal dimuat
+        return try {
+            _binding = FragmentNetIncomeDetailBinding.inflate(inflater, container, false)
+            binding.root
+        } catch (e: Throwable) {
+            ScrollView(requireContext()).apply {
+                addView(TextView(requireContext()).apply {
+                    text = "🔥 CRASH XML NET INCOME:\n\n${e.stackTraceToString()}"
+                    setTextColor(Color.RED)
+                    setPadding(40, 40, 40, 40)
+                })
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(this)[NetIncomeDetailViewModel::class.java]
+        // 🔥 TAMENG 2: Tangkap error logika
+        try {
+            super.onViewCreated(view, savedInstanceState)
+            if (_binding == null) return // Hentikan proses jika XML gagal
 
-        val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
-        viewModel.loadData(baseTime)
+            viewModel = ViewModelProvider(this)[NetIncomeDetailViewModel::class.java]
 
-        binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
+            val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
+            viewModel.loadData(baseTime)
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collect { state -> renderUi(state) }
+            binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewModel.uiState.collect { state -> 
+                    try {
+                        renderUi(state) 
+                    } catch (e: Throwable) {
+                        Toast.makeText(requireContext(), "Crash Render Data: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            Toast.makeText(requireContext(), "Crash Logika Net Income: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -52,12 +77,10 @@ class NetIncomeDetailFragment : Fragment() {
         
         binding.tvNetIncomeTotal.text = formatRupiah.format(state.totalNetIncome)
         
-        // Injeksi data ke grafik batang
         val incomes = state.chunks.map { it.income.toFloat() }
         val expenses = state.chunks.map { it.expense.toFloat() }
         binding.chartNetIncome.setChartData(incomes, expenses)
 
-        // Render Label di bawah grafik
         binding.layoutChartLabels.removeAllViews()
         state.chunks.forEach { chunk ->
             val tvLabel = TextView(requireContext()).apply {
@@ -70,7 +93,6 @@ class NetIncomeDetailFragment : Fragment() {
             binding.layoutChartLabels.addView(tvLabel)
         }
 
-        // Render List Rincian (List ke bawah)
         binding.listRangesContainer.removeAllViews()
         state.chunks.forEach { chunk ->
             val row = LinearLayout(requireContext()).apply {
@@ -80,7 +102,6 @@ class NetIncomeDetailFragment : Fragment() {
                 background = ContextCompat.getDrawable(requireContext(), android.R.attr.selectableItemBackground)
                 isClickable = true
                 setOnClickListener {
-                    // [Tindak Lanjut Fase 5] Navigasi ke HistoryTransactionFragment
                     Toast.makeText(context, "Membuka riwayat: ${chunk.label}", Toast.LENGTH_SHORT).show()
                 }
             }
