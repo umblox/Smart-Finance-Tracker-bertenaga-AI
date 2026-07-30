@@ -3,6 +3,7 @@ package com.smartfinance.tracker.ui.report
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -30,7 +31,6 @@ class NetIncomeDetailFragment : Fragment() {
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        // 🔥 TAMENG 1: Tangkap error jika XML atau Custom View gagal dimuat
         return try {
             _binding = FragmentNetIncomeDetailBinding.inflate(inflater, container, false)
             binding.root
@@ -46,10 +46,9 @@ class NetIncomeDetailFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        // 🔥 TAMENG 2: Tangkap error logika
         try {
             super.onViewCreated(view, savedInstanceState)
-            if (_binding == null) return // Hentikan proses jika XML gagal
+            if (_binding == null) return
 
             viewModel = ViewModelProvider(this)[NetIncomeDetailViewModel::class.java]
 
@@ -94,12 +93,20 @@ class NetIncomeDetailFragment : Fragment() {
         }
 
         binding.listRangesContainer.removeAllViews()
+        
+        // Memuat efek Ripple dengan cara yang BENAR
+        val typedValue = TypedValue()
+        requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
+
         state.chunks.forEach { chunk ->
             val row = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
-                background = ContextCompat.getDrawable(requireContext(), android.R.attr.selectableItemBackground)
+                
+                // 🔥 FIX: Menggunakan setBackgroundResource untuk efek Ripple
+                setBackgroundResource(typedValue.resourceId)
+                
                 isClickable = true
                 setOnClickListener {
                     Toast.makeText(context, "Membuka riwayat: ${chunk.label}", Toast.LENGTH_SHORT).show()
