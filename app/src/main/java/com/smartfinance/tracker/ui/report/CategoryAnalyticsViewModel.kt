@@ -17,9 +17,6 @@ data class CategoryAnalyticsUiState(
     val isEmpty: Boolean = true
 )
 
-// Pastikan enum ini tetap ada (sesuai kode asli Anda)
-enum class TimeFilter { DAILY, WEEKLY, MONTHLY }
-
 class CategoryAnalyticsViewModel : ViewModel() {
     private val repository = TransactionRepository()
     private val _uiState = MutableStateFlow(CategoryAnalyticsUiState())
