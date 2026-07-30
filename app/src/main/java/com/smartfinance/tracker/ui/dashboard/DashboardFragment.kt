@@ -70,7 +70,11 @@ class DashboardFragment : Fragment() {
         
         // 🔥 FIX: Arahkan ke Kategori Pengeluaran #1, jangan ke "ALL_EXPENSE" (Rincian Biaya)
         binding.btnLihatAnalisis.setOnClickListener {
-            val topCategory = viewModel.uiState.value.topExpenses.firstOrNull()?.categoryName ?: "ALL_EXPENSE"
+            // Membaca nama kategori tertinggi (mendukung format Map maupun Pair)
+            val topItem = viewModel.uiState.value.topExpenses.firstOrNull()
+            val topCategory = (topItem as? Map.Entry<String, *>)?.key 
+                ?: (topItem as? Pair<String, *>)?.first 
+                ?: "ALL_EXPENSE"
             
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
