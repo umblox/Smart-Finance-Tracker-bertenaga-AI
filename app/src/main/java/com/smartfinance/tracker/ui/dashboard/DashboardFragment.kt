@@ -68,24 +68,18 @@ class DashboardFragment : Fragment() {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
         
-        // 🔥 FIX: Arahkan ke Kategori Pengeluaran #1, jangan ke "ALL_EXPENSE" (Rincian Biaya)
+        // 🔥 FIX 1: Lihat Analisis membuka "Rincian Biaya" (Overview) DENGAN Dropdown
         binding.btnLihatAnalisis.setOnClickListener {
-            // Membaca nama kategori tertinggi (mendukung format Map maupun Pair)
-            val topItem = viewModel.uiState.value.topExpenses.firstOrNull()
-            val topCategory = (topItem as? Map.Entry<String, *>)?.key 
-                ?: (topItem as? Pair<String, *>)?.first 
-                ?: "ALL_EXPENSE"
-            
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
-                    putString("EXTRA_TARGET_MODE", topCategory)
+                    putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
                     putLong("EXTRA_BASE_TIME", activeTimePrefs)
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
                 }
             }
             (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // Bikin seluruh area card juga bisa diklik agar UX lebih baik
         binding.cardTopExpense.setOnClickListener {
             binding.btnLihatAnalisis.performClick()
         }
@@ -165,6 +159,21 @@ class DashboardFragment : Fragment() {
                     setCardBackgroundColor(getThemeColor(R.color.surface_white))
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
                 }
+                
+                // 🔥 FIX 2: Klik baris Top Expense membuka Kategori TANPA Dropdown
+                rowCard.setOnClickListener {
+                    val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                    val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
+                    val fragment = CategoryTrendReportFragment().apply {
+                        arguments = Bundle().apply {
+                            putString("EXTRA_TARGET_MODE", categoryName)
+                            putLong("EXTRA_BASE_TIME", activeTimePrefs)
+                            putBoolean("EXTRA_SHOW_DROPDOWN", false) // Dilarang pakai Dropdown
+                        }
+                    }
+                    (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
+                }
+
                 val rowLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt()) }
                 val iconCircle = FrameLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
