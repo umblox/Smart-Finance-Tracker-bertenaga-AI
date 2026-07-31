@@ -16,7 +16,6 @@ data class TrendItem(
     val percentage: Int = 0 
 )
 
-// 🔥 STRUKTUR BARU: Untuk menyimpan daftar bulan di menu geser atas
 data class TimeNavItem(
     val label: String,
     val timeMillis: Long,
@@ -29,17 +28,11 @@ data class CategoryTrendUiState(
     val isExpenseMode: Boolean = true,
     val totalAmount: Double = 0.0,
     val dailyAverage: Double = 0.0,
-    
-    // 🔥 DATA BARU: Rata-rata 3 Bulan
     val avg3Month: Double = 0.0,
     val diffFromAvg: Double = 0.0,
     val isAvgVisible: Boolean = false,
-    
-    // 🔥 DATA BARU: Navigasi Waktu
     val timeNavItems: List<TimeNavItem> = emptyList(),
     val selectedTimeMillis: Long = 0L,
-
-    // Tab Data
     val breakdownItems: List<TrendItem> = emptyList(),
     val donutValues: List<Float> = emptyList(),
     val trendItems: List<TrendItem> = emptyList(),
@@ -53,7 +46,6 @@ class CategoryTrendViewModel : ViewModel() {
 
     init { repository.startListening() }
 
-    // 🔥 Fungsi untuk menyembunyikan/menampilkan angka perbandingan 3 bulan
     fun toggleAvgVisibility() {
         _uiState.update { it.copy(isAvgVisible = !it.isAvgVisible) }
     }
@@ -66,10 +58,8 @@ class CategoryTrendViewModel : ViewModel() {
                 val targetYear = cal.get(Calendar.YEAR)
                 val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-                // 1. Tentukan apakah ini mode pengeluaran atau pemasukan
                 val isExpense = targetMode == "ALL_EXPENSE" || allTx.find { it.categoryName == targetMode }?.type == "EXPENSE"
 
-                // 2. Filter transaksi HANYA untuk bulan yang dipilih dan target yang sesuai
                 val currentMonthTx = allTx.filter { tx ->
                     val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
                     val isSameMonth = txCal.get(Calendar.MONTH) == targetMonth && txCal.get(Calendar.YEAR) == targetYear
@@ -86,9 +76,6 @@ class CategoryTrendViewModel : ViewModel() {
                 val total = currentMonthTx.sumOf { it.amount }
                 val avg = if (daysInMonth > 0) total / daysInMonth else 0.0
 
-                // ==========================================
-                // 🔥 LOGIKA BARU: PERHITUNGAN RATA-RATA 3 BULAN
-                // ==========================================
                 var sum3Month = 0.0
                 for (i in 1..3) {
                     val pastCal = Calendar.getInstance().apply { 
@@ -113,15 +100,10 @@ class CategoryTrendViewModel : ViewModel() {
                 val avg3 = sum3Month / 3.0
                 val diffAvg = total - avg3
 
-                // ==========================================
-                // 🔥 LOGIKA BARU: GROUPING BREAKDOWN DINAMIS
-                // ==========================================
                 val isGlobalMode = targetMode == "ALL_EXPENSE" || targetMode == "ALL_INCOME"
                 val breakdownMap = if (isGlobalMode) {
-                    // Jika layar utama: Kelompokkan berdasarkan NAMA KATEGORI
                     currentMonthTx.groupBy { it.categoryName }
                 } else {
-                    // Jika layar spesifik: Kelompokkan berdasarkan CATATAN TRANSAKSI (Sub-kategori)
                     currentMonthTx.groupBy { it.note.ifBlank { "Tanpa Catatan" } }
                 }
 
@@ -133,9 +115,6 @@ class CategoryTrendViewModel : ViewModel() {
                     }
                 val donutVals = breakdownList.map { it.amount.toFloat() }
 
-                // ==========================================
-                // LOGIKA TREND MINGGUAN (Tetap sama)
-                // ==========================================
                 val trendList = mutableListOf<TrendItem>()
                 val barVals = mutableListOf<Float>()
                 val partitions = listOf(1..7, 8..14, 15..21, 22..daysInMonth)
@@ -165,7 +144,7 @@ class CategoryTrendViewModel : ViewModel() {
                     dailyAverage = avg,
                     avg3Month = avg3,
                     diffFromAvg = diffAvg,
-                    isAvgVisible = _uiState.value.isAvgVisible, // Pertahankan state mata (terbuka/tertutup)
+                    isAvgVisible = _uiState.value.isAvgVisible,
                     timeNavItems = generateTimeNav(baseTimeMillis),
                     selectedTimeMillis = baseTimeMillis,
                     breakdownItems = breakdownList,
@@ -177,21 +156,31 @@ class CategoryTrendViewModel : ViewModel() {
         }
     }
 
-    // 🔥 Fungsi untuk membuat daftar 5 bulan ke belakang untuk navigasi atas
-    private fun generateTimeNav(baseTimeMillis: Long): List<TimeNavItem> {
+    // 🔥 FIX: Mesin Waktu yang Selalu Akurat Relatif Terhadap "Sekarang"
+    private fun generateTimeNav(selectedTimeMillis: Long): List<TimeNavItem> {
         val list = mutableListOf<TimeNavItem>()
-        val nowCal = Calendar.getInstance()
-        val realMonth = nowCal.get(Calendar.MONTH)
-        val realYear = nowCal.get(Calendar.YEAR)
+        val realNow = Calendar.getInstance()
+        val realMonth = realNow.get(Calendar.MONTH)
+        val realYear = realNow.get(Calendar.YEAR)
 
-        // Mulai dari 4 bulan SEBELUM bulan yang dipilih
-        val iterCal = Calendar.getInstance().apply { 
-            timeInMillis = baseTimeMillis
+        val selCal = Calendar.getInstance().apply { timeInMillis = selectedTimeMillis }
+        val selMonth = selCal.get(Calendar.MONTH)
+        val selYear = selCal.get(Calendar.YEAR)
+
+        // Cari tahu seberapa jauh user melompat ke belakang
+        val diffYears = realYear - selYear
+        val diffMonths = (diffYears * 12) + (realMonth - selMonth)
+        
+        // Buat daftar statis sebanyak 24 bulan ke belakang. 
+        // Jika user melihat data 3 tahun lalu (diffMonths > 24), listnya diperpanjang otomatis
+        val totalTabs = maxOf(24, diffMonths + 6) 
+
+        val iterCal = Calendar.getInstance().apply {
             set(Calendar.DAY_OF_MONTH, 1)
-            add(Calendar.MONTH, -4)
+            add(Calendar.MONTH, -(totalTabs - 1))
         }
         
-        for (i in 0..4) {
+        for (i in 0 until totalTabs) {
             val m = iterCal.get(Calendar.MONTH)
             val y = iterCal.get(Calendar.YEAR)
             
@@ -201,8 +190,9 @@ class CategoryTrendViewModel : ViewModel() {
                 else -> "${String.format("%02d", m + 1)}/$y"
             }
             
-            // Item terakhir (ke-5) adalah bulan yang sedang dipilih
-            list.add(TimeNavItem(label, iterCal.timeInMillis, i == 4))
+            val isSelected = (m == selMonth && y == selYear)
+            list.add(TimeNavItem(label, iterCal.timeInMillis, isSelected))
+            
             iterCal.add(Calendar.MONTH, 1)
         }
         return list
