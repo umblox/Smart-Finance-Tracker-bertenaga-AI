@@ -74,7 +74,7 @@ class ReportFragment : Fragment() {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_INCOME")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true) // Rincian Pendapatan (Bisa di-switch)
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
@@ -85,7 +85,7 @@ class ReportFragment : Fragment() {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true) // Rincian Biaya (Bisa di-switch)
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
@@ -95,7 +95,7 @@ class ReportFragment : Fragment() {
         binding.btnLihatKategoriPenuh.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
-                    putString("EXTRA_TARGET_MODE", "AUTO_TOP_EXPENSE") 
+                    putString("EXTRA_TARGET_MODE", "AUTO_TOP_EXPENSE")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
                     putBoolean("EXTRA_SHOW_DROPDOWN", true) // DENGAN Dropdown untuk memilih kategori lain
                 }
