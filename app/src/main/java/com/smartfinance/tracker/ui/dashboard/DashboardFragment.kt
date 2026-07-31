@@ -51,7 +51,6 @@ class DashboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
-        
         aiViewModel = ViewModelProvider(requireActivity())[AiNotificationViewModel::class.java]
 
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
@@ -68,13 +67,15 @@ class DashboardFragment : Fragment() {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
         
-        // 🔥 FIX 1: Tombol "Lihat Analisis" murni membuka Rincian Biaya (Dengan Dropdown)
+        // 🔥 FIX: Tombol "Lihat Analisis" dari Dashboard -> Mode GLOBAL, TANPA Dropdown
         binding.btnLihatAnalisis.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
+                    putString("EXTRA_TARGET_TYPE", "GLOBAL")
                     putLong("EXTRA_BASE_TIME", activeTimePrefs)
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
+                    putBoolean("EXTRA_SHOW_DROPDOWN", false) 
+                    putBoolean("EXTRA_FROM_REPORT_MENU", false)
                 }
             }
             (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
@@ -98,9 +99,7 @@ class DashboardFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collect { state ->
-                renderDashboardUi(state)
-            }
+            viewModel.uiState.collect { state -> renderDashboardUi(state) }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -145,9 +144,7 @@ class DashboardFragment : Fragment() {
         binding.chartContainer.addView(chartVerticalLayout)
 
         binding.topExpenseContainer.removeAllViews()
-        
-        // Hapus klik keseluruhan card agar area list di bawahnya bisa diklik individu
-        binding.cardTopExpense.setOnClickListener(null)
+        binding.cardTopExpense.setOnClickListener(null) // Reset klik container
         
         if (state.topExpenses.isEmpty()) {
             for (i in 1..3) binding.topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong $i", "Belum ada alokasi dana.", density))
@@ -160,9 +157,20 @@ class DashboardFragment : Fragment() {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
                 }
                 
-                // 🔥 FIX: Klik baris Top Expense membuka Rincian Biaya (Level 1)
+                // 🔥 FIX: Baris spesifik diklik -> Buka Kategori, TANPA Dropdown
                 rowCard.setOnClickListener {
-                    binding.btnLihatAnalisis.performClick()
+                    val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                    val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
+                    val fragment = CategoryTrendReportFragment().apply {
+                        arguments = Bundle().apply {
+                            putString("EXTRA_TARGET_MODE", categoryName)
+                            putString("EXTRA_TARGET_TYPE", "CATEGORY")
+                            putLong("EXTRA_BASE_TIME", activeTimePrefs)
+                            putBoolean("EXTRA_SHOW_DROPDOWN", false) // KUNCI MATI
+                            putBoolean("EXTRA_FROM_REPORT_MENU", false)
+                        }
+                    }
+                    (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
                 }
 
                 val rowLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt()) }
@@ -219,26 +227,14 @@ class DashboardFragment : Fragment() {
         val density = requireContext().resources.displayMetrics.density
         if (activeFilter == "PERMINGGU") {
             binding.btnTabWeek.apply { 
-                setTextColor(Color.WHITE)
-                setTypeface(null, Typeface.BOLD)
-                background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(getThemeColor(R.color.primary)) } 
+                setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(getThemeColor(R.color.primary)) } 
             }
-            binding.btnTabMonth.apply { 
-                setTextColor(getThemeColor(R.color.text_secondary))
-                setTypeface(null, Typeface.NORMAL)
-                background = null 
-            }
+            binding.btnTabMonth.apply { setTextColor(getThemeColor(R.color.text_secondary)); setTypeface(null, Typeface.NORMAL); background = null }
         } else {
             binding.btnTabMonth.apply { 
-                setTextColor(Color.WHITE)
-                setTypeface(null, Typeface.BOLD)
-                background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(getThemeColor(R.color.primary)) } 
+                setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 8 * density; setColor(getThemeColor(R.color.primary)) } 
             }
-            binding.btnTabWeek.apply { 
-                setTextColor(getThemeColor(R.color.text_secondary))
-                setTypeface(null, Typeface.NORMAL)
-                background = null 
-            }
+            binding.btnTabWeek.apply { setTextColor(getThemeColor(R.color.text_secondary)); setTypeface(null, Typeface.NORMAL); background = null }
         }
     }
 
@@ -252,8 +248,5 @@ class DashboardFragment : Fragment() {
         return layout
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }
