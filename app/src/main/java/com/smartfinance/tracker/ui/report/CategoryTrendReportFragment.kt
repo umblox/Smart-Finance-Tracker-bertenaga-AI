@@ -29,7 +29,7 @@ class CategoryTrendReportFragment : Fragment() {
     private lateinit var viewModel: CategoryTrendViewModel
     
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private var isBreakdownTabActive = true // Status Toggle Pill
+    private var isBreakdownTabActive = true 
 
     private val chartColors = listOf(
         Color.parseColor("#14B8A6"), Color.parseColor("#F59E0B"), Color.parseColor("#3B82F6"),
@@ -66,18 +66,14 @@ class CategoryTrendReportFragment : Fragment() {
 
             binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
             
-            // DROPDOWN PEMILIH KATEGORI
             binding.btnDropdownCategory.setOnClickListener {
                 val state = viewModel.uiState.value
                 val options = mutableListOf<String>()
                 
                 options.add(if (state.isExpenseMode) "ALL_EXPENSE" else "ALL_INCOME")
                 
-                // Tambahkan daftar kategori yang ada di bulan ini, JIKA sedang di menu utama
                 if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
                     options.addAll(state.breakdownItems.map { it.label })
-                } else {
-                    // Jika sedang di mode spesifik, opsi utamanya adalah kembali ke Rincian
                 }
 
                 val displayOptions = options.map { 
@@ -96,12 +92,10 @@ class CategoryTrendReportFragment : Fragment() {
                     .show()
             }
 
-            // TOGGLE 3-MONTH AVG
             binding.btnToggleAvgVisibility.setOnClickListener {
                 viewModel.toggleAvgVisibility()
             }
 
-            // TOGGLE PILL TABS
             binding.btnTabBreakdown.setOnClickListener {
                 isBreakdownTabActive = true
                 updatePillUI()
@@ -146,23 +140,31 @@ class CategoryTrendReportFragment : Fragment() {
         val themeColor = ContextCompat.getColor(requireContext(), if (state.isExpenseMode) R.color.expense_red else R.color.income_green)
         
         binding.tvHeaderTitle.text = state.targetName
+        
+        // 🔥 FIX 2: Sembunyikan panah Dropdown jika sedang melihat kategori spesifik
+        if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
+            binding.iconDropdown.visibility = View.VISIBLE
+            binding.btnDropdownCategory.isClickable = true
+        } else {
+            binding.iconDropdown.visibility = View.GONE
+            binding.btnDropdownCategory.isClickable = false
+        }
+
         binding.tvTotalAmount.text = "$prefix${formatRupiah.format(state.totalAmount)}"
         binding.tvTotalAmount.setTextColor(themeColor)
         
         binding.tvDailyAvg.text = "$prefix${formatRupiah.format(state.dailyAverage)}"
         binding.tvDailyAvg.setTextColor(themeColor)
 
-        // RENDER NAVIGASI WAKTU (HORIZONTAL)
         renderTimeNav(state)
 
-        // RENDER KARTU 3-MONTH AVG
         if (state.isAvgVisible) {
             binding.btnToggleAvgVisibility.text = "👁 Hide"
             val diffPrefix = if (state.diffFromAvg > 0) "+" else ""
             binding.tv3MonthAvgDiff.text = "$diffPrefix${formatRupiah.format(state.diffFromAvg)}"
             binding.tv3MonthAvgDiff.setTextColor(
-                if (state.diffFromAvg > 0) ContextCompat.getColor(requireContext(), R.color.expense_red) // Boros = Merah
-                else ContextCompat.getColor(requireContext(), R.color.income_green) // Hemat = Hijau
+                if (state.diffFromAvg > 0) ContextCompat.getColor(requireContext(), R.color.expense_red) 
+                else ContextCompat.getColor(requireContext(), R.color.income_green) 
             )
         } else {
             binding.btnToggleAvgVisibility.text = "👁 Show"
@@ -180,6 +182,8 @@ class CategoryTrendReportFragment : Fragment() {
         binding.layoutTimeNavigation.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
         
+        var selectedTabView: View? = null
+        
         state.timeNavItems.forEach { navItem ->
             val tab = TextView(requireContext()).apply {
                 text = navItem.label
@@ -190,11 +194,12 @@ class CategoryTrendReportFragment : Fragment() {
                 if (navItem.isSelected) {
                     setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                     setTypeface(null, Typeface.BOLD)
-                    // Garis bawah hitam
                     background = android.graphics.drawable.LayerDrawable(arrayOf(
                         android.graphics.drawable.ColorDrawable(Color.TRANSPARENT),
                         android.graphics.drawable.ColorDrawable(ContextCompat.getColor(requireContext(), R.color.text_primary))
                     )).apply { setLayerInset(1, 0, (40 * density).toInt(), 0, 0) }
+                    
+                    selectedTabView = this // Tandai view yang terpilih
                 } else {
                     setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
                     setTypeface(null, Typeface.NORMAL)
@@ -203,15 +208,18 @@ class CategoryTrendReportFragment : Fragment() {
                 
                 setOnClickListener {
                     viewModel.loadData(state.targetMode, navItem.timeMillis)
-                    // Gulir otomatis agar tab yang diklik terlihat di tengah
-                    binding.scrollTimeNav.smoothScrollTo(this.left - (binding.scrollTimeNav.width / 2) + (this.width / 2), 0)
                 }
             }
             binding.layoutTimeNavigation.addView(tab)
         }
         
-        // Auto scroll ke akhir saat pertama kali render (Bulan Ini)
-        binding.scrollTimeNav.post { binding.scrollTimeNav.fullScroll(View.FOCUS_RIGHT) }
+        // 🔥 FIX 1: Auto-Scroll yang sempurna, langsung menggeser ke Tab yang dipilih
+        selectedTabView?.let { tab ->
+            binding.scrollTimeNav.post {
+                val scrollX = tab.left - (binding.scrollTimeNav.width / 2) + (tab.width / 2)
+                binding.scrollTimeNav.scrollTo(scrollX, 0)
+            }
+        }
     }
 
     private fun renderVisualMode() {
@@ -248,27 +256,23 @@ class CategoryTrendReportFragment : Fragment() {
                     
                     if (isBreakdown) {
                         if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
-                            // DRILL-DOWN LEVEL 2: Masuk ke spesifik kategori
                             val fragment = CategoryTrendReportFragment().apply {
                                 arguments = Bundle().apply {
-                                    putString("EXTRA_TARGET_MODE", item.label) // Kirim nama kategorinya
+                                    putString("EXTRA_TARGET_MODE", item.label) 
                                     putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
                                 }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         } else {
-                            // Jika sudah di dalam kategori spesifik, masuk ke riwayat transaksinya (Catatan/Sub)
                             val fragment = CategoryAnalyticsFragment().apply {
                                 arguments = Bundle().apply {
                                     putString("EXTRA_CATEGORY_NAME", state.targetMode)
                                     putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
-                                    // Optional: Bisa ditambahkan filter by Note di CategoryAnalytics nanti
                                 }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         }
                     } else {
-                        // DRILL-DOWN LEVEL 3 (Trend): Masuk ke daftar transaksi berdasar tanggal
                         val fragment = CategoryAnalyticsFragment().apply {
                             arguments = Bundle().apply {
                                 putString("EXTRA_CATEGORY_NAME", state.targetName)
