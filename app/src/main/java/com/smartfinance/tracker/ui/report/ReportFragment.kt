@@ -107,6 +107,37 @@ class ReportFragment : Fragment() {
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
+
+        // 🔥 FIX: Aksi klik Card Hutang, Piutang, Lainnya
+        (binding.tvHutangVal.parent as? View)?.setOnClickListener {
+            val fragment = CategoryAnalyticsFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_CATEGORY_NAME", "FILTER_HUTANG")
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
+        }
+
+        (binding.tvPiutangVal.parent as? View)?.setOnClickListener {
+            val fragment = CategoryAnalyticsFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_CATEGORY_NAME", "FILTER_PIUTANG")
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
+        }
+
+        (binding.tvLainnyaVal.parent as? View)?.setOnClickListener {
+            val fragment = CategoryAnalyticsFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_CATEGORY_NAME", "FILTER_LAINNYA")
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
+        }
     }
 
     private fun renderReportUi(state: ReportUiState) {
