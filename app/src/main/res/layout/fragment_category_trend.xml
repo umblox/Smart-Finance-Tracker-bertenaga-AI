@@ -193,8 +193,9 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 🔥 FIX DARK MODE PILL CONTAINER -->
+            <!-- 🔥 FIX DARK MODE PILL CONTAINER DENGAN ID BARU -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPillToggle"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
                 android:layout_marginBottom="24dp"
