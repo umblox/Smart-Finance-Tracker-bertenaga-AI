@@ -16,8 +16,8 @@ data class TimeNavItem(val label: String, val timeMillis: Long, val isSelected: 
 data class CategoryTrendUiState(
     val targetName: String = "Rincian Biaya",
     val targetMode: String = "ALL_EXPENSE",
-    val targetType: String = "GLOBAL", // 🔥 BARU: GLOBAL, CATEGORY, atau NOTE
-    val parentCategory: String = "",   // 🔥 BARU: Untuk mengingat kategori induk saat di mode NOTE
+    val targetType: String = "GLOBAL", 
+    val parentCategory: String = "",   
     val isExpenseMode: Boolean = true,
     val totalAmount: Double = 0.0,
     val dailyAverage: Double = 0.0,
@@ -50,28 +50,39 @@ class CategoryTrendViewModel : ViewModel() {
                 val targetYear = cal.get(Calendar.YEAR)
                 val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
+                // Transaksi HANYA bulan ini
                 val currentMonthTxAll = allTx.filter { tx ->
                     val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
                     txCal.get(Calendar.MONTH) == targetMonth && txCal.get(Calendar.YEAR) == targetYear
                 }
 
+                // 🔥 FIX 1: Logika Fallback Cerdas (Mencegah "ALL_EXPENSE" di Laporan Kategori)
                 var actualTargetMode = initialTargetMode
                 if (initialTargetMode == "AUTO_TOP_EXPENSE") {
+                    // Cari pengeluaran terbesar di BULAN INI
                     val topCat = currentMonthTxAll.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
                         .groupBy { it.categoryName }.mapValues { it.value.sumOf { tx -> tx.amount } }
                         .maxByOrNull { it.value }?.key
-                    actualTargetMode = topCat ?: "ALL_EXPENSE"
+                    
+                    if (topCat != null) {
+                        actualTargetMode = topCat
+                    } else {
+                        // JIKA BULAN INI KOSONG: Ambil salah satu kategori dari seluruh histori database
+                        val fallbackCat = allTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
+                            .map { it.categoryName }.firstOrNull()
+                        actualTargetMode = fallbackCat ?: "Belum ada Kategori" 
+                    }
                 }
 
-                // Tentukan Mode Pemasukan/Pengeluaran
                 val isExpense = if (targetType == "GLOBAL") actualTargetMode == "ALL_EXPENSE" 
-                                else allTx.find { it.categoryName == (if (targetType == "NOTE") parentCategory else actualTargetMode) }?.type == "EXPENSE"
+                                else allTx.find { it.categoryName == (if (targetType == "NOTE") parentCategory else actualTargetMode) }?.type == "EXPENSE" ?: true
 
-                val availableCategoriesList = currentMonthTxAll.filter { tx ->
+                // 🔥 FIX 2: Dropdown selalu terisi oleh seluruh kategori dari DATABASE (bukan hanya bulan ini) 
+                // Agar dropdown tidak pernah kosong meskipun bulan tersebut belum ada transaksi.
+                val availableCategoriesList = allTx.filter { tx ->
                     if (isExpense) (tx.type == "EXPENSE" || tx.type == "RECEIVABLE") else (tx.type == "INCOME" || tx.type == "DEBT")
                 }.map { it.categoryName }.distinct().sorted()
 
-                // 🔥 LOGIKA FILTERING 3 LEVEL
                 val currentMonthTx = currentMonthTxAll.filter { tx ->
                     when (targetType) {
                         "GLOBAL" -> if (actualTargetMode == "ALL_EXPENSE") tx.type == "EXPENSE" || tx.type == "RECEIVABLE" else tx.type == "INCOME" || tx.type == "DEBT"
@@ -84,7 +95,6 @@ class CategoryTrendViewModel : ViewModel() {
                 val total = currentMonthTx.sumOf { it.amount }
                 val avg = if (daysInMonth > 0) total / daysInMonth else 0.0
 
-                // Hitung Rata-rata 3 Bulan (Sesuai Konteks Level)
                 var sum3Month = 0.0
                 for (i in 1..3) {
                     val pastCal = Calendar.getInstance().apply { timeInMillis = baseTimeMillis; add(Calendar.MONTH, -i) }
@@ -104,11 +114,10 @@ class CategoryTrendViewModel : ViewModel() {
                 }
                 val avg3 = sum3Month / 3.0
 
-                // Breakdown Logic (Hanya untuk Level 1 & 2)
                 val breakdownMap = when (targetType) {
                     "GLOBAL" -> currentMonthTx.groupBy { it.categoryName }
                     "CATEGORY" -> currentMonthTx.groupBy { it.note.ifBlank { "Tanpa Catatan" } }
-                    else -> emptyMap() // Level 3 tidak butuh donat pie chart
+                    else -> emptyMap() 
                 }
 
                 val breakdownList = breakdownMap.mapValues { it.value.sumOf { tx -> tx.amount } }.toList()
@@ -116,7 +125,6 @@ class CategoryTrendViewModel : ViewModel() {
                     .map { (name, amt) -> TrendItem(name, amt, if (total > 0) ((amt / total) * 100).toInt() else 0) }
                 val donutVals = breakdownList.map { it.amount.toFloat() }
 
-                // Trend Logic (Bar Chart Mingguan)
                 val trendList = mutableListOf<TrendItem>()
                 val barVals = mutableListOf<Float>()
                 val partitions = listOf(1..7, 8..14, 15..21, 22..daysInMonth)
