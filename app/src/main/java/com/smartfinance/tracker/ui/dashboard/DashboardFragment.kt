@@ -68,7 +68,7 @@ class DashboardFragment : Fragment() {
             (activity as? MainActivity)?.navigateToSpecificFragment(ReportFragment())
         }
         
-        // 🔥 FIX 1: Lihat Analisis membuka "Rincian Biaya" (Overview) DENGAN Dropdown
+        // 🔥 FIX 1: Tombol "Lihat Analisis" murni membuka Rincian Biaya (Dengan Dropdown)
         binding.btnLihatAnalisis.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
@@ -78,10 +78,6 @@ class DashboardFragment : Fragment() {
                 }
             }
             (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
-        }
-        
-        binding.cardTopExpense.setOnClickListener {
-            binding.btnLihatAnalisis.performClick()
         }
 
         binding.btnLihatSemua.setOnClickListener {
@@ -149,6 +145,10 @@ class DashboardFragment : Fragment() {
         binding.chartContainer.addView(chartVerticalLayout)
 
         binding.topExpenseContainer.removeAllViews()
+        
+        // Hapus klik keseluruhan card agar area list di bawahnya bisa diklik individu
+        binding.cardTopExpense.setOnClickListener(null)
+        
         if (state.topExpenses.isEmpty()) {
             for (i in 1..3) binding.topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong $i", "Belum ada alokasi dana.", density))
         } else {
@@ -160,7 +160,7 @@ class DashboardFragment : Fragment() {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
                 }
                 
-                // 🔥 FIX 2: Klik baris Top Expense membuka Kategori TANPA Dropdown
+                // 🔥 FIX 2: Klik baris spesifik membuka Laporan Kategori TANPA Dropdown
                 rowCard.setOnClickListener {
                     val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                     val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
@@ -168,7 +168,7 @@ class DashboardFragment : Fragment() {
                         arguments = Bundle().apply {
                             putString("EXTRA_TARGET_MODE", categoryName)
                             putLong("EXTRA_BASE_TIME", activeTimePrefs)
-                            putBoolean("EXTRA_SHOW_DROPDOWN", false) // Dilarang pakai Dropdown
+                            putBoolean("EXTRA_SHOW_DROPDOWN", false) // Dropdown dimatikan
                         }
                     }
                     (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
