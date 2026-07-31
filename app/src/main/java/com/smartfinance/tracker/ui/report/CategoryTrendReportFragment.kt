@@ -61,11 +61,9 @@ class CategoryTrendReportFragment : Fragment() {
 
         viewModel.loadData(targetMode, targetType, baseTime, parentCat)
 
-        // Binding tombol kembali untuk kedua Header
         binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
         binding.btnBackReport.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
         
-        // Binding tombol Dropdown untuk kedua Header
         binding.btnDropdownCategory.setOnClickListener { showCategoryDropdown(viewModel.uiState.value) }
         binding.btnDropdownCategoryReport.setOnClickListener { showCategoryDropdown(viewModel.uiState.value) }
 
@@ -79,13 +77,12 @@ class CategoryTrendReportFragment : Fragment() {
         }
     }
     
-    // Fungsi khusus untuk menampilkan dialog Dropdown (Dipakai oleh Header 1 dan 2)
     private fun showCategoryDropdown(state: CategoryTrendUiState?) {
         if (state == null) return
         val options = state.availableCategories.toTypedArray()
         
         if (options.isEmpty()) {
-            Toast.makeText(requireContext(), "Tidak ada kategori lain di bulan ini", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Tidak ada kategori lain.", Toast.LENGTH_SHORT).show()
             return
         }
         android.app.AlertDialog.Builder(requireContext())
@@ -113,22 +110,20 @@ class CategoryTrendReportFragment : Fragment() {
         val prefix = if (state.isExpenseMode) "-" else "+"
         val themeColor = ContextCompat.getColor(requireContext(), if (state.isExpenseMode) R.color.expense_red else R.color.income_green)
         
-        // 🔥 LOGIKA WAJAH BUNG LON: Tentukan Header Mana Yang Tampil
         val isReportMenu = arguments?.getBoolean("EXTRA_FROM_REPORT_MENU", false) ?: false
-        val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", true) ?: true
+        val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", false) ?: false
 
         if (isReportMenu) {
-            // TAMPILKAN GAYA: Laporan Kategori (Pill Dropdown)
             binding.headerModeGlobal.visibility = View.GONE
             binding.headerModeCategoryReport.visibility = View.VISIBLE
             binding.tvCategoryReportPillName.text = state.targetName
+            binding.btnDropdownCategoryReport.isClickable = allowDropdown
         } else {
-            // TAMPILKAN GAYA: Dashboard (Rincian Biaya / Spesifik Kategori biasa)
             binding.headerModeGlobal.visibility = View.VISIBLE
             binding.headerModeCategoryReport.visibility = View.GONE
             binding.tvHeaderTitle.text = state.targetName
             
-            if (allowDropdown && state.targetType == "CATEGORY") {
+            if (allowDropdown) {
                 binding.iconDropdown.visibility = View.VISIBLE
                 binding.btnDropdownCategory.isClickable = true
             } else {
@@ -148,10 +143,7 @@ class CategoryTrendReportFragment : Fragment() {
             binding.btnToggleAvgVisibility.text = "👁 Hide"
             val diffPrefix = if (state.diffFromAvg > 0) "+" else ""
             binding.tv3MonthAvgDiff.text = "$diffPrefix${formatRupiah.format(state.diffFromAvg)}"
-            binding.tv3MonthAvgDiff.setTextColor(
-                if (state.diffFromAvg > 0) ContextCompat.getColor(requireContext(), R.color.expense_red) 
-                else ContextCompat.getColor(requireContext(), R.color.income_green) 
-            )
+            binding.tv3MonthAvgDiff.setTextColor(if (state.diffFromAvg > 0) ContextCompat.getColor(requireContext(), R.color.expense_red) else ContextCompat.getColor(requireContext(), R.color.income_green))
         } else {
             binding.btnToggleAvgVisibility.text = "👁 Show"
             binding.tv3MonthAvgDiff.text = "******"
@@ -238,15 +230,32 @@ class CategoryTrendReportFragment : Fragment() {
                 setOnClickListener {
                     val state = viewModel.uiState.value
                     
+                    // 🔥 FIX 3: Ambil Bendera Dropdown dan Report dari Layar Sekarang
+                    val isReportMenu = arguments?.getBoolean("EXTRA_FROM_REPORT_MENU", false) ?: false
+                    val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", false) ?: false
+                    
                     if (isBreakdown) {
                         if (state.targetType == "GLOBAL") {
                             val fragment = CategoryTrendReportFragment().apply {
-                                arguments = Bundle().apply { putString("EXTRA_TARGET_MODE", item.label); putString("EXTRA_TARGET_TYPE", "CATEGORY"); putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) }
+                                arguments = Bundle().apply { 
+                                    putString("EXTRA_TARGET_MODE", item.label)
+                                    putString("EXTRA_TARGET_TYPE", "CATEGORY")
+                                    putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) 
+                                    putBoolean("EXTRA_SHOW_DROPDOWN", allowDropdown)
+                                    putBoolean("EXTRA_FROM_REPORT_MENU", isReportMenu)
+                                }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         } else if (state.targetType == "CATEGORY") {
                             val fragment = CategoryTrendReportFragment().apply {
-                                arguments = Bundle().apply { putString("EXTRA_TARGET_MODE", item.label); putString("EXTRA_TARGET_TYPE", "NOTE"); putString("EXTRA_PARENT_CATEGORY", state.targetMode); putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) }
+                                arguments = Bundle().apply { 
+                                    putString("EXTRA_TARGET_MODE", item.label)
+                                    putString("EXTRA_TARGET_TYPE", "NOTE")
+                                    putString("EXTRA_PARENT_CATEGORY", state.targetMode)
+                                    putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) 
+                                    putBoolean("EXTRA_SHOW_DROPDOWN", false) // Note mode tidak pernah pakai dropdown
+                                    putBoolean("EXTRA_FROM_REPORT_MENU", isReportMenu)
+                                }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         }
