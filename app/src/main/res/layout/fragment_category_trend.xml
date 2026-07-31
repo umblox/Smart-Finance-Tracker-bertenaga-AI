@@ -1,80 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView 
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color"
-    android:fillViewport="true">
+    android:orientation="vertical">
 
+    <!-- 1. TOOLBAR & DROPDOWN PEMILIH KATEGORI -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="16dp">
 
-        <!-- Toolbar dengan Dropdown -->
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="4dp"
+            android:src="@android:drawable/ic_menu_revert"
+            app:tint="@color/text_primary" />
+
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/btnDropdownCategory"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="16dp">
+            android:padding="8dp">
+
+            <TextView
+                android:id="@+id/tvHeaderTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Rincian Biaya"
+                android:textColor="@color/text_primary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <ImageView
-                android:id="@+id/btnBack"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@android:drawable/ic_menu_revert"
-                app:tint="@color/text_primary"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"/>
-
-            <!-- Area Judul Dropdown -->
-            <LinearLayout
-                android:id="@+id/btnDropdownCategory"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true">
-                
-                <TextView
-                    android:id="@+id/tvHeaderTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Rincian Biaya"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-                
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text=" ⌄"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <View android:layout_width="32dp" android:layout_height="32dp" /> <!-- Spacer keseimbangan -->
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginStart="4dp"
+                android:src="@android:drawable/arrow_down_float"
+                app:tint="@color/text_secondary" />
         </LinearLayout>
 
-        <!-- Summary & Tabs -->
+        <View android:layout_width="32dp" android:layout_height="32dp" />
+    </LinearLayout>
+
+    <!-- 2. NAVIGASI WAKTU (HORIZONTAL SCROLL) -->
+    <HorizontalScrollView
+        android:id="@+id/scrollTimeNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/layoutTimeNavigation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp" />
+    </HorizontalScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider_color" />
+
+    <!-- 3. AREA KONTEN UTAMA -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="16dp">
+            android:padding="16dp">
 
+            <!-- TOTAL & RATA-RATA -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:baselineAligned="false"
                 android:orientation="horizontal">
-                
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -85,100 +107,162 @@
                         android:layout_height="wrap_content"
                         android:text="Total"
                         android:textColor="@color/text_secondary"
-                        android:textSize="14sp" />
+                        android:textSize="13sp" />
                     <TextView
                         android:id="@+id/tvTotalAmount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="-Rp 0"
                         android:textColor="@color/expense_red"
-                        android:textSize="20sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="end">
+                    android:layout_weight="1"
+                    android:gravity="end"
+                    android:orientation="vertical">
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Rata-rata harian"
                         android:textColor="@color/text_secondary"
-                        android:textSize="14sp" />
+                        android:textSize="13sp" />
                     <TextView
                         android:id="@+id/tvDailyAvg"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="-Rp 0"
                         android:textColor="@color/expense_red"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Toggle Breakdown vs Trend -->
-            <com.google.android.material.button.MaterialButtonToggleGroup
-                android:id="@+id/toggleReportMode"
+            <!-- KARTU PERBANDINGAN 3 BULAN -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="45dp"
-                android:layout_marginTop="24dp"
-                app:singleSelection="true"
-                app:checkedButton="@+id/btnModeBreakdown"
-                android:gravity="center">
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="#F8F9FA"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/divider_color">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnModeBreakdown"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Compared to 3-Month Avg"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/btnToggleAvgVisibility"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="👁 Show"
+                            android:textColor="@color/income_green"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"/>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tv3MonthAvgDiff"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="******"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- TOGGLE PILL (BREAKDOWN / TREND) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="#F0F0F0"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:text="Breakdown" />
+                    android:orientation="horizontal"
+                    android:padding="4dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnModeTrend"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:text="Trend" />
-            </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <TextView
+                        android:id="@+id/btnTabBreakdown"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_pill_active"
+                        android:gravity="center"
+                        android:text="Breakdown"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
 
-            <!-- Container Visualisasi (Donat / Bar Chart) -->
+                    <TextView
+                        android:id="@+id/btnTabTrend"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:gravity="center"
+                        android:text="Trend"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- CONTAINER GRAFIK -->
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginTop="24dp"
+                android:layout_height="250dp"
                 android:layout_marginBottom="16dp">
 
-                <!-- Donut Chart -->
-                <com.smartfinance.tracker.ui.report.DonutPieChartView
+                <com.smartfinance.tracker.ui.report.DonutBreakdownChartView
                     android:id="@+id/chartBreakdownDonut"
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
-                    android:layout_gravity="center" />
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
 
-                <!-- Trend Bar Chart (Sembunyi by default) -->
                 <com.smartfinance.tracker.ui.report.TrendBarChartView
                     android:id="@+id/chartTrendBar"
                     android:layout_width="match_parent"
-                    android:layout_height="180dp"
-                    android:layout_gravity="bottom"
+                    android:layout_height="match_parent"
                     android:visibility="gone" />
             </FrameLayout>
 
-            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color" />
+            <!-- DAFTAR KATEGORI / LIST ITEMS -->
+            <LinearLayout
+                android:id="@+id/listContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="32dp" />
+
         </LinearLayout>
-
-        <!-- Daftar List Dinamis (Kategori / Rentang Waktu) -->
-        <LinearLayout
-            android:id="@+id/listContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingBottom="32dp" />
-
-    </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>
