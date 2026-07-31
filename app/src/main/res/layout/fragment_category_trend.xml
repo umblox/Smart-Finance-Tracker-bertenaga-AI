@@ -6,7 +6,11 @@
     android:background="@color/background_color"
     android:orientation="vertical">
 
+    <!-- ============================================== -->
+    <!-- HEADER 1: GAYA DASHBOARD (Rincian Biaya)       -->
+    <!-- ============================================== -->
     <LinearLayout
+        android:id="@+id/headerModeGlobal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
@@ -45,7 +49,6 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <!-- 🔥 TAMBAHAN ID ICON DROPDOWN -->
             <ImageView
                 android:id="@+id/iconDropdown"
                 android:layout_width="18dp"
@@ -58,6 +61,90 @@
         <View android:layout_width="32dp" android:layout_height="32dp" />
     </LinearLayout>
 
+    <!-- ============================================== -->
+    <!-- HEADER 2: GAYA MENU REPORT (Laporan Kategori)  -->
+    <!-- ============================================== -->
+    <LinearLayout
+        android:id="@+id/headerModeCategoryReport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+            
+            <ImageView
+                android:id="@+id/btnBackReport"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@android:drawable/ic_menu_revert"
+                app:tint="@color/text_primary" />
+                
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Laporan kategori"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Kotak Pill Dropdown Kategori -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnDropdownCategoryReport"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/surface_white"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/divider_color"
+            app:strokeWidth="1dp">
+            
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp">
+                <TextView
+                    android:id="@+id/tvCategoryReportPillName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Perawatan Motor"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@android:drawable/arrow_down_float"
+                    app:tint="@color/text_secondary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <!-- ============================================== -->
+    <!-- KONTEN BAWAH (Navigasi Waktu, Chart, List)     -->
+    <!-- ============================================== -->
     <HorizontalScrollView
         android:id="@+id/scrollTimeNav"
         android:layout_width="match_parent"
@@ -139,7 +226,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- 🔥 FIX DARK MODE CARD -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -193,7 +279,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 🔥 FIX DARK MODE PILL CONTAINER DENGAN ID BARU -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardPillToggle"
                 android:layout_width="match_parent"
