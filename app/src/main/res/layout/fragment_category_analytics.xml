@@ -26,6 +26,7 @@
             app:tint="@color/text_primary" />
 
         <TextView
+            android:id="@+id/tvCategoryTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
@@ -110,7 +111,7 @@
         android:fillViewport="true">
 
         <LinearLayout
-            android:id="@+id/listContainer"
+            android:id="@+id/transactionListContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
