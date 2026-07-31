@@ -141,8 +141,10 @@ class CategoryTrendReportFragment : Fragment() {
         
         binding.tvHeaderTitle.text = state.targetName
         
-        // 🔥 FIX 2: Sembunyikan panah Dropdown jika sedang melihat kategori spesifik
-        if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
+        // 🔥 FIX 4: Baca bendera izin Dropdown dari Fragment Pengirim
+        val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", true) ?: true
+        
+        if (allowDropdown) {
             binding.iconDropdown.visibility = View.VISIBLE
             binding.btnDropdownCategory.isClickable = true
         } else {
