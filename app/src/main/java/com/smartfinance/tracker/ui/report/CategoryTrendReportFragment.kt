@@ -29,10 +29,12 @@ class CategoryTrendReportFragment : Fragment() {
     private lateinit var viewModel: CategoryTrendViewModel
     
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    private var isBreakdownTabActive = true // Status Toggle Pill
 
     private val chartColors = listOf(
         Color.parseColor("#14B8A6"), Color.parseColor("#F59E0B"), Color.parseColor("#3B82F6"),
-        Color.parseColor("#EC4899"), Color.parseColor("#8B5CF6"), Color.parseColor("#10B981")
+        Color.parseColor("#EC4899"), Color.parseColor("#8B5CF6"), Color.parseColor("#10B981"),
+        Color.parseColor("#EF4444"), Color.parseColor("#84CC16"), Color.parseColor("#06B6D4")
     )
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -64,33 +66,51 @@ class CategoryTrendReportFragment : Fragment() {
 
             binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
             
+            // DROPDOWN PEMILIH KATEGORI
             binding.btnDropdownCategory.setOnClickListener {
                 val state = viewModel.uiState.value
                 val options = mutableListOf<String>()
                 
                 options.add(if (state.isExpenseMode) "ALL_EXPENSE" else "ALL_INCOME")
-                val categoryNames = state.breakdownItems.map { it.label }
-                options.addAll(categoryNames)
+                
+                // Tambahkan daftar kategori yang ada di bulan ini, JIKA sedang di menu utama
+                if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
+                    options.addAll(state.breakdownItems.map { it.label })
+                } else {
+                    // Jika sedang di mode spesifik, opsi utamanya adalah kembali ke Rincian
+                }
 
                 val displayOptions = options.map { 
                     when (it) {
-                        "ALL_EXPENSE" -> "Semua Pengeluaran (Utama)"
-                        "ALL_INCOME" -> "Semua Pendapatan (Utama)"
+                        "ALL_EXPENSE" -> "Rincian Biaya (Semua)"
+                        "ALL_INCOME" -> "Rincian Pendapatan (Semua)"
                         else -> it
                     }
                 }.toTypedArray()
 
                 android.app.AlertDialog.Builder(requireContext())
-                    .setTitle("Pilih Kategori Laporan")
                     .setItems(displayOptions) { _, which ->
                         val selectedTarget = options[which]
-                        viewModel.loadData(selectedTarget, baseTime) 
+                        viewModel.loadData(selectedTarget, state.selectedTimeMillis) 
                     }
                     .show()
             }
 
-            binding.toggleReportMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
-                if (isChecked) renderVisualMode(checkedId == R.id.btnModeBreakdown)
+            // TOGGLE 3-MONTH AVG
+            binding.btnToggleAvgVisibility.setOnClickListener {
+                viewModel.toggleAvgVisibility()
+            }
+
+            // TOGGLE PILL TABS
+            binding.btnTabBreakdown.setOnClickListener {
+                isBreakdownTabActive = true
+                updatePillUI()
+                renderVisualMode()
+            }
+            binding.btnTabTrend.setOnClickListener {
+                isBreakdownTabActive = false
+                updatePillUI()
+                renderVisualMode()
             }
 
             viewLifecycleOwner.lifecycleScope.launch {
@@ -107,6 +127,20 @@ class CategoryTrendReportFragment : Fragment() {
         }
     }
 
+    private fun updatePillUI() {
+        if (isBreakdownTabActive) {
+            binding.btnTabBreakdown.setBackgroundResource(R.drawable.bg_pill_active)
+            binding.btnTabBreakdown.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+            binding.btnTabTrend.setBackgroundColor(Color.TRANSPARENT)
+            binding.btnTabTrend.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+        } else {
+            binding.btnTabTrend.setBackgroundResource(R.drawable.bg_pill_active)
+            binding.btnTabTrend.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+            binding.btnTabBreakdown.setBackgroundColor(Color.TRANSPARENT)
+            binding.btnTabBreakdown.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+        }
+    }
+
     private fun renderUi(state: CategoryTrendUiState) {
         val prefix = if (state.isExpenseMode) "-" else "+"
         val themeColor = ContextCompat.getColor(requireContext(), if (state.isExpenseMode) R.color.expense_red else R.color.income_green)
@@ -118,16 +152,71 @@ class CategoryTrendReportFragment : Fragment() {
         binding.tvDailyAvg.text = "$prefix${formatRupiah.format(state.dailyAverage)}"
         binding.tvDailyAvg.setTextColor(themeColor)
 
+        // RENDER NAVIGASI WAKTU (HORIZONTAL)
+        renderTimeNav(state)
+
+        // RENDER KARTU 3-MONTH AVG
+        if (state.isAvgVisible) {
+            binding.btnToggleAvgVisibility.text = "👁 Hide"
+            val diffPrefix = if (state.diffFromAvg > 0) "+" else ""
+            binding.tv3MonthAvgDiff.text = "$diffPrefix${formatRupiah.format(state.diffFromAvg)}"
+            binding.tv3MonthAvgDiff.setTextColor(
+                if (state.diffFromAvg > 0) ContextCompat.getColor(requireContext(), R.color.expense_red) // Boros = Merah
+                else ContextCompat.getColor(requireContext(), R.color.income_green) // Hemat = Hijau
+            )
+        } else {
+            binding.btnToggleAvgVisibility.text = "👁 Show"
+            binding.tv3MonthAvgDiff.text = "******"
+            binding.tv3MonthAvgDiff.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+        }
+
         binding.chartBreakdownDonut.setChartData(state.donutValues, chartColors)
         binding.chartTrendBar.setChartData(state.trendBarValues, state.isExpenseMode)
 
-        val isBreakdown = binding.toggleReportMode.checkedButtonId == R.id.btnModeBreakdown
-        renderVisualMode(isBreakdown)
+        renderVisualMode()
     }
 
-    private fun renderVisualMode(isBreakdown: Boolean) {
-        val state = viewModel.uiState.value
-        if (isBreakdown) {
+    private fun renderTimeNav(state: CategoryTrendUiState) {
+        binding.layoutTimeNavigation.removeAllViews()
+        val density = requireContext().resources.displayMetrics.density
+        
+        state.timeNavItems.forEach { navItem ->
+            val tab = TextView(requireContext()).apply {
+                text = navItem.label
+                textSize = 13f
+                isAllCaps = true
+                setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
+                
+                if (navItem.isSelected) {
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                    setTypeface(null, Typeface.BOLD)
+                    // Garis bawah hitam
+                    background = android.graphics.drawable.LayerDrawable(arrayOf(
+                        android.graphics.drawable.ColorDrawable(Color.TRANSPARENT),
+                        android.graphics.drawable.ColorDrawable(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                    )).apply { setLayerInset(1, 0, (40 * density).toInt(), 0, 0) }
+                } else {
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+                    setTypeface(null, Typeface.NORMAL)
+                    background = null
+                }
+                
+                setOnClickListener {
+                    viewModel.loadData(state.targetMode, navItem.timeMillis)
+                    // Gulir otomatis agar tab yang diklik terlihat di tengah
+                    binding.scrollTimeNav.smoothScrollTo(this.left - (binding.scrollTimeNav.width / 2) + (this.width / 2), 0)
+                }
+            }
+            binding.layoutTimeNavigation.addView(tab)
+        }
+        
+        // Auto scroll ke akhir saat pertama kali render (Bulan Ini)
+        binding.scrollTimeNav.post { binding.scrollTimeNav.fullScroll(View.FOCUS_RIGHT) }
+    }
+
+    private fun renderVisualMode() {
+        val state = viewModel.uiState.value ?: return
+        if (isBreakdownTabActive) {
             binding.chartBreakdownDonut.visibility = View.VISIBLE
             binding.chartTrendBar.visibility = View.GONE
             renderList(state.breakdownItems, state.isExpenseMode, showPercentage = true, isBreakdown = true)
@@ -156,31 +245,38 @@ class CategoryTrendReportFragment : Fragment() {
                 
                 setOnClickListener {
                     val state = viewModel.uiState.value
-                    val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
                     
                     if (isBreakdown) {
-                        val fragment = CategoryTrendReportFragment().apply {
-                            arguments = Bundle().apply {
-                                putString("EXTRA_TARGET_MODE", item.label)
-                                putLong("EXTRA_BASE_TIME", baseTime)
+                        if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
+                            // DRILL-DOWN LEVEL 2: Masuk ke spesifik kategori
+                            val fragment = CategoryTrendReportFragment().apply {
+                                arguments = Bundle().apply {
+                                    putString("EXTRA_TARGET_MODE", item.label) // Kirim nama kategorinya
+                                    putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
+                                }
                             }
-                        }
-                        (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
-                        
-                    } else {
-                        // 🔥 FIX: Arahkan ke CategoryAnalyticsFragment dengan parameter rentang tanggal (EXTRA_DAY_RANGE)
-                        if (state.targetName == "Rincian Biaya" || state.targetName == "Rincian Pendapatan") {
-                            Toast.makeText(context, "Silakan pilih spesifik Kategori di tab Breakdown terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         } else {
+                            // Jika sudah di dalam kategori spesifik, masuk ke riwayat transaksinya (Catatan/Sub)
                             val fragment = CategoryAnalyticsFragment().apply {
                                 arguments = Bundle().apply {
-                                    putString("EXTRA_CATEGORY_NAME", state.targetName)
-                                    putLong("EXTRA_BASE_TIME", baseTime)
-                                    putString("EXTRA_DAY_RANGE", item.label)
+                                    putString("EXTRA_CATEGORY_NAME", state.targetMode)
+                                    putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
+                                    // Optional: Bisa ditambahkan filter by Note di CategoryAnalytics nanti
                                 }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         }
+                    } else {
+                        // DRILL-DOWN LEVEL 3 (Trend): Masuk ke daftar transaksi berdasar tanggal
+                        val fragment = CategoryAnalyticsFragment().apply {
+                            arguments = Bundle().apply {
+                                putString("EXTRA_CATEGORY_NAME", state.targetName)
+                                putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
+                                putString("EXTRA_DAY_RANGE", item.label)
+                            }
+                        }
+                        (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                     }
                 }
             }
