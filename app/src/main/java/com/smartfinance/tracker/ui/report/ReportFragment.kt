@@ -60,7 +60,6 @@ class ReportFragment : Fragment() {
     }
     
     private fun setupNavigationListeners() {
-        // [Fase 4] Menuju Detail Ringkasan (Pemasukan Bersih)
         binding.btnDetailPemasukanBersih.setOnClickListener {
             val fragment = NetIncomeDetailFragment().apply {
                 arguments = Bundle().apply {
@@ -70,36 +69,42 @@ class ReportFragment : Fragment() {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // [Fase 2] Menuju Rincian Pendapatan (Menuju Layar Dinamis Baru)
         binding.btnBoxIncome.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_INCOME")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) // Rincian Pendapatan (Bisa di-switch)
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // [Fase 2] Menuju Rincian Biaya (Menuju Layar Dinamis Baru)
         binding.btnBoxExpense.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) // Rincian Biaya (Bisa di-switch)
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // [Fase 2] Tombol Lihat Kategori (Kita arahkan ke ALL_EXPENSE sebagai default)
+        // 🔥 FIX 3: Tombol "Lihat Laporan Kategori" otomatis mencari Kategori Pengeluaran Teratas
         binding.btnLihatKategoriPenuh.setOnClickListener {
-            binding.btnBoxExpense.performClick()
+            val fragment = CategoryTrendReportFragment().apply {
+                arguments = Bundle().apply {
+                    putString("EXTRA_TARGET_MODE", "AUTO_TOP_EXPENSE") 
+                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) // DENGAN Dropdown untuk memilih kategori lain
+                }
+            }
+            (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
     }
 
     private fun renderReportUi(state: ReportUiState) {
-        // Render Card 1: Pemasukan Bersih
         val prefix = if (state.netBalance >= 0) "+" else ""
         binding.tvNetIncome.text = "$prefix${formatRupiah.format(state.netBalance)}"
         binding.tvNetIncome.setTextColor(if (state.netBalance >= 0) getThemeColor(R.color.income_green) else getThemeColor(R.color.expense_red))
@@ -116,14 +121,12 @@ class ReportFragment : Fragment() {
         (binding.barExpenseFill.layoutParams as LinearLayout.LayoutParams).weight = expWeight
         (binding.barExpenseEmpty.layoutParams as LinearLayout.LayoutParams).weight = 100f - expWeight
 
-        // Render Card 2: Laporan Kategori (Donat)
         binding.tvBoxIncomeVal.text = "+${formatRupiah.format(state.incomeCurrent)}"
         binding.tvBoxExpenseVal.text = "-${formatRupiah.format(state.expenseCurrent)}"
         
         binding.chartIncome.setChartData(state.topIncomeValues, state.topIncomeColors)
         binding.chartExpense.setChartData(state.topExpenseValues, state.topExpenseColors)
 
-        // Render Card 3: Hutang Piutang
         binding.tvHutangVal.text = "+${formatRupiah.format(state.totalHutang)}"
         binding.tvPiutangVal.text = "-${formatRupiah.format(state.totalPiutang)}"
         binding.tvLainnyaVal.text = formatRupiah.format(state.totalLainnya)
