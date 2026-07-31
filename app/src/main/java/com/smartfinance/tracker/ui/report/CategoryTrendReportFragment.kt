@@ -42,65 +42,57 @@ class CategoryTrendReportFragment : Fragment() {
             _binding = FragmentCategoryTrendBinding.inflate(inflater, container, false)
             binding.root
         } catch (e: Throwable) {
-            ScrollView(requireContext()).apply {
-                addView(TextView(requireContext()).apply {
-                    text = "🔥 CRASH XML CATEGORY TREND:\n\n${e.stackTraceToString()}"
-                    setTextColor(Color.RED)
-                    setPadding(40, 40, 40, 40)
-                })
-            }
+            ScrollView(requireContext()).apply { addView(TextView(requireContext()).apply { text = "🔥 CRASH XML: \n${e.stackTraceToString()}"; setTextColor(Color.RED) }) }
         }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        try {
-            super.onViewCreated(view, savedInstanceState)
-            if (_binding == null) return
+        super.onViewCreated(view, savedInstanceState)
+        if (_binding == null) return
 
-            viewModel = ViewModelProvider(this)[CategoryTrendViewModel::class.java]
+        viewModel = ViewModelProvider(this)[CategoryTrendViewModel::class.java]
 
-            val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" 
-            val targetType = arguments?.getString("EXTRA_TARGET_TYPE") ?: "GLOBAL"
-            val parentCat = arguments?.getString("EXTRA_PARENT_CATEGORY") ?: ""
-            val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
+        val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" 
+        val targetType = arguments?.getString("EXTRA_TARGET_TYPE") ?: "GLOBAL"
+        val parentCat = arguments?.getString("EXTRA_PARENT_CATEGORY") ?: ""
+        val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
 
-            // Jika ini level 3 (NOTE), otomatis paksa masuk ke mode Trend Bar Chart
-            if (targetType == "NOTE") isBreakdownTabActive = false
+        if (targetType == "NOTE") isBreakdownTabActive = false
 
-            viewModel.loadData(targetMode, targetType, baseTime, parentCat)
+        viewModel.loadData(targetMode, targetType, baseTime, parentCat)
 
-            binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
-            
-            binding.btnDropdownCategory.setOnClickListener {
-                val state = viewModel.uiState.value
-                val options = state.availableCategories.toTypedArray()
-                
-                if (options.isEmpty()) {
-                    Toast.makeText(requireContext(), "Tidak ada kategori lain di bulan ini", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                android.app.AlertDialog.Builder(requireContext())
-                    .setItems(options) { _, which ->
-                        viewModel.loadData(options[which], "CATEGORY", state.selectedTimeMillis) 
-                    }
-                    .show()
+        // Binding tombol kembali untuk kedua Header
+        binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
+        binding.btnBackReport.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
+        
+        // Binding tombol Dropdown untuk kedua Header
+        binding.btnDropdownCategory.setOnClickListener { showCategoryDropdown(viewModel.uiState.value) }
+        binding.btnDropdownCategoryReport.setOnClickListener { showCategoryDropdown(viewModel.uiState.value) }
+
+        binding.btnToggleAvgVisibility.setOnClickListener { viewModel.toggleAvgVisibility() }
+        
+        binding.btnTabBreakdown.setOnClickListener { isBreakdownTabActive = true; updatePillUI(); renderVisualMode() }
+        binding.btnTabTrend.setOnClickListener { isBreakdownTabActive = false; updatePillUI(); renderVisualMode() }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collect { state -> renderUi(state) }
+        }
+    }
+    
+    // Fungsi khusus untuk menampilkan dialog Dropdown (Dipakai oleh Header 1 dan 2)
+    private fun showCategoryDropdown(state: CategoryTrendUiState?) {
+        if (state == null) return
+        val options = state.availableCategories.toTypedArray()
+        
+        if (options.isEmpty()) {
+            Toast.makeText(requireContext(), "Tidak ada kategori lain di bulan ini", Toast.LENGTH_SHORT).show()
+            return
+        }
+        android.app.AlertDialog.Builder(requireContext())
+            .setItems(options) { _, which ->
+                viewModel.loadData(options[which], "CATEGORY", state.selectedTimeMillis) 
             }
-
-            binding.btnToggleAvgVisibility.setOnClickListener { viewModel.toggleAvgVisibility() }
-
-            binding.btnTabBreakdown.setOnClickListener {
-                isBreakdownTabActive = true; updatePillUI(); renderVisualMode()
-            }
-            binding.btnTabTrend.setOnClickListener {
-                isBreakdownTabActive = false; updatePillUI(); renderVisualMode()
-            }
-
-            viewLifecycleOwner.lifecycleScope.launch {
-                viewModel.uiState.collect { state -> 
-                    try { renderUi(state) } catch (e: Throwable) {}
-                }
-            }
-        } catch (e: Throwable) {}
+            .show()
     }
 
     private fun updatePillUI() {
@@ -121,15 +113,28 @@ class CategoryTrendReportFragment : Fragment() {
         val prefix = if (state.isExpenseMode) "-" else "+"
         val themeColor = ContextCompat.getColor(requireContext(), if (state.isExpenseMode) R.color.expense_red else R.color.income_green)
         
-        binding.tvHeaderTitle.text = state.targetName
-        
+        // 🔥 LOGIKA WAJAH BUNG LON: Tentukan Header Mana Yang Tampil
+        val isReportMenu = arguments?.getBoolean("EXTRA_FROM_REPORT_MENU", false) ?: false
         val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", true) ?: true
-        if (allowDropdown && state.targetType == "CATEGORY") {
-            binding.iconDropdown.visibility = View.VISIBLE
-            binding.btnDropdownCategory.isClickable = true
+
+        if (isReportMenu) {
+            // TAMPILKAN GAYA: Laporan Kategori (Pill Dropdown)
+            binding.headerModeGlobal.visibility = View.GONE
+            binding.headerModeCategoryReport.visibility = View.VISIBLE
+            binding.tvCategoryReportPillName.text = state.targetName
         } else {
-            binding.iconDropdown.visibility = View.GONE
-            binding.btnDropdownCategory.isClickable = false
+            // TAMPILKAN GAYA: Dashboard (Rincian Biaya / Spesifik Kategori biasa)
+            binding.headerModeGlobal.visibility = View.VISIBLE
+            binding.headerModeCategoryReport.visibility = View.GONE
+            binding.tvHeaderTitle.text = state.targetName
+            
+            if (allowDropdown && state.targetType == "CATEGORY") {
+                binding.iconDropdown.visibility = View.VISIBLE
+                binding.btnDropdownCategory.isClickable = true
+            } else {
+                binding.iconDropdown.visibility = View.GONE
+                binding.btnDropdownCategory.isClickable = false
+            }
         }
 
         binding.tvTotalAmount.text = "$prefix${formatRupiah.format(state.totalAmount)}"
@@ -196,7 +201,6 @@ class CategoryTrendReportFragment : Fragment() {
     private fun renderVisualMode() {
         val state = viewModel.uiState.value ?: return
         
-        // 🔥 FIX: Sembunyikan Pill Toggle dan Donut Chart secara permanen jika sedang di mode NOTE (Level 3)
         if (state.targetType == "NOTE") {
             binding.cardPillToggle.visibility = View.GONE
             binding.chartBreakdownDonut.visibility = View.GONE
@@ -231,30 +235,26 @@ class CategoryTrendReportFragment : Fragment() {
                 setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
                 setBackgroundResource(typedValue.resourceId); isClickable = true
                 
-                // 🔥 LOGIKA 4-LEVEL DRILL DOWN
                 setOnClickListener {
                     val state = viewModel.uiState.value
                     
                     if (isBreakdown) {
                         if (state.targetType == "GLOBAL") {
-                            // Level 1 -> Menuju Level 2 (Kategori)
                             val fragment = CategoryTrendReportFragment().apply {
                                 arguments = Bundle().apply { putString("EXTRA_TARGET_MODE", item.label); putString("EXTRA_TARGET_TYPE", "CATEGORY"); putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         } else if (state.targetType == "CATEGORY") {
-                            // Level 2 -> Menuju Level 3 (Sub-kategori / Note)
                             val fragment = CategoryTrendReportFragment().apply {
                                 arguments = Bundle().apply { putString("EXTRA_TARGET_MODE", item.label); putString("EXTRA_TARGET_TYPE", "NOTE"); putString("EXTRA_PARENT_CATEGORY", state.targetMode); putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         }
                     } else {
-                        // Level 3 (Trend klik rentang tanggal) -> Menuju Level 4 (Daftar Transaksi Analytics)
                         val fragment = CategoryAnalyticsFragment().apply {
                             arguments = Bundle().apply {
                                 putString("EXTRA_CATEGORY_NAME", if (state.targetType == "CATEGORY") state.targetMode else state.parentCategory)
-                                putString("EXTRA_NOTE_FILTER", if (state.targetType == "NOTE") state.targetMode else null) // Kirim info Sub-kategori jika ada
+                                putString("EXTRA_NOTE_FILTER", if (state.targetType == "NOTE") state.targetMode else null) 
                                 putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
                                 putString("EXTRA_DAY_RANGE", item.label)
                             }
