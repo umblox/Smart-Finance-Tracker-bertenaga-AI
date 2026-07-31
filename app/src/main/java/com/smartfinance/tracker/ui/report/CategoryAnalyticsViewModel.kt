@@ -24,8 +24,8 @@ class CategoryAnalyticsViewModel : ViewModel() {
 
     init { repository.startListening() }
 
-    // 🔥 FIX: Tambahkan parameter dayRange untuk menerima filter rentang hari
-    fun loadCategoryData(categoryName: String, timeFilterString: String, baseTimeMillis: Long, dayRange: String? = null) {
+    // 🔥 FIX: Tambahkan parameter dayRange dan noteFilter untuk menerima instruksi dari Level 3
+    fun loadCategoryData(categoryName: String, timeFilterString: String, baseTimeMillis: Long, dayRange: String? = null, noteFilter: String? = null) {
         viewModelScope.launch {
             repository.transactions.collect { allTx ->
                 val timeFilter = try { TimeFilter.valueOf(timeFilterString) } catch (e: Exception) { TimeFilter.MONTHLY }
@@ -52,12 +52,17 @@ class CategoryAnalyticsViewModel : ViewModel() {
                     } catch (e: Exception) { /* Abaikan jika format gagal, gunakan rentang dasar */ }
                 }
 
-                // 🔥 3. Filter Kategori Spesial (Menangani perintah dari Dashboard & Net Income)
+                // 🔥 3.A Filter Kategori Spesial (Menangani perintah dari Dashboard & Net Income)
                 filteredTx = when (categoryName) {
                     "ALL_NET_INCOME" -> filteredTx // Ambil semua
                     "Rincian Biaya" -> filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
                     "Rincian Pendapatan" -> filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" }
                     else -> filteredTx.filter { it.categoryName == categoryName }
+                }
+
+                // 🔥 3.B Filter Sub-Kategori / Catatan (Jika diakses dari Level 3)
+                if (noteFilter != null) {
+                    filteredTx = filteredTx.filter { it.note.ifBlank { "Tanpa Catatan" } == noteFilter }
                 }
                 
                 filteredTx = filteredTx.sortedByDescending { it.timestamp }
