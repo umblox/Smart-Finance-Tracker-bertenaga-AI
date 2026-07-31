@@ -160,18 +160,9 @@ class DashboardFragment : Fragment() {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
                 }
                 
-                // 🔥 FIX 2: Klik baris spesifik membuka Laporan Kategori TANPA Dropdown
+                // 🔥 FIX: Klik baris Top Expense membuka Rincian Biaya (Level 1)
                 rowCard.setOnClickListener {
-                    val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-                    val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
-                    val fragment = CategoryTrendReportFragment().apply {
-                        arguments = Bundle().apply {
-                            putString("EXTRA_TARGET_MODE", categoryName)
-                            putLong("EXTRA_BASE_TIME", activeTimePrefs)
-                            putBoolean("EXTRA_SHOW_DROPDOWN", false) // Dropdown dimatikan
-                        }
-                    }
-                    (activity as? MainActivity)?.navigateToSpecificFragment(fragment)
+                    binding.btnLihatAnalisis.performClick()
                 }
 
                 val rowLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt()) }
