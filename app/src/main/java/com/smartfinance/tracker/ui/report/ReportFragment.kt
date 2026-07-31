@@ -91,13 +91,16 @@ class ReportFragment : Fragment() {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // 🔥 FIX 3: Tombol "Lihat Laporan Kategori" otomatis mencari Kategori Pengeluaran Teratas
+        // 🔥 FIX: Menyematkan Bendera Khusus Laporan Kategori
         binding.btnLihatKategoriPenuh.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "AUTO_TOP_EXPENSE")
+                    putString("EXTRA_TARGET_TYPE", "CATEGORY") 
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true) // DENGAN Dropdown untuk memilih kategori lain
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true)
+                    // BENDERA KUNCI UNTUK MENGUBAH WAJAH HEADER
+                    putBoolean("EXTRA_FROM_REPORT_MENU", true) 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
