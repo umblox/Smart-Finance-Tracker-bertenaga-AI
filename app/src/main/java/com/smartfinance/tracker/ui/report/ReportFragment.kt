@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -62,45 +61,48 @@ class ReportFragment : Fragment() {
     private fun setupNavigationListeners() {
         binding.btnDetailPemasukanBersih.setOnClickListener {
             val fragment = NetIncomeDetailFragment().apply {
-                arguments = Bundle().apply {
-                    putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                }
+                arguments = Bundle().apply { putLong("EXTRA_BASE_TIME", viewModel.getBaseTime()) }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
+        // Pemasukan -> Header Global biasa
         binding.btnBoxIncome.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_INCOME")
+                    putString("EXTRA_TARGET_TYPE", "GLOBAL")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
+                    putBoolean("EXTRA_SHOW_DROPDOWN", false) 
+                    putBoolean("EXTRA_FROM_REPORT_MENU", false) 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
+        // Pengeluaran -> Header Global biasa
         binding.btnBoxExpense.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "ALL_EXPENSE")
+                    putString("EXTRA_TARGET_TYPE", "GLOBAL")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
+                    putBoolean("EXTRA_SHOW_DROPDOWN", false) 
+                    putBoolean("EXTRA_FROM_REPORT_MENU", false) 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // 🔥 FIX: Menyematkan Bendera Khusus Laporan Kategori
+        // 🔥 FIX: Laporan Kategori -> Buka Pill Header & Deteksi Otomatis Kategori
         binding.btnLihatKategoriPenuh.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_TARGET_MODE", "AUTO_TOP_EXPENSE")
-                    putString("EXTRA_TARGET_TYPE", "CATEGORY") 
+                    putString("EXTRA_TARGET_TYPE", "CATEGORY")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putBoolean("EXTRA_SHOW_DROPDOWN", true)
-                    // BENDERA KUNCI UNTUK MENGUBAH WAJAH HEADER
-                    putBoolean("EXTRA_FROM_REPORT_MENU", true) 
+                    putBoolean("EXTRA_SHOW_DROPDOWN", true) 
+                    putBoolean("EXTRA_FROM_REPORT_MENU", true) // Mengaktifkan Header Pill 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
@@ -135,8 +137,5 @@ class ReportFragment : Fragment() {
         binding.tvLainnyaVal.text = formatRupiah.format(state.totalLainnya)
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }
