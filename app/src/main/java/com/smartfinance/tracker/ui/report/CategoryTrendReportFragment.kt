@@ -60,65 +60,47 @@ class CategoryTrendReportFragment : Fragment() {
             viewModel = ViewModelProvider(this)[CategoryTrendViewModel::class.java]
 
             val targetMode = arguments?.getString("EXTRA_TARGET_MODE") ?: "ALL_EXPENSE" 
+            val targetType = arguments?.getString("EXTRA_TARGET_TYPE") ?: "GLOBAL"
+            val parentCat = arguments?.getString("EXTRA_PARENT_CATEGORY") ?: ""
             val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
 
-            viewModel.loadData(targetMode, baseTime)
+            // Jika ini level 3 (NOTE), otomatis paksa masuk ke mode Trend Bar Chart
+            if (targetType == "NOTE") isBreakdownTabActive = false
+
+            viewModel.loadData(targetMode, targetType, baseTime, parentCat)
 
             binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
             
             binding.btnDropdownCategory.setOnClickListener {
                 val state = viewModel.uiState.value
-                val options = mutableListOf<String>()
+                val options = state.availableCategories.toTypedArray()
                 
-                options.add(if (state.isExpenseMode) "ALL_EXPENSE" else "ALL_INCOME")
-                
-                if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
-                    options.addAll(state.breakdownItems.map { it.label })
+                if (options.isEmpty()) {
+                    Toast.makeText(requireContext(), "Tidak ada kategori lain di bulan ini", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
                 }
-
-                val displayOptions = options.map { 
-                    when (it) {
-                        "ALL_EXPENSE" -> "Rincian Biaya (Semua)"
-                        "ALL_INCOME" -> "Rincian Pendapatan (Semua)"
-                        else -> it
-                    }
-                }.toTypedArray()
-
                 android.app.AlertDialog.Builder(requireContext())
-                    .setItems(displayOptions) { _, which ->
-                        val selectedTarget = options[which]
-                        viewModel.loadData(selectedTarget, state.selectedTimeMillis) 
+                    .setItems(options) { _, which ->
+                        viewModel.loadData(options[which], "CATEGORY", state.selectedTimeMillis) 
                     }
                     .show()
             }
 
-            binding.btnToggleAvgVisibility.setOnClickListener {
-                viewModel.toggleAvgVisibility()
-            }
+            binding.btnToggleAvgVisibility.setOnClickListener { viewModel.toggleAvgVisibility() }
 
             binding.btnTabBreakdown.setOnClickListener {
-                isBreakdownTabActive = true
-                updatePillUI()
-                renderVisualMode()
+                isBreakdownTabActive = true; updatePillUI(); renderVisualMode()
             }
             binding.btnTabTrend.setOnClickListener {
-                isBreakdownTabActive = false
-                updatePillUI()
-                renderVisualMode()
+                isBreakdownTabActive = false; updatePillUI(); renderVisualMode()
             }
 
             viewLifecycleOwner.lifecycleScope.launch {
                 viewModel.uiState.collect { state -> 
-                    try {
-                        renderUi(state) 
-                    } catch (e: Throwable) {
-                        Toast.makeText(requireContext(), "Crash Render Trend: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+                    try { renderUi(state) } catch (e: Throwable) {}
                 }
             }
-        } catch (e: Throwable) {
-            Toast.makeText(requireContext(), "Crash Logika Trend: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        } catch (e: Throwable) {}
     }
 
     private fun updatePillUI() {
@@ -141,10 +123,8 @@ class CategoryTrendReportFragment : Fragment() {
         
         binding.tvHeaderTitle.text = state.targetName
         
-        // 🔥 FIX 4: Baca bendera izin Dropdown dari Fragment Pengirim
         val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", true) ?: true
-        
-        if (allowDropdown) {
+        if (allowDropdown && state.targetType == "CATEGORY") {
             binding.iconDropdown.visibility = View.VISIBLE
             binding.btnDropdownCategory.isClickable = true
         } else {
@@ -154,7 +134,6 @@ class CategoryTrendReportFragment : Fragment() {
 
         binding.tvTotalAmount.text = "$prefix${formatRupiah.format(state.totalAmount)}"
         binding.tvTotalAmount.setTextColor(themeColor)
-        
         binding.tvDailyAvg.text = "$prefix${formatRupiah.format(state.dailyAverage)}"
         binding.tvDailyAvg.setTextColor(themeColor)
 
@@ -183,39 +162,29 @@ class CategoryTrendReportFragment : Fragment() {
     private fun renderTimeNav(state: CategoryTrendUiState) {
         binding.layoutTimeNavigation.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
-        
         var selectedTabView: View? = null
         
         state.timeNavItems.forEach { navItem ->
             val tab = TextView(requireContext()).apply {
-                text = navItem.label
-                textSize = 13f
-                isAllCaps = true
+                text = navItem.label; textSize = 13f; isAllCaps = true
                 setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
                 
                 if (navItem.isSelected) {
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
-                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary)); setTypeface(null, Typeface.BOLD)
                     background = android.graphics.drawable.LayerDrawable(arrayOf(
                         android.graphics.drawable.ColorDrawable(Color.TRANSPARENT),
                         android.graphics.drawable.ColorDrawable(ContextCompat.getColor(requireContext(), R.color.text_primary))
                     )).apply { setLayerInset(1, 0, (40 * density).toInt(), 0, 0) }
-                    
-                    selectedTabView = this // Tandai view yang terpilih
+                    selectedTabView = this 
                 } else {
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
-                    setTypeface(null, Typeface.NORMAL)
-                    background = null
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary)); setTypeface(null, Typeface.NORMAL); background = null
                 }
                 
-                setOnClickListener {
-                    viewModel.loadData(state.targetMode, navItem.timeMillis)
-                }
+                setOnClickListener { viewModel.loadData(state.targetMode, state.targetType, navItem.timeMillis, state.parentCategory) }
             }
             binding.layoutTimeNavigation.addView(tab)
         }
         
-        // 🔥 FIX 1: Auto-Scroll yang sempurna, langsung menggeser ke Tab yang dipilih
         selectedTabView?.let { tab ->
             binding.scrollTimeNav.post {
                 val scrollX = tab.left - (binding.scrollTimeNav.width / 2) + (tab.width / 2)
@@ -226,14 +195,24 @@ class CategoryTrendReportFragment : Fragment() {
 
     private fun renderVisualMode() {
         val state = viewModel.uiState.value ?: return
-        if (isBreakdownTabActive) {
-            binding.chartBreakdownDonut.visibility = View.VISIBLE
-            binding.chartTrendBar.visibility = View.GONE
-            renderList(state.breakdownItems, state.isExpenseMode, showPercentage = true, isBreakdown = true)
-        } else {
+        
+        // 🔥 FIX: Sembunyikan Pill Toggle dan Donut Chart secara permanen jika sedang di mode NOTE (Level 3)
+        if (state.targetType == "NOTE") {
+            binding.cardPillToggle.visibility = View.GONE
             binding.chartBreakdownDonut.visibility = View.GONE
             binding.chartTrendBar.visibility = View.VISIBLE
             renderList(state.trendItems, state.isExpenseMode, showPercentage = false, isBreakdown = false)
+        } else {
+            binding.cardPillToggle.visibility = View.VISIBLE
+            if (isBreakdownTabActive) {
+                binding.chartBreakdownDonut.visibility = View.VISIBLE
+                binding.chartTrendBar.visibility = View.GONE
+                renderList(state.breakdownItems, state.isExpenseMode, showPercentage = true, isBreakdown = true)
+            } else {
+                binding.chartBreakdownDonut.visibility = View.GONE
+                binding.chartTrendBar.visibility = View.VISIBLE
+                renderList(state.trendItems, state.isExpenseMode, showPercentage = false, isBreakdown = false)
+            }
         }
     }
 
@@ -250,34 +229,32 @@ class CategoryTrendReportFragment : Fragment() {
             val row = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
-                setBackgroundResource(typedValue.resourceId)
-                isClickable = true
+                setBackgroundResource(typedValue.resourceId); isClickable = true
                 
+                // 🔥 LOGIKA 4-LEVEL DRILL DOWN
                 setOnClickListener {
                     val state = viewModel.uiState.value
                     
                     if (isBreakdown) {
-                        if (state.targetMode == "ALL_EXPENSE" || state.targetMode == "ALL_INCOME") {
+                        if (state.targetType == "GLOBAL") {
+                            // Level 1 -> Menuju Level 2 (Kategori)
                             val fragment = CategoryTrendReportFragment().apply {
-                                arguments = Bundle().apply {
-                                    putString("EXTRA_TARGET_MODE", item.label) 
-                                    putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
-                                }
+                                arguments = Bundle().apply { putString("EXTRA_TARGET_MODE", item.label); putString("EXTRA_TARGET_TYPE", "CATEGORY"); putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
-                        } else {
-                            val fragment = CategoryAnalyticsFragment().apply {
-                                arguments = Bundle().apply {
-                                    putString("EXTRA_CATEGORY_NAME", state.targetMode)
-                                    putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
-                                }
+                        } else if (state.targetType == "CATEGORY") {
+                            // Level 2 -> Menuju Level 3 (Sub-kategori / Note)
+                            val fragment = CategoryTrendReportFragment().apply {
+                                arguments = Bundle().apply { putString("EXTRA_TARGET_MODE", item.label); putString("EXTRA_TARGET_TYPE", "NOTE"); putString("EXTRA_PARENT_CATEGORY", state.targetMode); putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) }
                             }
                             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
                         }
                     } else {
+                        // Level 3 (Trend klik rentang tanggal) -> Menuju Level 4 (Daftar Transaksi Analytics)
                         val fragment = CategoryAnalyticsFragment().apply {
                             arguments = Bundle().apply {
-                                putString("EXTRA_CATEGORY_NAME", state.targetName)
+                                putString("EXTRA_CATEGORY_NAME", if (state.targetType == "CATEGORY") state.targetMode else state.parentCategory)
+                                putString("EXTRA_NOTE_FILTER", if (state.targetType == "NOTE") state.targetMode else null) // Kirim info Sub-kategori jika ada
                                 putLong("EXTRA_BASE_TIME", state.selectedTimeMillis)
                                 putString("EXTRA_DAY_RANGE", item.label)
                             }
@@ -289,42 +266,22 @@ class CategoryTrendReportFragment : Fragment() {
             
             if (showPercentage) {
                 val colorDot = chartColors.getOrElse(index) { ContextCompat.getColor(requireContext(), R.color.text_secondary) }
-                val dot = View(requireContext()).apply {
-                    layoutParams = LinearLayout.LayoutParams((12 * density).toInt(), (12 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
-                    background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(colorDot) }
-                }
+                val dot = View(requireContext()).apply { layoutParams = LinearLayout.LayoutParams((12 * density).toInt(), (12 * density).toInt()).apply { rightMargin = (16 * density).toInt() }; background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(colorDot) } }
                 row.addView(dot)
             }
 
-            val tvTitle = TextView(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                text = item.label
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
-                textSize = 15f
-            }
+            val tvTitle = TextView(requireContext()).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); text = item.label; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary)); textSize = 15f }
             row.addView(tvTitle)
 
             if (showPercentage) {
-                val tvPct = TextView(requireContext()).apply {
-                    text = "${item.percentage}%"
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
-                    textSize = 14f; setPadding(0, 0, (12 * density).toInt(), 0)
-                }
+                val tvPct = TextView(requireContext()).apply { text = "${item.percentage}%"; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary)); textSize = 14f; setPadding(0, 0, (12 * density).toInt(), 0) }
                 row.addView(tvPct)
             }
 
-            val tvAmt = TextView(requireContext()).apply {
-                text = "$prefix${formatRupiah.format(item.amount)}"
-                setTextColor(colorMain)
-                setTypeface(null, Typeface.BOLD); textSize = 15f
-            }
+            val tvAmt = TextView(requireContext()).apply { text = "$prefix${formatRupiah.format(item.amount)}"; setTextColor(colorMain); setTypeface(null, Typeface.BOLD); textSize = 15f }
             row.addView(tvAmt)
 
-            val tvArrow = TextView(requireContext()).apply {
-                text = " >"
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
-                textSize = 16f
-            }
+            val tvArrow = TextView(requireContext()).apply { text = " >"; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary)); textSize = 16f }
             row.addView(tvArrow)
 
             binding.listContainer.addView(row)
@@ -332,8 +289,5 @@ class CategoryTrendReportFragment : Fragment() {
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }
