@@ -6,7 +6,6 @@
     android:background="@color/background_color"
     android:orientation="vertical">
 
-    <!-- 1. TOOLBAR & DROPDOWN PEMILIH KATEGORI -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -46,7 +45,9 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
+            <!-- 🔥 TAMBAHAN ID ICON DROPDOWN -->
             <ImageView
+                android:id="@+id/iconDropdown"
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:layout_marginStart="4dp"
@@ -57,7 +58,6 @@
         <View android:layout_width="32dp" android:layout_height="32dp" />
     </LinearLayout>
 
-    <!-- 2. NAVIGASI WAKTU (HORIZONTAL SCROLL) -->
     <HorizontalScrollView
         android:id="@+id/scrollTimeNav"
         android:layout_width="match_parent"
@@ -77,7 +77,6 @@
         android:layout_height="1dp"
         android:background="@color/divider_color" />
 
-    <!-- 3. AREA KONTEN UTAMA -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -89,7 +88,6 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- TOTAL & RATA-RATA -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -141,12 +139,12 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- KARTU PERBANDINGAN 3 BULAN -->
+            <!-- 🔥 FIX DARK MODE CARD -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="#F8F9FA"
+                app:cardBackgroundColor="@color/surface_white"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="1dp"
@@ -195,15 +193,16 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- TOGGLE PILL (BREAKDOWN / TREND) -->
+            <!-- 🔥 FIX DARK MODE PILL CONTAINER -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="#F0F0F0"
+                app:cardBackgroundColor="@color/background_color"
                 app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                app:strokeColor="@color/divider_color"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -237,7 +236,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- CONTAINER GRAFIK -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="250dp"
@@ -255,14 +253,12 @@
                     android:visibility="gone" />
             </FrameLayout>
 
-            <!-- DAFTAR KATEGORI / LIST ITEMS -->
             <LinearLayout
                 android:id="@+id/listContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingBottom="32dp" />
-
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>
