@@ -12,7 +12,8 @@ import java.util.Calendar
 data class CategoryAnalyticsUiState(
     val categoryName: String = "",
     val timeLabel: String = "",
-    val totalSpent: Double = 0.0,
+    val totalIncome: Double = 0.0,  // 🔥 BARU: Untuk ringkasan biru
+    val totalExpense: Double = 0.0, // 🔥 BARU: Untuk ringkasan merah
     val transactions: List<Transaction> = emptyList(),
     val isEmpty: Boolean = true
 )
@@ -24,57 +25,48 @@ class CategoryAnalyticsViewModel : ViewModel() {
 
     init { repository.startListening() }
 
-    // 🔥 FIX: Tambahkan parameter dayRange dan noteFilter untuk menerima instruksi dari Level 3
     fun loadCategoryData(categoryName: String, timeFilterString: String, baseTimeMillis: Long, dayRange: String? = null, noteFilter: String? = null) {
         viewModelScope.launch {
             repository.transactions.collect { allTx ->
                 val timeFilter = try { TimeFilter.valueOf(timeFilterString) } catch (e: Exception) { TimeFilter.MONTHLY }
                 val timeRange = getTimeRange(timeFilter, baseTimeMillis)
                 
-                // 1. Filter Rentang Waktu Dasar (Bulan/Minggu/Hari ini)
-                var filteredTx = allTx.filter { tx ->
-                    tx.timestamp in timeRange.first..timeRange.second
-                }
+                var filteredTx = allTx.filter { tx -> tx.timestamp in timeRange.first..timeRange.second }
 
-                // 🔥 2. Filter Lanjutan: Potongan Hari (Contoh: "27/07 - 31/07" atau "27 - 31")
                 if (dayRange != null) {
                     try {
                         val parts = dayRange.split("-")
                         if (parts.size == 2) {
                             val startDay = parts[0].trim().substringBefore("/").toIntOrNull() ?: 1
                             val endDay = parts[1].trim().substringBefore("/").toIntOrNull() ?: 31
-                            
                             filteredTx = filteredTx.filter { tx ->
                                 val d = Calendar.getInstance().apply { timeInMillis = tx.timestamp }.get(Calendar.DAY_OF_MONTH)
                                 d in startDay..endDay
                             }
                         }
-                    } catch (e: Exception) { /* Abaikan jika format gagal, gunakan rentang dasar */ }
+                    } catch (e: Exception) {}
                 }
 
-                // 🔥 3.A Filter Kategori Spesial (Menangani perintah dari Dashboard & Net Income)
+                // 🔥 LOGIKA FILTER HUTANG & PIUTANG
                 filteredTx = when (categoryName) {
-                    "ALL_NET_INCOME" -> filteredTx // Ambil semua
+                    "ALL_NET_INCOME" -> filteredTx
                     "Rincian Biaya" -> filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
                     "Rincian Pendapatan" -> filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" }
+                    "FILTER_HUTANG" -> filteredTx.filter { it.type == "DEBT" || it.categoryName.equals("Hutang", true) || it.categoryName.equals("Utang", true) }
+                    "FILTER_PIUTANG" -> filteredTx.filter { it.type == "RECEIVABLE" || it.categoryName.equals("Piutang", true) }
+                    "FILTER_LAINNYA" -> filteredTx.filter { it.categoryName.equals("Penagihan Utang", true) || it.categoryName.equals("Pembayaran kembali", true) }
                     else -> filteredTx.filter { it.categoryName == categoryName }
                 }
 
-                // 🔥 3.B Filter Sub-Kategori / Catatan (Jika diakses dari Level 3)
                 if (noteFilter != null) {
                     filteredTx = filteredTx.filter { it.note.ifBlank { "Tanpa Catatan" } == noteFilter }
                 }
                 
                 filteredTx = filteredTx.sortedByDescending { it.timestamp }
 
-                // 4. Hitung Total Sesuai Konteks
-                val total = if (categoryName == "ALL_NET_INCOME") {
-                    val inc = filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" }.sumOf { it.amount }
-                    val exp = filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }.sumOf { it.amount }
-                    inc - exp
-                } else {
-                    filteredTx.sumOf { it.amount }
-                }
+                // 🔥 HITUNG PEMASUKAN DAN PENGELUARAN SECARA TERPISAH
+                val income = filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" || it.amount > 0 }.sumOf { it.amount }
+                val expense = filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" || it.amount < 0 }.sumOf { kotlin.math.abs(it.amount) }
                 
                 val label = dayRange ?: when (timeFilter) {
                     TimeFilter.DAILY -> "Hari Ini"
@@ -85,7 +77,8 @@ class CategoryAnalyticsViewModel : ViewModel() {
                 _uiState.value = CategoryAnalyticsUiState(
                     categoryName = categoryName,
                     timeLabel = label,
-                    totalSpent = total,
+                    totalIncome = income,
+                    totalExpense = expense,
                     transactions = filteredTx,
                     isEmpty = filteredTx.isEmpty()
                 )
@@ -95,8 +88,7 @@ class CategoryAnalyticsViewModel : ViewModel() {
 
     private fun getTimeRange(filter: TimeFilter, timeMillis: Long): Pair<Long, Long> {
         val cal = Calendar.getInstance().apply { timeInMillis = timeMillis }
-        val startCal = cal.clone() as Calendar
-        val endCal = cal.clone() as Calendar
+        val startCal = cal.clone() as Calendar; val endCal = cal.clone() as Calendar
 
         when (filter) {
             TimeFilter.DAILY -> { }
@@ -116,8 +108,5 @@ class CategoryAnalyticsViewModel : ViewModel() {
         return Pair(startCal.timeInMillis, endCal.timeInMillis)
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        repository.stopListening()
-    }
+    override fun onCleared() { super.onCleared(); repository.stopListening() }
 }
