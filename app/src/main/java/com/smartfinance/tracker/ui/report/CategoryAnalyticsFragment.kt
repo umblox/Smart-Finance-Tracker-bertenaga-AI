@@ -1,10 +1,14 @@
 package com.smartfinance.tracker.ui.report
 
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -16,6 +20,7 @@ import com.smartfinance.tracker.databinding.FragmentCategoryAnalyticsBinding
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class CategoryAnalyticsFragment : Fragment() {
@@ -23,11 +28,13 @@ class CategoryAnalyticsFragment : Fragment() {
     private var _binding: FragmentCategoryAnalyticsBinding? = null
     private val binding get() = _binding!!
     private lateinit var viewModel: CategoryAnalyticsViewModel
-    
-    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val sdfDateTime = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
 
-    private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
+    private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+    
+    private val formatGroup = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val formatDayNum = SimpleDateFormat("dd", Locale.getDefault())
+    private val formatDayName = SimpleDateFormat("EEEE", Locale("id", "ID"))
+    private val formatMonthYear = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentCategoryAnalyticsBinding.inflate(inflater, container, false)
@@ -38,18 +45,20 @@ class CategoryAnalyticsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(this)[CategoryAnalyticsViewModel::class.java]
 
-        val targetCategory = arguments?.getString("EXTRA_CATEGORY_NAME") ?: "Kategori"
-        val timeFilterString = arguments?.getString("EXTRA_TIME_FILTER") ?: "MONTHLY"
-        val baseTime = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
-        
-        // 🔥 FIX: Tangkap string rentang waktu yang dilempar dari Grafik (Misal: "27/07 - 31/07")
+        val categoryName = arguments?.getString("EXTRA_CATEGORY_NAME") ?: ""
+        val noteFilter = arguments?.getString("EXTRA_NOTE_FILTER")
+        val baseTimeMillis = arguments?.getLong("EXTRA_BASE_TIME") ?: System.currentTimeMillis()
         val dayRange = arguments?.getString("EXTRA_DAY_RANGE")
+        
+        val prefs = requireContext().getSharedPreferences("smart_finance_prefs", android.content.Context.MODE_PRIVATE)
+        val activeFilterString = prefs.getString("active_time_filter", "MONTHLY") ?: "MONTHLY"
 
-        binding.tvCategoryTitle.text = if (targetCategory == "ALL_NET_INCOME") "Riwayat Transaksi" else targetCategory
+        viewModel.loadCategoryData(categoryName, activeFilterString, baseTimeMillis, dayRange, noteFilter)
+
         binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
 
-        // Lempar semua parameter ke otak aplikasi
-        viewModel.loadCategoryData(targetCategory, timeFilterString, baseTime, dayRange)
+        // 🔥 FIX 1: Memastikan judul selalu "Daftar Transaksi" sesuai desain
+        binding.tvCategoryTitle.text = "Daftar transaksi"
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state -> renderUi(state) }
@@ -57,65 +66,113 @@ class CategoryAnalyticsFragment : Fragment() {
     }
 
     private fun renderUi(state: CategoryAnalyticsUiState) {
-        val density = requireContext().resources.displayMetrics.density
-        
-        binding.tvTimePeriod.text = "Periode: ${state.timeLabel}"
-        
-        // 🔥 FIX: Pewarnaan dinamis untuk Pemasukan (Hijau) & Pengeluaran (Merah) di Header
-        val isIncomeTarget = state.categoryName == "Rincian Pendapatan" || (!state.isEmpty && state.transactions.first().type in listOf("INCOME", "DEBT"))
-        
-        if (state.categoryName == "ALL_NET_INCOME") {
-            val netPrefix = if (state.totalSpent < 0) "-" else ""
-            binding.tvTotalAmount.text = "$netPrefix${formatRupiah.format(Math.abs(state.totalSpent))}"
-            binding.tvTotalAmount.setTextColor(getThemeColor(if (state.totalSpent < 0) R.color.expense_red else R.color.text_primary))
-        } else {
-            val typePrefix = if (isIncomeTarget) "+" else "-"
-            val colorRes = if (isIncomeTarget) R.color.income_green else R.color.expense_red
-            binding.tvTotalAmount.text = "$typePrefix${formatRupiah.format(Math.abs(state.totalSpent))}"
-            binding.tvTotalAmount.setTextColor(getThemeColor(colorRes))
-        }
+        binding.tvResultCount.text = "${state.transactions.size} hasil"
+        binding.tvTotalIncome.text = (if (state.totalIncome > 0) "+" else "") + formatRupiah.format(state.totalIncome)
+        binding.tvTotalExpense.text = (if (state.totalExpense > 0) "-" else "") + formatRupiah.format(state.totalExpense)
 
+        // 🔥 FIX 2: Menggunakan ID yang benar: transactionListContainer
         binding.transactionListContainer.removeAllViews()
+        val density = requireContext().resources.displayMetrics.density
 
         if (state.isEmpty) {
-            binding.transactionListContainer.addView(TextView(requireContext()).apply {
-                text = "Tidak ada transaksi untuk periode ini."
-                setTextColor(getThemeColor(R.color.text_secondary)); textSize = 14f; textAlignment = View.TEXT_ALIGNMENT_CENTER
-                setPadding(0, (16*density).toInt(), 0, (16*density).toInt())
-            })
+            val emptyText = TextView(requireContext()).apply {
+                text = "Tidak ada transaksi."; gravity = Gravity.CENTER
+                setPadding(0, (50 * density).toInt(), 0, 0)
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+            }
+            binding.transactionListContainer.addView(emptyText)
             return
         }
 
-        // Render List Transaksi
-        state.transactions.forEach { tx ->
-            val isInc = tx.type == "INCOME" || tx.type == "DEBT"
+        val groupedTransactions = state.transactions.groupBy { formatGroup.format(Date(it.timestamp)) }
+
+        groupedTransactions.forEach { (dateStr, txList) ->
+            val dateObj = formatGroup.parse(dateStr) ?: Date()
             
-            val txRow = LinearLayout(requireContext()).apply {
+            val headerLayout = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
+                setPadding((16 * density).toInt(), (24 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
             }
 
-            val txInfo = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-            // Tampilkan Note, jika kosong tampilkan Kategori
-            val titleText = if (tx.note.isEmpty()) tx.categoryName else tx.note
-            txInfo.addView(TextView(requireContext()).apply { text = titleText; setTextColor(getThemeColor(R.color.text_primary)); textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD) })
-            txInfo.addView(TextView(requireContext()).apply { text = sdfDateTime.format(java.util.Date(tx.timestamp)); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 12f; setPadding(0, 4, 0, 0) })
-            txRow.addView(txInfo)
-
-            // 🔥 FIX: Tanda minus dan warna merah untuk pengeluaran, Tanda plus dan hijau untuk pemasukan
-            txRow.addView(TextView(requireContext()).apply { 
-                text = (if (isInc) "+" else "-") + formatRupiah.format(tx.amount)
-                setTextColor(getThemeColor(if (isInc) R.color.income_green else R.color.expense_red))
-                textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD) 
+            headerLayout.addView(TextView(requireContext()).apply {
+                text = formatDayNum.format(dateObj)
+                textSize = 28f; setTypeface(null, Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                setPadding(0, 0, (12 * density).toInt(), 0)
             })
 
-            binding.transactionListContainer.addView(txRow)
-            binding.transactionListContainer.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()) })
+            val dateSubtitles = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            dateSubtitles.addView(TextView(requireContext()).apply {
+                text = formatDayName.format(dateObj)
+                textSize = 13f; setTypeface(null, Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+            })
+            dateSubtitles.addView(TextView(requireContext()).apply {
+                text = formatMonthYear.format(dateObj)
+                textSize = 12f; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+            })
+            headerLayout.addView(dateSubtitles)
+
+            val dayTotal = txList.sumOf { if (it.type == "EXPENSE" || it.type == "RECEIVABLE") -Math.abs(it.amount) else it.amount }
+            headerLayout.addView(TextView(requireContext()).apply {
+                text = (if (dayTotal > 0) "+" else if (dayTotal < 0) "-" else "") + formatRupiah.format(Math.abs(dayTotal))
+                textSize = 14f; setTypeface(null, Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(requireContext(), if (dayTotal >= 0) R.color.text_primary else R.color.text_secondary))
+            })
+
+            binding.transactionListContainer.addView(headerLayout)
+            
+            binding.transactionListContainer.addView(View(requireContext()).apply { 
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+                setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.divider_color)) 
+            })
+
+            val typedValue = TypedValue()
+            requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
+
+            txList.forEach { tx ->
+                val rowLayout = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    setPadding((16 * density).toInt(), (14 * density).toInt(), (16 * density).toInt(), (14 * density).toInt())
+                    setBackgroundResource(typedValue.resourceId); isClickable = true
+                }
+
+                val isInc = tx.type == "INCOME" || tx.type == "DEBT"
+
+                val iconCircle = FrameLayout(requireContext()).apply {
+                    layoutParams = LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                    background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(ContextCompat.getColor(requireContext(), R.color.background_color)) }
+                    addView(TextView(requireContext()).apply { text = if (isInc) "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER })
+                }
+                rowLayout.addView(iconCircle)
+
+                val infoBox = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                infoBox.addView(TextView(requireContext()).apply {
+                    text = tx.categoryName; textSize = 14f; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                })
+                infoBox.addView(TextView(requireContext()).apply {
+                    text = tx.note.ifBlank { "Tanpa Catatan" }; textSize = 12f; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+                })
+                rowLayout.addView(infoBox)
+
+                val amtBox = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+                amtBox.addView(TextView(requireContext()).apply {
+                    text = (if (isInc) "+" else "-") + formatRupiah.format(Math.abs(tx.amount))
+                    textSize = 14f; setTypeface(null, Typeface.BOLD)
+                    setTextColor(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
+                })
+                rowLayout.addView(amtBox)
+
+                binding.transactionListContainer.addView(rowLayout)
+            }
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }
