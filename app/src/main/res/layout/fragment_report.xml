@@ -23,43 +23,22 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/toggleTimeFilter"
+        <!-- 🔥 FIX: Lorong Waktu Horizontal Pengganti Toggle Button -->
+        <HorizontalScrollView
+            android:id="@+id/scrollTimeNav"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
-            app:singleSelection="true"
-            app:checkedButton="@+id/btnFilterMonthly"
-            android:gravity="center">
+            android:scrollbars="none">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnFilterDaily"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/layoutTimeNavigation"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Hari Ini"
-                android:textSize="12sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnFilterWeekly"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Minggu"
-                android:textSize="12sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnFilterMonthly"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Bulan Ini"
-                android:textSize="12sp" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
+                android:orientation="horizontal"
+                android:paddingHorizontal="4dp" />
+        </HorizontalScrollView>
 
         <!-- CARD 1: Pemasukan Bersih -->
         <com.google.android.material.card.MaterialCardView

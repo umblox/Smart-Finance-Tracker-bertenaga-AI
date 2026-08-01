@@ -48,6 +48,9 @@ class NetIncomeDetailViewModel : ViewModel() {
                 val chunkList = mutableListOf<NetIncomeChunk>()
                 var grandTotalNet = 0.0
 
+                // 🔥 FIX: Hitung angka bulan secara dinamis (Ditambah 1 karena di sistem Calendar, Januari = 0)
+                val monthStr = String.format("%02d", targetMonth + 1)
+
                 for (range in partitions) {
                     var inc = 0.0
                     var exp = 0.0
@@ -62,7 +65,9 @@ class NetIncomeDetailViewModel : ViewModel() {
                     
                     val net = inc - exp
                     grandTotalNet += net
-                    val label = "${String.format("%02d", range.first)}/07 - ${String.format("%02d", range.last)}/07"
+                    
+                    // 🔥 FIX: Masukkan monthStr yang sudah dinamis (Tidak lagi /07)
+                    val label = "${String.format("%02d", range.first)}/$monthStr - ${String.format("%02d", range.last)}/$monthStr"
                     chunkList.add(NetIncomeChunk(label, inc, exp, net))
                 }
 

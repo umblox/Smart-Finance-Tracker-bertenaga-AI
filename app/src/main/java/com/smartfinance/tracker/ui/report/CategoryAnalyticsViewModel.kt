@@ -12,8 +12,8 @@ import java.util.Calendar
 data class CategoryAnalyticsUiState(
     val categoryName: String = "",
     val timeLabel: String = "",
-    val totalIncome: Double = 0.0,  // 🔥 BARU: Untuk ringkasan biru
-    val totalExpense: Double = 0.0, // 🔥 BARU: Untuk ringkasan merah
+    val totalIncome: Double = 0.0,  
+    val totalExpense: Double = 0.0, 
     val transactions: List<Transaction> = emptyList(),
     val isEmpty: Boolean = true
 )
@@ -47,7 +47,6 @@ class CategoryAnalyticsViewModel : ViewModel() {
                     } catch (e: Exception) {}
                 }
 
-                // 🔥 LOGIKA FILTER HUTANG & PIUTANG
                 filteredTx = when (categoryName) {
                     "ALL_NET_INCOME" -> filteredTx
                     "Rincian Biaya" -> filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
@@ -64,7 +63,6 @@ class CategoryAnalyticsViewModel : ViewModel() {
                 
                 filteredTx = filteredTx.sortedByDescending { it.timestamp }
 
-                // 🔥 HITUNG PEMASUKAN DAN PENGELUARAN SECARA TERPISAH
                 val income = filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" || it.amount > 0 }.sumOf { it.amount }
                 val expense = filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" || it.amount < 0 }.sumOf { kotlin.math.abs(it.amount) }
                 

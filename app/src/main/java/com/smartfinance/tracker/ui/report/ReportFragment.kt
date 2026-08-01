@@ -1,11 +1,14 @@
 package com.smartfinance.tracker.ui.report
 
 import android.content.Context
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -39,25 +42,58 @@ class ReportFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
 
-        viewModel.setTimeFilter(TimeFilter.MONTHLY, activeTimePrefs)
-
-        binding.toggleTimeFilter.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked) {
-                when (checkedId) {
-                    R.id.btnFilterDaily -> viewModel.setTimeFilter(TimeFilter.DAILY, activeTimePrefs)
-                    R.id.btnFilterWeekly -> viewModel.setTimeFilter(TimeFilter.WEEKLY, activeTimePrefs)
-                    R.id.btnFilterMonthly -> viewModel.setTimeFilter(TimeFilter.MONTHLY, activeTimePrefs)
-                }
-            }
-        }
+        // Memicu pencarian berdasarkan bulan yang tersimpan
+        viewModel.setTimeMillis(activeTimePrefs)
         
         setupNavigationListeners()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collect { state -> renderReportUi(state) }
+            viewModel.uiState.collect { state -> 
+                renderTimeNav(state)
+                renderReportUi(state) 
+            }
         }
     }
     
+    // 🔥 PENCETAK LORONG WAKTU ANTI-INFINITY
+    private fun renderTimeNav(state: ReportUiState) {
+        binding.layoutTimeNavigation.removeAllViews()
+        val density = requireContext().resources.displayMetrics.density
+        var selectedTabView: View? = null
+        
+        state.timeNavItems.forEach { navItem ->
+            val tab = TextView(requireContext()).apply {
+                text = navItem.label; textSize = 13f; isAllCaps = true
+                setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
+                
+                if (navItem.isSelected) {
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary)); setTypeface(null, Typeface.BOLD)
+                    background = android.graphics.drawable.LayerDrawable(arrayOf(
+                        android.graphics.drawable.ColorDrawable(Color.TRANSPARENT),
+                        android.graphics.drawable.ColorDrawable(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                    )).apply { setLayerInset(1, 0, (40 * density).toInt(), 0, 0) }
+                    selectedTabView = this 
+                } else {
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary)); setTypeface(null, Typeface.NORMAL); background = null
+                }
+                
+                setOnClickListener { 
+                    val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putLong("active_report_time", navItem.timeMillis).apply()
+                    viewModel.setTimeMillis(navItem.timeMillis) 
+                }
+            }
+            binding.layoutTimeNavigation.addView(tab)
+        }
+        
+        selectedTabView?.let { tab ->
+            binding.scrollTimeNav.post {
+                val scrollX = tab.left - (binding.scrollTimeNav.width / 2) + (tab.width / 2)
+                binding.scrollTimeNav.scrollTo(scrollX, 0)
+            }
+        }
+    }
+
     private fun setupNavigationListeners() {
         binding.btnDetailPemasukanBersih.setOnClickListener {
             val fragment = NetIncomeDetailFragment().apply {
@@ -66,7 +102,6 @@ class ReportFragment : Fragment() {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // Pemasukan -> Header Global biasa
         binding.btnBoxIncome.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
@@ -80,7 +115,6 @@ class ReportFragment : Fragment() {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // Pengeluaran -> Header Global biasa
         binding.btnBoxExpense.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
@@ -94,7 +128,6 @@ class ReportFragment : Fragment() {
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
         
-        // 🔥 FIX: Laporan Kategori -> Buka Pill Header & Deteksi Otomatis Kategori
         binding.btnLihatKategoriPenuh.setOnClickListener {
             val fragment = CategoryTrendReportFragment().apply {
                 arguments = Bundle().apply {
@@ -102,18 +135,18 @@ class ReportFragment : Fragment() {
                     putString("EXTRA_TARGET_TYPE", "CATEGORY")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
                     putBoolean("EXTRA_SHOW_DROPDOWN", true) 
-                    putBoolean("EXTRA_FROM_REPORT_MENU", true) // Mengaktifkan Header Pill 
+                    putBoolean("EXTRA_FROM_REPORT_MENU", true) 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
         }
 
-        // 🔥 FIX: Aksi klik Card Hutang, Piutang, Lainnya
         (binding.tvHutangVal.parent as? View)?.setOnClickListener {
             val fragment = CategoryAnalyticsFragment().apply {
                 arguments = Bundle().apply {
                     putString("EXTRA_CATEGORY_NAME", "FILTER_HUTANG")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                    putString("EXTRA_TIME_FILTER", "MONTHLY") // Karena Lorong Waktu = Bulanan
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
@@ -124,6 +157,7 @@ class ReportFragment : Fragment() {
                 arguments = Bundle().apply {
                     putString("EXTRA_CATEGORY_NAME", "FILTER_PIUTANG")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                    putString("EXTRA_TIME_FILTER", "MONTHLY") 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
@@ -134,6 +168,7 @@ class ReportFragment : Fragment() {
                 arguments = Bundle().apply {
                     putString("EXTRA_CATEGORY_NAME", "FILTER_LAINNYA")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
+                    putString("EXTRA_TIME_FILTER", "MONTHLY") 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
