@@ -187,9 +187,11 @@ class HistoryTransactionFragment : Fragment() {
             holder.tvDailyTotal.text = "$prefix${formatRupiah.format(Math.abs(block.dailyTotal))}"
             holder.tvDailyTotal.setTextColor(ContextCompat.getColor(requireContext(), if (block.dailyTotal >= 0) R.color.income_green else R.color.expense_red))
             
-            // 🔥 LOOPING TRANSAKSI KE DALAM CONTAINER CARDVIEW
             holder.container.removeAllViews()
             val inflater = LayoutInflater.from(holder.itemView.context)
+            
+            // 🔥 AMBIL MAP IKON DARI VIEWMODEL
+            val iconMap = viewModel.uiState.value.categoryIconMap
             
             for ((index, tx) in block.transactions.withIndex()) {
                 val txView = inflater.inflate(R.layout.item_transaction, holder.container, false)
@@ -197,7 +199,7 @@ class HistoryTransactionFragment : Fragment() {
                 val tvCategory: TextView = txView.findViewById(R.id.tvItemCategory)
                 val tvNote: TextView = txView.findViewById(R.id.tvItemNote)
                 val tvAmount: TextView = txView.findViewById(R.id.tvItemAmount)
-                val tvIcon: TextView = txView.findViewById(R.id.tvItemIcon)
+                val ivIcon: android.widget.ImageView = txView.findViewById(R.id.ivItemIcon) // 🔥 UPDATE IMAGEVIEW
                 
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
                 tvCategory.text = tx.categoryName
@@ -206,21 +208,23 @@ class HistoryTransactionFragment : Fragment() {
                 val amtPrefix = if (isInc) "+" else "-"
                 tvAmount.text = "$amtPrefix${formatRupiah.format(tx.amount)}"
                 tvAmount.setTextColor(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
-                tvIcon.text = if (isInc) "📥" else "💸"
+                
+                // 🔥 INJEKSI IKON
+                val iconName = iconMap[tx.categoryName] ?: "ic_custom"
+                ivIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(iconName))
+                ivIcon.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
                 
                 txView.setOnClickListener {
                     TransactionEditorDialog(
                         hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to (tx.debtId ?: ""))
-                    ) { /* OnUpdate */ }.show(parentFragmentManager, "EditTx")
+                    ) { }.show(parentFragmentManager, "EditTx")
                 }
                 
                 holder.container.addView(txView)
                 
-                // Tambahkan Garis Pembatas (Divider) jika bukan item terakhir
                 if (index < block.transactions.size - 1) {
                     val divider = View(holder.itemView.context).apply {
                         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2).apply {
-                            // Menjorok ke dalam agar sejajar dengan teks
                             val marginStart = (70f * resources.displayMetrics.density).toInt()
                             setMargins(marginStart, 0, 0, 0)
                         }
