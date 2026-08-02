@@ -1,12 +1,14 @@
 package com.smartfinance.tracker.ui.category
 
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.LinearLayout
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -16,25 +18,34 @@ import com.smartfinance.tracker.R
 import com.smartfinance.tracker.utils.FinanceIcon
 import com.smartfinance.tracker.utils.IconProvider
 
-class IconPickerDialog(
-    private val currentIconName: String,
-    private val onIconSelected: (String) -> Unit
-) : BottomSheetDialogFragment() {
+class IconPickerDialog : BottomSheetDialogFragment() {
+
+    companion object {
+        fun newInstance(currentIconName: String): IconPickerDialog {
+            val args = Bundle().apply {
+                putString("CURRENT_ICON", currentIconName)
+            }
+            val fragment = IconPickerDialog()
+            fragment.arguments = args
+            return fragment
+        }
+    }
 
     private lateinit var rvIcons: RecyclerView
     private lateinit var tabLayoutGroups: TabLayout
     private lateinit var iconAdapter: IconAdapter
 
     private val allGroups = IconProvider.getAllIconGroups()
+    private var currentIconName = "ic_custom"
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.dialog_icon_picker, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        currentIconName = arguments?.getString("CURRENT_ICON") ?: "ic_custom"
 
         rvIcons = view.findViewById(R.id.rvIcons)
         tabLayoutGroups = view.findViewById(R.id.tabLayoutGroups)
@@ -58,14 +69,17 @@ class IconPickerDialog(
     }
 
     private fun setupRecyclerView() {
-        rvIcons.layoutManager = GridLayoutManager(requireContext(), 4)
+        rvIcons.layoutManager = GridLayoutManager(requireContext(), 5)
         iconAdapter = IconAdapter { selectedIcon ->
-            onIconSelected(selectedIcon.iconName)
-            dismiss() // Tutup dialog setelah ikon dipilih
+            // 🔥 FIX CRASH: Validasi state sebelum dismiss agar aman dari double-click
+            if (isAdded && !isStateSaved) {
+                parentFragmentManager.setFragmentResult("icon_request", Bundle().apply {
+                    putString("selected_icon", selectedIcon.iconName)
+                })
+                dismissAllowingStateLoss()
+            }
         }
         rvIcons.adapter = iconAdapter
-        
-        // Load default tab (index 0)
         updateIconGrid(0)
     }
 
@@ -92,14 +106,15 @@ class IconPickerDialog(
             val density = parent.context.resources.displayMetrics.density
             val layout = LinearLayout(parent.context).apply {
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                gravity = android.view.Gravity.CENTER
+                gravity = Gravity.CENTER
                 setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
             }
 
-            val imageView = androidx.appcompat.widget.AppCompatImageView(parent.context).apply {
-                layoutParams = LinearLayout.LayoutParams((48 * density).toInt(), (48 * density).toInt())
-                setPadding((12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt(), (12 * density).toInt())
-                scaleType = androidx.appcompat.widget.AppCompatImageView.ScaleType.FIT_CENTER
+            val imageView = AppCompatImageView(parent.context).apply {
+                // Diperbesar sedikit agar presisi dan tajam
+                layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt())
+                setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+                scaleType = AppCompatImageView.ScaleType.FIT_CENTER
             }
             layout.addView(imageView)
 
@@ -110,24 +125,20 @@ class IconPickerDialog(
             val icon = icons[position]
             val context = holder.itemView.context
             
-            // Render gambar (Akan crash/samar jika file XML di drawable rusak)
             holder.imageView.setImageResource(icon.resId)
 
             val isSelected = icon.iconName == selectedIconName
-            val colorPrimary = androidx.core.content.ContextCompat.getColor(context, R.color.primary)
-            val colorTextSec = androidx.core.content.ContextCompat.getColor(context, R.color.text_secondary)
 
+            // 🔥 FIX ABU-ABU SAMAR: Pewarnaan Kontras Ekstrem
             if (isSelected) {
-                // Ikon terpilih: Background bulat warna utama, ikon warna putih
-                holder.imageView.background = android.graphics.drawable.GradientDrawable().apply {
-                    shape = android.graphics.drawable.GradientDrawable.OVAL
-                    setColor(colorPrimary)
-                }
-                holder.imageView.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+                holder.imageView.setBackgroundResource(R.drawable.bg_circle_icon)
+                holder.imageView.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.primary))
+                holder.imageView.imageTintList = ColorStateList.valueOf(Color.WHITE)
             } else {
-                // Ikon tidak terpilih: Background transparan, ikon warna abu-abu
                 holder.imageView.background = null
-                holder.imageView.imageTintList = android.content.res.ColorStateList.valueOf(colorTextSec)
+                holder.imageView.backgroundTintList = null
+                // Gunakan text_primary agar ikon tidak terpilih sangat jelas dan tebal
+                holder.imageView.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.text_primary))
             }
             
             holder.itemView.setOnClickListener { onIconClick(icon) }
@@ -135,6 +146,6 @@ class IconPickerDialog(
 
         override fun getItemCount(): Int = icons.size
 
-        inner class IconViewHolder(view: View, val imageView: androidx.appcompat.widget.AppCompatImageView) : RecyclerView.ViewHolder(view)
+        inner class IconViewHolder(view: View, val imageView: AppCompatImageView) : RecyclerView.ViewHolder(view)
     }
 }
