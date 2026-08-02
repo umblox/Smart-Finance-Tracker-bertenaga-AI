@@ -22,7 +22,12 @@ import com.smartfinance.tracker.ui.settings.SettingsFragment
 import com.smartfinance.tracker.ui.transaction.TransactionManualDialog
 import com.smartfinance.tracker.utils.RecurringTxWorker 
 import com.smartfinance.tracker.worker.AiWorkerManager 
-import com.smartfinance.tracker.worker.CloudSyncWorker // 🔥 Import Worker Auto-Sync Cloud
+import com.smartfinance.tracker.worker.CloudSyncWorker
+// 🔥 IMPORT BARU UNTUK SCRIPT MIGRASI
+import com.smartfinance.tracker.data.local.DatabaseProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -68,24 +73,30 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Jadwal Worker Tagihan Berkala (15 Menit)
+        // 🔥 SCRIPT AUTO-MIGRATION IKON DATABASE
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = DatabaseProvider.db
+                val dao = db.categoryDao()
+                val cats = dao.getAllSync()
+                
+                // Jika ikon terkunci masih menggunakan ic_wallet atau salah, update otomatis ke ikon baru
+                cats.find { it.id == 1L && it.iconName != "ic_salary" }?,let {dao.insert(it.copy(iconName = "ic_salary")) }
+                cats.find { it.id == 101L && it.iconName != "ic_debt" }?.let { dao.insert(it.copy(iconName = "ic_debt")) }
+                cats.find { it.id == 102L && it.iconName != "ic_debt_pay" }?.let { dao.insert(it.copy(iconName = "ic_debt_pay")) }
+                cats.find { it.id == 103L && it.iconName != "ic_receivable_collect" }?.let { dao.insert(it.copy(iconName = "ic_receivable_collect")) }
+                cats.find { it.id == 104L && it.iconName != "ic_receivable" }?.let { dao.insert(it.copy(iconName = "ic_receivable")) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         val workRequest = PeriodicWorkRequestBuilder<RecurringTxWorker>(15, TimeUnit.MINUTES).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "RecurringTransactionWorker",
-            ExistingPeriodicWorkPolicy.KEEP, 
-            workRequest
-        )
-
-        // 2. Jadwal Worker Notifikasi Analisis AI Mingguan
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork("RecurringTransactionWorker", ExistingPeriodicWorkPolicy.KEEP, workRequest)
         AiWorkerManager.scheduleWeeklyReport(this)
-
-        // 🔥 3. Jadwal Worker Auto-Sync Google Drive (Setiap 12 Jam)
+        
         val syncRequest = PeriodicWorkRequestBuilder<CloudSyncWorker>(12, TimeUnit.HOURS).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "CloudSyncWorker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncRequest
-        )
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork("CloudSyncWorker", ExistingPeriodicWorkPolicy.KEEP, syncRequest)
 
         checkBiometric()
         
