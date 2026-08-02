@@ -22,7 +22,8 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
 
     companion object {
         val DEFAULT_PROMPT = """
-            Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam).
+            Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam) dalam aplikasi "Samrt Finance Tracker".
+            Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
             WAKTU SAAT INI: {TODAY_DATE}
             
             [SALDO UANG SAYA SAAT INI]: {CURRENT_BALANCE}
