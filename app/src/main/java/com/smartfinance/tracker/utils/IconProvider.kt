@@ -52,13 +52,14 @@ object IconProvider {
         FinanceIcon("ic_cashback", R.drawable.ic_cashback),
         FinanceIcon("ic_insurance_claim", R.drawable.ic_insurance_claim),
         FinanceIcon("ic_tax_return", R.drawable.ic_tax_return),
-        FinanceIcon("ic_debt_pay", R.drawable.ic_debt_pay) // Pembayaran piutang dari teman
+        FinanceIcon("ic_debt_pay", R.drawable.ic_debt_pay)
     )
 
     // 6. Simpanan & Tunai Langsung
     private val incomeAssetIcons = listOf(
         FinanceIcon("ic_wallet", R.drawable.ic_wallet),
         FinanceIcon("ic_bank", R.drawable.ic_bank),
+        FinanceIcon("ic_piggybank", R.drawable.ic_piggybank),
         FinanceIcon("ic_safe", R.drawable.ic_safe),
         FinanceIcon("ic_coins", R.drawable.ic_coins)
     )
