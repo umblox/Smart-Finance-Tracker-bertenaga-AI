@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.databinding.DialogCategoryEditorBinding
 import kotlinx.coroutines.launch
@@ -41,7 +42,6 @@ class CategoryEditorDialog : DialogFragment() {
     private lateinit var viewModel: CategoryViewModel
     private var availableParents = ArrayList<Category>()
     
-    // 🔥 VARIABEL PENYIMPAN STATE IKON SAAT INI
     private var currentSelectedIcon = "ic_custom"
 
     override fun onStart() {
@@ -66,7 +66,6 @@ class CategoryEditorDialog : DialogFragment() {
         val currentParentId = if (arguments?.containsKey("PARENT_ID") == true) arguments?.getLong("PARENT_ID") else null
         val activeTypeFilter = arguments?.getString("TYPE_FILTER") ?: "EXPENSE"
         
-        // 🔥 AMBIL IKON DARI ARGUMEN (Atau default jika buat baru)
         currentSelectedIcon = arguments?.getString("ICON") ?: "ic_custom"
 
         binding.tvTitle.text = if (docId == null) "Tambah Kategori Baru" else "Ubah Detail Kategori"
@@ -75,22 +74,36 @@ class CategoryEditorDialog : DialogFragment() {
         
         binding.etName.setText(currentName)
         
-        // 🔥 RENDER IKON SAAT INI KE UI
-        binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(currentSelectedIcon))
+        // 🔥 TAMENG ANTI CRASH SAAT MENERIMA IKON BARU
+        childFragmentManager.setFragmentResultListener("icon_request", viewLifecycleOwner) { _, bundle ->
+            val newIcon = bundle.getString("selected_icon") ?: "ic_custom"
+            currentSelectedIcon = newIcon
+            try {
+                binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(newIcon))
+            } catch (e: Exception) {
+                // Jika file XML korup, pasang fallback agar tidak Force Close
+                binding.ivCategoryIcon.setImageResource(R.drawable.ic_wallet) 
+                Toast.makeText(requireContext(), "Peringatan: File Ikon Rusak!", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 🔥 TAMENG ANTI CRASH SAAT LOAD AWAL
+        try {
+            binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(currentSelectedIcon))
+        } catch (e: Exception) {
+            binding.ivCategoryIcon.setImageResource(R.drawable.ic_wallet)
+        }
 
         if (docId != null && isLocked) {
-            // KUNCI: Kategori Sistem tidak boleh diedit sama sekali
             binding.etName.isEnabled = false
             binding.spinnerParent.isEnabled = false
             binding.ivCategoryIcon.isEnabled = false
             binding.ivCategoryIcon.alpha = 0.5f 
         } else {
-            // BUKA PICKER IKON JIKA DIKLIK
             binding.ivCategoryIcon.setOnClickListener {
-                IconPickerDialog(currentSelectedIcon) { newIcon ->
-                    currentSelectedIcon = newIcon
-                    binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(newIcon))
-                }.show(parentFragmentManager, "IconPicker")
+                if (childFragmentManager.findFragmentByTag("IconPicker") == null) {
+                    IconPickerDialog.newInstance(currentSelectedIcon).show(childFragmentManager, "IconPicker")
+                }
             }
         }
 
@@ -143,7 +156,6 @@ class CategoryEditorDialog : DialogFragment() {
 
             lifecycleScope.launch {
                 try {
-                    // 🔥 KIRIM IKON YANG DIPILIH KE VIEWMODEL
                     viewModel.validateAndSaveCategory(
                         docId = docId, currentNumericId = currentNumericId, 
                         name = finalName, type = activeTypeFilter, 
