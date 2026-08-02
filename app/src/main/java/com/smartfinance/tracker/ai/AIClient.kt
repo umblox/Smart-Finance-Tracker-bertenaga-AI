@@ -17,12 +17,11 @@ import com.smartfinance.tracker.data.local.DatabaseProvider
 
 class AIClient(private val context: Context, private val assistant: FinancialAssistant) {
 
-    // 🔥 FIX: Menggunakan Room Database secara langsung
     private val db = DatabaseProvider.db
 
     companion object {
         val DEFAULT_PROMPT = """
-            Anda adalah Asisten Finansial cerdas untuk Ikromul Umam (Mam) dalam aplikasi "Samrt Finance Tracker".
+            Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
             WAKTU SAAT INI: {TODAY_DATE}
             
@@ -63,6 +62,9 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
         val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
         
+        // 🔥 Mengambil nama user dari preferensi
+        val userName = prefs.getString("user_name", "Ikromul Umam (Mam)") ?: "Ikromul Umam (Mam)"
+        
         if (apiKey.isEmpty()) return@withContext "⚠️ Sistem dikunci! Silakan masukkan API Key AI di menu Pengaturan terlebih dahulu."
 
         val catContext = java.lang.StringBuilder()
@@ -72,7 +74,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         var currentBalanceStr = "Rp 0"
 
         try {
-            // 🔥 MENGGUNAKAN ROOM DATABASE SINKRON (Jauh lebih cepat dari Firestore)
             val allTx = db.transactionDao().getAllSync()
             var totalInc = 0.0
             var totalExp = 0.0
@@ -113,6 +114,10 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val todayString = sdfToday.format(Date())
 
         var finalSystemPrompt = prefs.getString("expert_system_prompt", DEFAULT_PROMPT) ?: DEFAULT_PROMPT
+        
+        // 🔥 Inject Nama User ke dalam prompt
+        finalSystemPrompt = finalSystemPrompt.replace("{USER_NAME}", userName)
+        
         if (finalSystemPrompt.contains("{TODAY_DATE}")) {
             finalSystemPrompt = finalSystemPrompt.replace("{TODAY_DATE}", todayString)
                 .replace("{CURRENT_BALANCE}", currentBalanceStr)
