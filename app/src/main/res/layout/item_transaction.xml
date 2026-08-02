@@ -14,12 +14,12 @@
         android:background="@drawable/bg_circle_icon"
         android:backgroundTint="@color/background_color"
         android:layout_marginEnd="12dp">
-        <TextView
-            android:id="@+id/tvItemIcon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="💰"
-            android:textSize="18sp"
+        
+        <!-- 🔥 FIX: Diubah menjadi ImageView Vektor Dinamis -->
+        <ImageView
+            android:id="@+id/ivItemIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:layout_gravity="center"/>
     </FrameLayout>
 
