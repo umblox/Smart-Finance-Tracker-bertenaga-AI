@@ -19,7 +19,7 @@ import kotlin.collections.LinkedHashMap
 data class HistoryUiState(
     val currentMonthLabel: String = "",
     val groupedTransactions: LinkedHashMap<String, List<Transaction>> = LinkedHashMap(),
-    val categoryIconMap: Map<String, String> = emptyMap(), // 🔥 MAP IKON
+    val categoryIconMap: Map<String, String> = emptyMap(),
     val isEmpty: Boolean = true
 )
 
@@ -75,9 +75,15 @@ class HistoryViewModel : ViewModel() {
         
         val iconMap = latestCategories.associate { it.name to it.iconName }
 
+        // 🔥 Fix Warning: Mengonversi MutableList ke List secara eksplisit tanpa Unchecked Cast
+        val resultGroupMap = LinkedHashMap<String, List<Transaction>>()
+        groupMap.forEach { (key, list) ->
+            resultGroupMap[key] = list
+        }
+
         _uiState.value = HistoryUiState(
             currentMonthLabel = sdfLabel.format(currentCalendar.time).uppercase(Locale.ROOT),
-            groupedTransactions = groupMap as LinkedHashMap<String, List<Transaction>>,
+            groupedTransactions = resultGroupMap,
             categoryIconMap = iconMap,
             isEmpty = monthlyList.isEmpty()
         )
