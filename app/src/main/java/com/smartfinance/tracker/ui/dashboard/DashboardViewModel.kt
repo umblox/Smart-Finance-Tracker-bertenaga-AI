@@ -2,15 +2,17 @@ package com.smartfinance.tracker.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.model.Transaction
+import com.smartfinance.tracker.data.repository.CategoryRepository
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
 
-// Objek penampung seluruh data yang akan ditampilkan di layar
 data class DashboardUiState(
     val totalBalance: Double = 0.0,
     val incomeThisMonth: Double = 0.0,
@@ -20,29 +22,36 @@ data class DashboardUiState(
     val topExpenses: List<Pair<String, Double>> = emptyList(),
     val topExpensesTotal: Double = 0.0,
     val recentTransactions: List<Transaction> = emptyList(),
+    val categoryIconMap: Map<String, String> = emptyMap(), // 🔥 MAP IKON
     val activeTimeLabel: String = ""
 )
 
 class DashboardViewModel : ViewModel() {
     private val repository = TransactionRepository()
+    private val catRepo = CategoryRepository() // 🔥 Tambahkan Repo Kategori
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState
 
     private var currentTopFilter = "BULAN INI"
     private var activeTimePrefs = System.currentTimeMillis()
+    private var latestCategories = emptyList<Category>()
 
     init {
         repository.startListening()
-        // Pantau terus menerus perubahan data dari repository
+        catRepo.startListening()
+        
+        // 🔥 GABUNGKAN KEDUA DATA (Combine Flow)
         viewModelScope.launch {
-            repository.transactions.collect { allTx ->
-                calculateDashboard(allTx)
+            combine(repository.transactions, catRepo.categories) { txs, cats ->
+                Pair(txs, cats)
+            }.collect { (txs, cats) ->
+                latestCategories = cats
+                calculateDashboard(txs)
             }
         }
     }
 
-    // Fungsi ini dipanggil dari Fragment jika user menekan filter (Minggu/Bulan)
     fun updatePreferences(time: Long, filter: String) {
         activeTimePrefs = time
         currentTopFilter = filter
@@ -53,11 +62,8 @@ class DashboardViewModel : ViewModel() {
         val calToday = Calendar.getInstance().apply { timeInMillis = activeTimePrefs }
         val calLastMonth = Calendar.getInstance().apply { timeInMillis = activeTimePrefs; add(Calendar.MONTH, -1) }
 
-        var balanceTotal = 0.0
-        var incomeThisMonth = 0.0
-        var expenseThisMonth = 0.0
-        var incomeLastMonth = 0.0
-        var expenseLastMonth = 0.0
+        var balanceTotal = 0.0; var incomeThisMonth = 0.0; var expenseThisMonth = 0.0
+        var incomeLastMonth = 0.0; var expenseLastMonth = 0.0
 
         allTx.forEach { tx ->
             if (tx.type == "INCOME" || tx.type == "DEBT") balanceTotal += tx.amount
@@ -77,7 +83,6 @@ class DashboardViewModel : ViewModel() {
             }
         }
 
-        // Kalkulasi Pengeluaran Teratas
         val nowTime = System.currentTimeMillis()
         val filteredExpenses = allTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
             .filter { tx ->
@@ -92,29 +97,24 @@ class DashboardViewModel : ViewModel() {
         val totalFilteredExpenseAmount = filteredExpenses.sumOf { it.amount }
         val aggregatedExpenses = filteredExpenses.groupBy { it.categoryName }
             .mapValues { entry -> entry.value.sumOf { it.amount } }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(3)
+            .toList().sortedByDescending { it.second }.take(3)
 
-        // Transaksi Terakhir
         val recentTxList = allTx.sortedByDescending { it.timestamp }.take(4)
         val sdfMonthLabel = java.text.SimpleDateFormat("MMMM", Locale("id", "ID"))
+        val iconMap = latestCategories.associate { it.name to it.iconName }
 
         _uiState.value = DashboardUiState(
-            totalBalance = balanceTotal,
-            incomeThisMonth = incomeThisMonth,
-            expenseThisMonth = expenseThisMonth,
-            incomeLastMonth = incomeLastMonth,
-            expenseLastMonth = expenseLastMonth,
-            topExpenses = aggregatedExpenses,
-            topExpensesTotal = totalFilteredExpenseAmount,
-            recentTransactions = recentTxList,
-            activeTimeLabel = sdfMonthLabel.format(calToday.time)
+            totalBalance = balanceTotal, incomeThisMonth = incomeThisMonth,
+            expenseThisMonth = expenseThisMonth, incomeLastMonth = incomeLastMonth,
+            expenseLastMonth = expenseLastMonth, topExpenses = aggregatedExpenses,
+            topExpensesTotal = totalFilteredExpenseAmount, recentTransactions = recentTxList,
+            categoryIconMap = iconMap, activeTimeLabel = sdfMonthLabel.format(calToday.time)
         )
     }
 
     override fun onCleared() {
         super.onCleared()
         repository.stopListening()
+        catRepo.stopListening()
     }
 }
