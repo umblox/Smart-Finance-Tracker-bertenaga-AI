@@ -24,11 +24,9 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <!-- 🔥 FIX: ScrollView disetel agar membungkus konten dinamis -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="0"
             android:fillViewport="true">
             
             <LinearLayout
