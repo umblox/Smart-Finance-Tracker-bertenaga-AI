@@ -119,8 +119,8 @@ class IconPickerDialog(
             val icon = icons[position]
             holder.imageView.setImageResource(icon.resId)
 
-            // Logika UI jika Ikon ini sedang aktif (terpilih)
             if (icon.iconName == selectedIconName) {
+                // Ikon Terpilih (Nyala / Primary)
                 holder.imageView.backgroundTintList = ColorStateList.valueOf(
                     ContextCompat.getColor(holder.itemView.context, R.color.primary)
                 )
@@ -128,11 +128,12 @@ class IconPickerDialog(
                     ContextCompat.getColor(holder.itemView.context, android.R.color.white)
                 )
             } else {
+                // 🔥 FIX UI: Ikon Tidak Terpilih (Patuh Tema)
                 holder.imageView.backgroundTintList = ColorStateList.valueOf(
                     ContextCompat.getColor(holder.itemView.context, R.color.background_color)
                 )
                 holder.imageView.imageTintList = ColorStateList.valueOf(
-                    ContextCompat.getColor(holder.itemView.context, R.color.primary)
+                    ContextCompat.getColor(holder.itemView.context, R.color.text_secondary)
                 )
             }
 
