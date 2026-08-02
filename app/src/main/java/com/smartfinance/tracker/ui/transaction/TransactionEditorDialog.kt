@@ -97,15 +97,27 @@ class TransactionEditorDialog(
         } else {
             val initialTypeRaw = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
             currentType = initialTypeRaw
+            
+            // 🔥 FIX: Amankan data kategori sejak awal agar tidak butuh loading database lagi
+            if (currentCategoryId != 0L) {
+                selectedCategoryMap = mapOf("id" to currentCategoryId, "name" to currentCategoryName, "type" to initialTypeRaw)
+            }
+            
             binding.etPremiumTxNote.setText(currentNote)
             if (currentType == "INCOME") binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
         }
 
+        // 🔥 FIX: Gembok Logika Reset Otomatis
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
             if (!isDebtTransaction) {
-                currentType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
-                selectedCategoryMap = null
-                binding.btnCategoryPicker.text = "Pilih Kategori"
+                val newType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
+                
+                // HANYA reset kategori jika pengguna BENAR-BENAR mengubah tipe (Bukan trigger otomatis awal)
+                if (currentType != newType) {
+                    currentType = newType
+                    selectedCategoryMap = null
+                    binding.btnCategoryPicker.text = "Pilih Kategori"
+                }
             }
         }
         
@@ -121,12 +133,15 @@ class TransactionEditorDialog(
                 )
             }
             
-            val targetSearchId = if (isDebtTransaction) {
-                if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
-            } else {
-                currentCategoryId
+            // Perbarui selectedCategoryMap dengan objek utuh jika ditemukan di DB (Opsional, karena sudah diselamatkan di awal)
+            if (selectedCategoryMap == null) {
+                val targetSearchId = if (isDebtTransaction) {
+                    if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
+                } else {
+                    currentCategoryId
+                }
+                selectedCategoryMap = allCategoriesCloud.find { (it["id"] as? Long) == targetSearchId }
             }
-            selectedCategoryMap = allCategoriesCloud.find { (it["id"] as? Long) == targetSearchId }
         }
 
         binding.btnCancel.setOnClickListener { dialog.dismiss() }
@@ -156,7 +171,6 @@ class TransactionEditorDialog(
                     return@setOnClickListener
                 }
 
-                // 🔥 LOGIKA WAKTU CERDAS
                 val originalFormattedDate = sdfPremium.format(Date(currentTimestamp))
                 val parsedDate = try { 
                     if (dateVal == originalFormattedDate) currentTimestamp 
