@@ -144,7 +144,7 @@ class DashboardFragment : Fragment() {
         binding.chartContainer.addView(chartVerticalLayout)
 
         binding.topExpenseContainer.removeAllViews()
-        binding.cardTopExpense.setOnClickListener(null) // Reset klik container
+        binding.cardTopExpense.setOnClickListener(null)
         
         if (state.topExpenses.isEmpty()) {
             for (i in 1..3) binding.topExpenseContainer.addView(createPlaceholderRow("Kategori Kosong $i", "Belum ada alokasi dana.", density))
@@ -157,7 +157,6 @@ class DashboardFragment : Fragment() {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8 * density).toInt() }
                 }
                 
-                // 🔥 FIX: Baris spesifik diklik -> Buka Kategori, TANPA Dropdown
                 rowCard.setOnClickListener {
                     val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                     val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
@@ -166,7 +165,7 @@ class DashboardFragment : Fragment() {
                             putString("EXTRA_TARGET_MODE", categoryName)
                             putString("EXTRA_TARGET_TYPE", "CATEGORY")
                             putLong("EXTRA_BASE_TIME", activeTimePrefs)
-                            putBoolean("EXTRA_SHOW_DROPDOWN", false) // KUNCI MATI
+                            putBoolean("EXTRA_SHOW_DROPDOWN", false)
                             putBoolean("EXTRA_FROM_REPORT_MENU", false)
                         }
                     }
@@ -174,11 +173,19 @@ class DashboardFragment : Fragment() {
                 }
 
                 val rowLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt()) }
+                
+                // 🔥 INJEKSI IKON VEKTOR DINAMIS TOP EXPENSES
                 val iconCircle = FrameLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                     background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(getThemeColor(R.color.background_color)) }
-                    addView(TextView(requireContext()).apply { text = "💰"; textSize = 14f; gravity = Gravity.CENTER })
+                    addView(android.widget.ImageView(requireContext()).apply {
+                        layoutParams = FrameLayout.LayoutParams((20*density).toInt(), (20*density).toInt()).apply { gravity = Gravity.CENTER }
+                        val iconName = state.categoryIconMap[categoryName] ?: "ic_custom"
+                        setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(iconName))
+                        imageTintList = android.content.res.ColorStateList.valueOf(getThemeColor(R.color.expense_red))
+                    })
                 }
+                
                 val centerInfo = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
                 centerInfo.addView(TextView(requireContext()).apply { text = categoryName; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14f })
                 centerInfo.addView(TextView(requireContext()).apply { text = formatRupiah.format(totalAmount); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 11.5f; setPadding(0, 2, 0, 0) })
@@ -202,11 +209,19 @@ class DashboardFragment : Fragment() {
                 }
                 val rowLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt()) }
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
+                
+                // 🔥 INJEKSI IKON VEKTOR DINAMIS RECENT TRANSACTION
                 val iconCircle = FrameLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                     background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(getThemeColor(R.color.background_color)) }
-                    addView(TextView(requireContext()).apply { text = if (isInc) "📥" else "💸"; textSize = 15f; gravity = Gravity.CENTER })
+                    addView(android.widget.ImageView(requireContext()).apply {
+                        layoutParams = FrameLayout.LayoutParams((22*density).toInt(), (22*density).toInt()).apply { gravity = Gravity.CENTER }
+                        val iconName = state.categoryIconMap[tx.categoryName] ?: "ic_custom"
+                        setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(iconName))
+                        imageTintList = android.content.res.ColorStateList.valueOf(getThemeColor(if (isInc) R.color.income_green else R.color.expense_red))
+                    })
                 }
+                
                 val centerInfo = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
                 centerInfo.addView(TextView(requireContext()).apply { text = tx.note; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
                 centerInfo.addView(TextView(requireContext()).apply { text = sdfPremiumDateTime.format(Date(tx.timestamp)); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 11.5f; setPadding(0, 2, 0, 0) })
