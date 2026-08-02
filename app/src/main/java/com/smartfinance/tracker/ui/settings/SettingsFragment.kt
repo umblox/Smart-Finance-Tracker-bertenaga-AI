@@ -26,6 +26,9 @@ import com.smartfinance.tracker.utils.BackupEngine
 import com.smartfinance.tracker.utils.GoogleDriveManager
 import com.smartfinance.tracker.utils.LocalBackupUtil
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SettingsFragment : Fragment() {
 
@@ -48,14 +51,12 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    // 🔥 PELUNCUR FILE PICKER UNTUK EXPORT (MENYIMPAN FILE)
     private val exportBackupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let {
             LocalBackupUtil.exportDataToUri(requireContext(), it)
         }
     }
 
-    // 🔥 PELUNCUR FILE PICKER UNTUK IMPORT (MEMILIH FILE)
     private val importBackupLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             LocalBackupUtil.importDataFromUri(requireContext(), it)
@@ -119,17 +120,14 @@ class SettingsFragment : Fragment() {
         binding.menuBudgeting.setOnClickListener { com.smartfinance.tracker.ui.budget.BudgetManagerDialog().show(parentFragmentManager, "BudgetManagerDialog") }
         binding.menuRecurringTx.setOnClickListener { RecurringTxListDialog().show(parentFragmentManager, "RecurringTxListDialog") }
 
-        // 🔥 AKSI TOMBOL LOKAL BACKUP MENGGUNAKAN FILE PICKER
         binding.menuLocalBackup.setOnClickListener {
             AlertDialog.Builder(requireContext())
                 .setTitle("🛠️ Backup & Restore Lokal")
                 .setItems(arrayOf("📤 Export Database (Simpan File)", "📥 Import Database (Pilih File)")) { _, which ->
                     if (which == 0) {
-                        // Membuka jendela penyimpanan dengan nama default
-                        val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale("id", "ID"))
-                        exportBackupLauncher.launch("SmartFinance_Backup_${sdf.format(java.util.Date())}.json")
+                        val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale("id", "ID"))
+                        exportBackupLauncher.launch("SmartFinance_Backup_${sdf.format(Date())}.json")
                     } else {
-                        // Membuka jendela pemilihan file untuk mengambil file backup
                         importBackupLauncher.launch(arrayOf("application/json", "*/*"))
                     }
                 }
@@ -137,11 +135,15 @@ class SettingsFragment : Fragment() {
         }
 
         binding.menuApiConfig.setOnClickListener { AiSettingsDialog.showApiConfig(requireContext(), layoutInflater, prefs, binding.root) }
-        }
+    }
 
     private fun updateDriveUi(isSignedIn: Boolean) {
         if (isSignedIn) {
-            binding.tvDriveStatusSubtitle.text = "Terhubung (Auto-Sync Aktif)"
+            // 🔥 MENGAMBIL WAKTU TERAKHIR SINKRONISASI
+            val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+            val lastSync = prefs.getString("last_sync_time", "Menunggu Sinkronisasi...")
+            
+            binding.tvDriveStatusSubtitle.text = lastSync
             binding.tvDriveStatusSubtitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.income_green))
             binding.layoutDriveActions.visibility = View.VISIBLE
         } else {
@@ -165,7 +167,7 @@ class SettingsFragment : Fragment() {
                     .show()
                 updateDriveUi(true)
             } else {
-                performBackup() // Auto backup pertama kali jika belum ada
+                performBackup() 
             }
         }
     }
@@ -176,6 +178,12 @@ class SettingsFragment : Fragment() {
             val json = BackupEngine.exportDbToJson()
             val success = GoogleDriveManager.uploadBackup(requireContext(), json)
             if (success) {
+                // 🔥 REKAM JEJAK: MANUAL SYNC BACKUP
+                val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+                val timeStr = sdf.format(Date())
+                requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                    .edit().putString("last_sync_time", "Manual Sync: $timeStr").apply()
+                    
                 Toast.makeText(requireContext(), "Backup Selesai!", Toast.LENGTH_SHORT).show()
                 updateDriveUi(true)
             } else {
@@ -192,6 +200,12 @@ class SettingsFragment : Fragment() {
             if (json != null) {
                 val success = BackupEngine.importJsonToDb(json)
                 if (success) {
+                    // 🔥 REKAM JEJAK: MANUAL SYNC RESTORE
+                    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+                    val timeStr = sdf.format(Date())
+                    requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
+                        .edit().putString("last_sync_time", "Manual Restore: $timeStr").apply()
+                        
                     Toast.makeText(requireContext(), "Restore Sukses!", Toast.LENGTH_SHORT).show()
                     updateDriveUi(true)
                 } else {
