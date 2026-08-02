@@ -20,6 +20,7 @@
             android:orientation="vertical"
             android:padding="20dp">
 
+            <!-- Header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -91,16 +92,17 @@
                 android:layout_height="wrap_content"
                 android:text="Kategori:"
                 android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSelectCategory"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="16dp"
                 android:gravity="start|center_vertical"
-                android:text="Pilih Kategori"
+                android:text="PILIH KATEGORI"
                 android:textColor="@color/text_primary"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
@@ -108,7 +110,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -132,15 +134,18 @@
                         android:textColor="@color/text_primary" />
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- 🔥 FIX: Mengubah Gaya Tombol Kontak agar serasi (Outlined) -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPickContact"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="54dp"
                     android:layout_height="54dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:text="📖"
+                    android:textSize="18sp"
                     android:textColor="@color/text_primary"
-                    app:backgroundTint="@color/divider_color"
+                    app:strokeColor="@color/divider_color"
                     app:cornerRadius="12dp" />
             </LinearLayout>
 
@@ -149,7 +154,8 @@
                 android:layout_height="wrap_content"
                 android:text="Diulang Setiap:"
                 android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp"/>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -161,12 +167,13 @@
                 app:strokeColor="@color/divider_color"
                 app:strokeWidth="1dp">
                 
-                <!-- 🔥 FIX: Background dibuat transparan dan padding disesuaikan -->
+                <!-- 🔥 FIX: Tambahkan popupBackground untuk Dark Mode -->
                 <Spinner
                     android:id="@+id/spinnerInterval"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:background="@android:color/transparent"
+                    android:popupBackground="@color/surface_white"
                     android:paddingHorizontal="16dp" />
             </com.google.android.material.card.MaterialCardView>
 
