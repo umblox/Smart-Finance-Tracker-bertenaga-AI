@@ -32,6 +32,9 @@ class TransactionEditorDialog(
     private var allCategoriesCloud = listOf<Map<String, Any>>()
     private var selectedCategoryMap: Map<String, Any>? = null
     private var isDebtTransaction = false
+    
+    // 🔥 LAPIS 1: Tameng kebal anti-trigger dari RadioGroup Android
+    private var isInitialized = false 
 
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
 
@@ -63,13 +66,12 @@ class TransactionEditorDialog(
         val currentNote = transactionData["note"] as? String ?: ""
         val currentTimestamp = (transactionData["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
         val currentCategoryId = (transactionData["categoryId"] as? Number)?.toLong() ?: 0L
-        val currentCategoryName = transactionData["categoryName"] as? String ?: "Pilih Kategori"
+        val currentCategoryName = transactionData["categoryName"] as? String ?: ""
         val targetDebtId = transactionData["debtId"] as? String ?: ""
         
         isDebtTransaction = targetDebtId.isNotEmpty()
         binding.etPremiumTxAmount.setText(currentAmount.toString())
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
-        binding.btnCategoryPicker.text = currentCategoryName
 
         if (isDebtTransaction) {
             binding.rbPremiumTxExpense.text = "Saya Berhutang (Hutang)"
@@ -98,7 +100,6 @@ class TransactionEditorDialog(
             val initialTypeRaw = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
             currentType = initialTypeRaw
             
-            // 🔥 FIX: Amankan data kategori sejak awal agar tidak butuh loading database lagi
             if (currentCategoryId != 0L) {
                 selectedCategoryMap = mapOf("id" to currentCategoryId, "name" to currentCategoryName, "type" to initialTypeRaw)
             }
@@ -107,12 +108,12 @@ class TransactionEditorDialog(
             if (currentType == "INCOME") binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
         }
 
-        // 🔥 FIX: Gembok Logika Reset Otomatis
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
+            // 🔥 Tameng Aktif: Jangan lakukan apapun jika dialog belum selesai di-render
+            if (!isInitialized) return@setOnCheckedChangeListener 
+
             if (!isDebtTransaction) {
                 val newType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
-                
-                // HANYA reset kategori jika pengguna BENAR-BENAR mengubah tipe (Bukan trigger otomatis awal)
                 if (currentType != newType) {
                     currentType = newType
                     selectedCategoryMap = null
@@ -133,14 +134,25 @@ class TransactionEditorDialog(
                 )
             }
             
-            // Perbarui selectedCategoryMap dengan objek utuh jika ditemukan di DB (Opsional, karena sudah diselamatkan di awal)
-            if (selectedCategoryMap == null) {
-                val targetSearchId = if (isDebtTransaction) {
-                    if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
+            val targetSearchId = if (isDebtTransaction) {
+                if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
+            } else {
+                currentCategoryId
+            }
+            
+            val dbCategory = allCategoriesCloud.find { (it["id"] as? Number)?.toLong() == targetSearchId }
+            if (dbCategory != null) {
+                selectedCategoryMap = dbCategory
+            }
+
+            // 🔥 LAPIS 2: PAKSA AMBIL DARI DATABASE (Ultimate Source of Truth)
+            if (!isDebtTransaction) {
+                val nameToDisplay = selectedCategoryMap?.get("name") as? String ?: currentCategoryName
+                if (nameToDisplay.isNotBlank() && nameToDisplay != "null") {
+                    binding.btnCategoryPicker.text = nameToDisplay
                 } else {
-                    currentCategoryId
+                    binding.btnCategoryPicker.text = "Pilih Kategori"
                 }
-                selectedCategoryMap = allCategoriesCloud.find { (it["id"] as? Long) == targetSearchId }
             }
         }
 
@@ -177,13 +189,13 @@ class TransactionEditorDialog(
                     else sdfPremium.parse(dateVal)?.time ?: currentTimestamp 
                 } catch (e: Exception) { currentTimestamp }
                 
-                var catId = if (isDebtTransaction) {
+                val catId = if (isDebtTransaction) {
                      if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
                 } else {
                      (selectedCategoryMap!!["id"] as? Number)?.toLong() ?: 15L
                 }
                 
-                var catName = if (isDebtTransaction) {
+                val catName = if (isDebtTransaction) {
                      if (catId == 104L) "Piutang" else "Hutang"
                 } else {
                      selectedCategoryMap!!["name"] as? String ?: "Umum"
@@ -230,6 +242,8 @@ class TransactionEditorDialog(
             }
         }
 
+        // 🔥 Tameng dicabut, aplikasi siap memantau klik pengguna secara real-time
+        isInitialized = true 
         return dialog
     }
 
