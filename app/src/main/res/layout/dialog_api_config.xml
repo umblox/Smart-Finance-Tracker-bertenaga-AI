@@ -30,6 +30,36 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
+            <!-- 🔥 INPUT NAMA PANGGILAN -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="Panggilan Anda (Untuk AI):"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeColor="@color/primary">
+                
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etUserName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Contoh: Ikromul Umam (Mam)"
+                    android:inputType="textPersonName"
+                    android:textColor="@color/text_primary" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- INPUT PILIH MESIN AI -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -56,6 +86,7 @@
                     android:paddingHorizontal="16dp" />
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- INPUT KUNCI API -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -84,6 +115,7 @@
                     android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- TOMBOL AKSI -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
