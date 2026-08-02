@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface_white"
+    android:background="@color/background_color" 
     android:orientation="vertical"
     android:paddingTop="20dp">
 
@@ -70,23 +70,24 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="52dp" 
-                    app:cardBackgroundColor="@color/background_color"
+                    app:cardBackgroundColor="@color/surface_white"
                     app:cardCornerRadius="10dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/divider_color"
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="16dp">
                     
-                    <!-- 🔥 FIX: Background Transparan & padding lega -->
+                    <!-- 🔥 FIX: popupBackground agar menu tidak putih di Dark Mode -->
                     <Spinner
                         android:id="@+id/spinnerType"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="@android:color/transparent"
+                        android:popupBackground="@color/surface_white"
                         android:paddingHorizontal="16dp"/>
                 </com.google.android.material.card.MaterialCardView>
                 
-                <!-- 🔥 FITUR BARU: Filter Kategori -->
+                <!-- Filter Kategori -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -98,18 +99,20 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="52dp" 
-                    app:cardBackgroundColor="@color/background_color"
+                    app:cardBackgroundColor="@color/surface_white"
                     app:cardCornerRadius="10dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/divider_color"
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="16dp">
                     
+                    <!-- 🔥 FIX: popupBackground -->
                     <Spinner
                         android:id="@+id/spinnerCategory"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="@android:color/transparent"
+                        android:popupBackground="@color/surface_white"
                         android:paddingHorizontal="16dp"/>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -125,19 +128,20 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="52dp" 
-                    app:cardBackgroundColor="@color/background_color"
+                    app:cardBackgroundColor="@color/surface_white"
                     app:cardCornerRadius="10dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/divider_color"
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="12dp">
                     
-                    <!-- 🔥 FIX: Background Transparan & padding lega -->
+                    <!-- 🔥 FIX: popupBackground -->
                     <Spinner
                         android:id="@+id/spinnerTime"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="@android:color/transparent"
+                        android:popupBackground="@color/surface_white"
                         android:paddingHorizontal="16dp"/>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -216,12 +220,13 @@
                     android:background="@color/divider_color"
                     android:layout_marginBottom="24dp">
                     
+                    <!-- Khusus untuk PDF Preview wajib dibiarkan putih agar file PDF terbaca -->
                     <ImageView
                         android:id="@+id/ivPdfPreview"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:layout_margin="8dp"
-                        android:background="@android:color/white"
+                        android:background="@android:color/white" 
                         android:elevation="4dp"
                         android:scaleType="fitCenter" />
                         
@@ -237,7 +242,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:text="TIdak ada data"
+                        android:text="Tidak ada data"
                         android:textColor="@color/text_secondary"
                         android:visibility="gone"/>
                 </FrameLayout>
