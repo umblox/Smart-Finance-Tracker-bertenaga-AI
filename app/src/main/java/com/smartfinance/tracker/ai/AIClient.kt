@@ -62,8 +62,9 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
         val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
         
-        // 🔥 Mengambil nama user dari preferensi
-        val userName = prefs.getString("user_name", "Ikromul Umam (Mam)") ?: "Ikromul Umam (Mam)"
+        // 🔥 FIX: Jika nama tidak diset atau kosong, kembalikan ke nilai netral "Pengguna"
+        val savedName = prefs.getString("user_name", "")?.trim()
+        val userName = if (savedName.isNullOrEmpty()) "Pengguna" else savedName
         
         if (apiKey.isEmpty()) return@withContext "⚠️ Sistem dikunci! Silakan masukkan API Key AI di menu Pengaturan terlebih dahulu."
 
@@ -115,7 +116,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
 
         var finalSystemPrompt = prefs.getString("expert_system_prompt", DEFAULT_PROMPT) ?: DEFAULT_PROMPT
         
-        // 🔥 Inject Nama User ke dalam prompt
         finalSystemPrompt = finalSystemPrompt.replace("{USER_NAME}", userName)
         
         if (finalSystemPrompt.contains("{TODAY_DATE}")) {
