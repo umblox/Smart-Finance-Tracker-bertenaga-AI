@@ -56,10 +56,8 @@ class CategoryTrendViewModel : ViewModel() {
                     txCal.get(Calendar.MONTH) == targetMonth && txCal.get(Calendar.YEAR) == targetYear
                 }
 
-                // 🔥 FIX 1: Logika Fallback Cerdas (Mencegah "ALL_EXPENSE" di Laporan Kategori)
                 var actualTargetMode = initialTargetMode
                 if (initialTargetMode == "AUTO_TOP_EXPENSE") {
-                    // Cari pengeluaran terbesar di BULAN INI
                     val topCat = currentMonthTxAll.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
                         .groupBy { it.categoryName }.mapValues { it.value.sumOf { tx -> tx.amount } }
                         .maxByOrNull { it.value }?.key
@@ -67,18 +65,20 @@ class CategoryTrendViewModel : ViewModel() {
                     if (topCat != null) {
                         actualTargetMode = topCat
                     } else {
-                        // JIKA BULAN INI KOSONG: Ambil salah satu kategori dari seluruh histori database
                         val fallbackCat = allTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
                             .map { it.categoryName }.firstOrNull()
                         actualTargetMode = fallbackCat ?: "Belum ada Kategori" 
                     }
                 }
 
-                val isExpense = if (targetType == "GLOBAL") actualTargetMode == "ALL_EXPENSE" 
-                                else allTx.find { it.categoryName == (if (targetType == "NOTE") parentCategory else actualTargetMode) }?.type == "EXPENSE" ?: true
+                // 🔥 Fix Warning: Menggunakan operator logika eksplisit tanpa Elvis operator pada non-nullable Boolean
+                val isExpense = if (targetType == "GLOBAL") {
+                    actualTargetMode == "ALL_EXPENSE"
+                } else {
+                    val targetCatName = if (targetType == "NOTE") parentCategory else actualTargetMode
+                    allTx.find { it.categoryName == targetCatName }?.type != "INCOME"
+                }
 
-                // 🔥 FIX 2: Dropdown selalu terisi oleh seluruh kategori dari DATABASE (bukan hanya bulan ini) 
-                // Agar dropdown tidak pernah kosong meskipun bulan tersebut belum ada transaksi.
                 val availableCategoriesList = allTx.filter { tx ->
                     if (isExpense) (tx.type == "EXPENSE" || tx.type == "RECEIVABLE") else (tx.type == "INCOME" || tx.type == "DEBT")
                 }.map { it.categoryName }.distinct().sorted()
