@@ -12,8 +12,9 @@ import java.util.Locale
 
 class CloudSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        // Jika belum login Google, tak perlu error, cukup lewati task ini
-        val account = GoogleSignIn.getLastSignedInAccount(applicationContext) ?: return Result.success()
+        if (GoogleSignIn.getLastSignedInAccount(applicationContext) == null) {
+            return Result.success()
+        }
 
         return try {
             val jsonContent = BackupEngine.exportDbToJson()
