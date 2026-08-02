@@ -111,11 +111,6 @@
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_ai_config" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_ai_config_desc" android:textColor="@color/text_secondary" android:textSize="12sp"/>
                 </LinearLayout>
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
-                <LinearLayout android:id="@+id/menuExpertMode" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_ai_expert" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_ai_expert_desc" android:textColor="@color/text_secondary" android:textSize="12sp"/>
-                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
