@@ -283,11 +283,13 @@ class FinancialAssistant(private val context: Context) {
         db.transactionDao().insert(tx)
 
         if (type == "EXPENSE") {
-            checkAndTriggerBudgetAlertFromAI(catId, catName, finalAmount)
+            // 🔥 Perbaikan Warning 1: Menghapus Parameter Mubazir (newAmount)
+            checkAndTriggerBudgetAlertFromAI(catId, catName)
         }
     }
 
-    private suspend fun checkAndTriggerBudgetAlertFromAI(categoryId: Long, categoryName: String, newAmount: Double) {
+    // 🔥 Perbaikan Warning 1: Menghapus argumen unused
+    private suspend fun checkAndTriggerBudgetAlertFromAI(categoryId: Long, categoryName: String) {
         try {
             val budgetDoc = db.budgetDao().getByCategoryId(categoryId)
             if (budgetDoc != null) {
@@ -364,17 +366,16 @@ class FinancialAssistant(private val context: Context) {
             val timestamp = tx.timestamp
 
             val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
-            var isTimeMatch = false
-
-            when (timeRange) {
-                "TODAY" -> isTimeMatch = txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                "WEEKLY" -> isTimeMatch = txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                "MONTHLY" -> isTimeMatch = txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                "LAST_MONTH" -> isTimeMatch = txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
-                "YEARLY" -> isTimeMatch = txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
-                "CUSTOM_RANGE" -> isTimeMatch = timestamp in startTs..endTs
-                "ALL" -> isTimeMatch = true
-                else -> isTimeMatch = true
+            
+            // 🔥 Perbaikan Warning 2: Mengubah Inisialisasi Redundan (Clean When Expression)
+            val isTimeMatch = when (timeRange) {
+                "TODAY" -> txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "WEEKLY" -> txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "MONTHLY" -> txCal.get(Calendar.MONTH) == calToday.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "LAST_MONTH" -> txCal.get(Calendar.MONTH) == calLastMonth.get(Calendar.MONTH) && txCal.get(Calendar.YEAR) == calLastMonth.get(Calendar.YEAR)
+                "YEARLY" -> txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
+                "CUSTOM_RANGE" -> timestamp in startTs..endTs
+                else -> true
             }
 
             if (isTimeMatch) {
