@@ -18,68 +18,75 @@ object DatabaseProvider {
             if (dao.getAllSync().isEmpty()) {
                 val defaultCategories = listOf(
                     // ==========================================
-                    // 🔒 1. KATEGORI SYSTEM (LOCKED)
+                    // 🔒 1. KATEGORI SYSTEM (LOCKED - WAJIB ADA UNTUK FALLBACK AI)
                     // ==========================================
-                    Category(docId = "cat_101", id = 101L, name = "Hutang", type = "DEBT", iconName = "ic_wallet", parentCategoryId = null, isLocked = true),
-                    Category(docId = "cat_102", id = 102L, name = "Pembayaran kembali", type = "DEBT", iconName = "ic_salary", parentCategoryId = null, isLocked = true),
-                    Category(docId = "cat_103", id = 103L, name = "Penagihan Utang", type = "DEBT", iconName = "ic_salary", parentCategoryId = null, isLocked = true),
-                    Category(docId = "cat_104", id = 104L, name = "Piutang", type = "DEBT", iconName = "ic_wallet", parentCategoryId = null, isLocked = true),
+                    Category(docId = "cat_1", id = 1L, name = "Gaji & Pendapatan", type = "INCOME", iconName = "ic_salary", parentCategoryId = null, isLocked = true),
+                    Category(docId = "cat_15", id = 15L, name = "Lain-lain / Umum", type = "EXPENSE", iconName = "ic_wallet", parentCategoryId = null, isLocked = true),
+                    
+                    Category(docId = "cat_101", id = 101L, name = "Hutang", type = "DEBT", iconName = "ic_debt", parentCategoryId = null, isLocked = true),
+                    Category(docId = "cat_102", id = 102L, name = "Pembayaran kembali", type = "DEBT", iconName = "ic_debt_pay", parentCategoryId = null, isLocked = true),
+                    Category(docId = "cat_103", id = 103L, name = "Penagihan Utang", type = "DEBT", iconName = "ic_receivable_collect", parentCategoryId = null, isLocked = true),
+                    Category(docId = "cat_104", id = 104L, name = "Piutang", type = "DEBT", iconName = "ic_receivable", parentCategoryId = null, isLocked = true),
 
                     // ==========================================
                     // 📥 2. KATEGORI PEMASUKAN (INCOME)
                     // ==========================================
-                    Category(docId = "cat_201", id = 201L, name = "Gaji", type = "INCOME", iconName = "ic_salary", parentCategoryId = null, isLocked = false),
                     Category(docId = "cat_202", id = 202L, name = "Bisnis", type = "INCOME", iconName = "ic_business", parentCategoryId = null, isLocked = false),
                     Category(docId = "cat_203", id = 203L, name = "Investasi", type = "INCOME", iconName = "ic_investment", parentCategoryId = null, isLocked = false),
-                    Category(docId = "cat_204", id = 204L, name = "Pemberian", type = "INCOME", iconName = "ic_charity", parentCategoryId = null, isLocked = false),
-                    Category(docId = "cat_205", id = 205L, name = "Bonus & THR", type = "INCOME", iconName = "ic_salary", parentCategoryId = null, isLocked = false),
-                    Category(docId = "cat_206", id = 206L, name = "Lain-lain", type = "INCOME", iconName = "ic_wallet", parentCategoryId = null, isLocked = false),
+                    Category(docId = "cat_204", id = 204L, name = "Pemberian", type = "INCOME", iconName = "ic_gift", parentCategoryId = null, isLocked = false),
+                    Category(docId = "cat_205", id = 205L, name = "Bonus & THR", type = "INCOME", iconName = "ic_bonus", parentCategoryId = null, isLocked = false),
+                    Category(docId = "cat_206", id = 206L, name = "Pendapatan Pasif", type = "INCOME", iconName = "ic_passive_income", parentCategoryId = null, isLocked = false),
 
                     // ==========================================
                     // 💸 3. KATEGORI PENGELUARAN (EXPENSE)
                     // ==========================================
                     // 3.1 Makanan & Minuman
                     Category(docId = "cat_301", id = 301L, name = "Makanan & Minuman", type = "EXPENSE", iconName = "ic_food", parentCategoryId = null, isLocked = false),
-                    Category(docId = "cat_3011", id = 3011L, name = "Makan di Luar", type = "EXPENSE", iconName = "ic_food", parentCategoryId = 301L, isLocked = false),
+                    Category(docId = "cat_3011", id = 3011L, name = "Makan di Luar", type = "EXPENSE", iconName = "ic_restaurant", parentCategoryId = 301L, isLocked = false),
                     Category(docId = "cat_3012", id = 3012L, name = "Belanja Dapur", type = "EXPENSE", iconName = "ic_groceries", parentCategoryId = 301L, isLocked = false),
-                    Category(docId = "cat_3013", id = 3013L, name = "Kopi & Jajanan", type = "EXPENSE", iconName = "ic_food", parentCategoryId = 301L, isLocked = false),
+                    Category(docId = "cat_3013", id = 3013L, name = "Kopi & Jajanan", type = "EXPENSE", iconName = "ic_coffee", parentCategoryId = 301L, isLocked = false),
 
                     // 3.2 Transportasi
                     Category(docId = "cat_302", id = 302L, name = "Transportasi", type = "EXPENSE", iconName = "ic_transport", parentCategoryId = null, isLocked = false),
-                    Category(docId = "cat_3021", id = 3021L, name = "Bensin", type = "EXPENSE", iconName = "ic_utilities", parentCategoryId = 302L, isLocked = false),
-                    Category(docId = "cat_3022", id = 3022L, name = "Transportasi Umum", type = "EXPENSE", iconName = "ic_transport", parentCategoryId = 302L, isLocked = false),
-                    Category(docId = "cat_3023", id = 3023L, name = "Parkir & Tol", type = "EXPENSE", iconName = "ic_transport", parentCategoryId = 302L, isLocked = false),
-                    Category(docId = "cat_3024", id = 3024L, name = "Servis Kendaraan", type = "EXPENSE", iconName = "ic_transport", parentCategoryId = 302L, isLocked = false),
+                    Category(docId = "cat_3021", id = 3021L, name = "Bensin", type = "EXPENSE", iconName = "ic_gas", parentCategoryId = 302L, isLocked = false),
+                    Category(docId = "cat_3022", id = 3022L, name = "Transportasi Umum", type = "EXPENSE", iconName = "ic_train", parentCategoryId = 302L, isLocked = false),
+                    Category(docId = "cat_3023", id = 3023L, name = "Parkir & Tol", type = "EXPENSE", iconName = "ic_car", parentCategoryId = 302L, isLocked = false),
+                    Category(docId = "cat_3024", id = 3024L, name = "Servis Kendaraan", type = "EXPENSE", iconName = "ic_service", parentCategoryId = 302L, isLocked = false),
 
-                    // 3.3 Kebutuhan Rumah
+                    // ✈️ 3.3 Liburan & Traveling
+                    Category(docId = "cat_309", id = 309L, name = "Liburan & Traveling", type = "EXPENSE", iconName = "ic_flight", parentCategoryId = null, isLocked = false),
+                    Category(docId = "cat_3091", id = 3091L, name = "Tiket Pesawat / Kereta", type = "EXPENSE", iconName = "ic_ticket", parentCategoryId = 309L, isLocked = false),
+                    Category(docId = "cat_3092", id = 3092L, name = "Hotel & Penginapan", type = "EXPENSE", iconName = "ic_hotel", parentCategoryId = 309L, isLocked = false),
+                    Category(docId = "cat_3093", id = 3093L, name = "Tiket Wisata & Atraksi", type = "EXPENSE", iconName = "ic_mountain", parentCategoryId = 309L, isLocked = false),
+                    Category(docId = "cat_3094", id = 3094L, name = "Oleh-Oleh & Suvenir", type = "EXPENSE", iconName = "ic_souvenir", parentCategoryId = 309L, isLocked = false),
+                    Category(docId = "cat_3095", id = 3095L, name = "Paspor & Visa", type = "EXPENSE", iconName = "ic_passport", parentCategoryId = 309L, isLocked = false),
+
+                    // 3.4 Kebutuhan Rumah
                     Category(docId = "cat_303", id = 303L, name = "Kebutuhan Rumah", type = "EXPENSE", iconName = "ic_home", parentCategoryId = null, isLocked = false),
-                    Category(docId = "cat_3031", id = 3031L, name = "Listrik & Air", type = "EXPENSE", iconName = "ic_utilities", parentCategoryId = 303L, isLocked = false),
-                    Category(docId = "cat_3032", id = 3032L, name = "Internet & Pulsa", type = "EXPENSE", iconName = "ic_utilities", parentCategoryId = 303L, isLocked = false),
+                    Category(docId = "cat_3031", id = 3031L, name = "Listrik & Air", type = "EXPENSE", iconName = "ic_electricity", parentCategoryId = 303L, isLocked = false),
+                    Category(docId = "cat_3032", id = 3032L, name = "Internet & Pulsa", type = "EXPENSE", iconName = "ic_internet", parentCategoryId = 303L, isLocked = false),
 
-                    // 3.4 Belanja & Pribadi
+                    // 3.5 Belanja & Pribadi
                     Category(docId = "cat_304", id = 304L, name = "Belanja", type = "EXPENSE", iconName = "ic_shopping", parentCategoryId = null, isLocked = false),
                     Category(docId = "cat_3041", id = 3041L, name = "Pakaian & Sepatu", type = "EXPENSE", iconName = "ic_clothing", parentCategoryId = 304L, isLocked = false),
-                    Category(docId = "cat_3042", id = 3042L, name = "Perawatan Diri", type = "EXPENSE", iconName = "ic_charity", parentCategoryId = 304L, isLocked = false),
+                    Category(docId = "cat_3042", id = 3042L, name = "Perawatan Diri", type = "EXPENSE", iconName = "ic_cosmetics", parentCategoryId = 304L, isLocked = false),
 
-                    // 3.5 Hiburan
+                    // 3.6 Hiburan
                     Category(docId = "cat_305", id = 305L, name = "Hiburan", type = "EXPENSE", iconName = "ic_movie", parentCategoryId = null, isLocked = false),
                     Category(docId = "cat_3051", id = 3051L, name = "Film & Bioskop", type = "EXPENSE", iconName = "ic_movie", parentCategoryId = 305L, isLocked = false),
-                    Category(docId = "cat_3052", id = 3052L, name = "Langganan Digital", type = "EXPENSE", iconName = "ic_bills", parentCategoryId = 305L, isLocked = false),
+                    Category(docId = "cat_3052", id = 3052L, name = "Langganan Digital", type = "EXPENSE", iconName = "ic_game", parentCategoryId = 305L, isLocked = false),
 
-                    // 3.6 Sosial & Keluarga & Hobi
-                    Category(docId = "cat_306", id = 306L, name = "Sosial & Keluarga", type = "EXPENSE", iconName = "ic_charity", parentCategoryId = null, isLocked = false),
+                    // 3.7 Sosial & Keluarga
+                    Category(docId = "cat_306", id = 306L, name = "Sosial & Keluarga", type = "EXPENSE", iconName = "ic_family", parentCategoryId = null, isLocked = false),
                     Category(docId = "cat_3061", id = 3061L, name = "Sedekah & Donasi", type = "EXPENSE", iconName = "ic_charity", parentCategoryId = 306L, isLocked = false),
-                    Category(docId = "cat_3062", id = 3062L, name = "Hadiah & Kondangan", type = "EXPENSE", iconName = "ic_shopping", parentCategoryId = 306L, isLocked = false),
+                    Category(docId = "cat_3062", id = 3062L, name = "Hadiah & Kondangan", type = "EXPENSE", iconName = "ic_wedding", parentCategoryId = 306L, isLocked = false),
                     
-                    // 3.7 Keuangan & Admin
-                    Category(docId = "cat_307", id = 307L, name = "Keuangan", type = "EXPENSE", iconName = "ic_investment", parentCategoryId = null, isLocked = false),
+                    // 3.8 Keuangan & Admin
+                    Category(docId = "cat_307", id = 307L, name = "Keuangan", type = "EXPENSE", iconName = "ic_bank", parentCategoryId = null, isLocked = false),
                     Category(docId = "cat_3071", id = 3071L, name = "Biaya Admin Bank", type = "EXPENSE", iconName = "ic_bills", parentCategoryId = 307L, isLocked = false),
                     
-                    // 3.8 Hewan Peliharaan & Hobi (TAMBAHAN)
-                    Category(docId = "cat_308", id = 308L, name = "Peliharaan & Hobi", type = "EXPENSE", iconName = "ic_pet", parentCategoryId = null, isLocked = false),
-
-                    // Default cadangan (Untuk Jaga-jaga)
-                    Category(docId = "cat_15", id = 15L, name = "Lain-lain / Umum", type = "EXPENSE", iconName = "ic_wallet", parentCategoryId = null, isLocked = true)
+                    // 3.9 Hewan Peliharaan & Hobi
+                    Category(docId = "cat_308", id = 308L, name = "Peliharaan & Hobi", type = "EXPENSE", iconName = "ic_pet", parentCategoryId = null, isLocked = false)
                 )
                 
                 defaultCategories.forEach { dao.insert(it) }
