@@ -81,7 +81,7 @@ class CategoryManagerDialog : DialogFragment() {
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
         val safeRippleId = typedValue.resourceId
 
-        // 🔥 TOMBOL "+ KATEGORI BARU" (Gaya Money Lover)
+        // TOMBOL "+ KATEGORI BARU"
         val btnAddNew = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -119,7 +119,14 @@ class CategoryManagerDialog : DialogFragment() {
                 isFocusable = true
                 setOnClickListener { CategoryEditorDialog.newInstance(parent, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog") }
             }
-            parentRow.addView(TextView(requireContext()).apply { text = "📁"; textSize = 22f; setPadding(0, 0, (16f * density).toInt(), 0) })
+            
+            // 🔥 INJEKSI IKON INDUK DINAMIS
+            parentRow.addView(android.widget.ImageView(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams((28 * density).toInt(), (28 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
+                setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(parent.iconName))
+                imageTintList = android.content.res.ColorStateList.valueOf(getThemeColor(R.color.primary))
+            })
+            
             parentRow.addView(TextView(requireContext()).apply {
                 text = parent.name
                 setTextColor(getThemeColor(R.color.text_primary))
@@ -145,7 +152,14 @@ class CategoryManagerDialog : DialogFragment() {
                     layoutParams = LinearLayout.LayoutParams((2f * density).toInt(), (24f * density).toInt()).apply { rightMargin = (16f * density).toInt() }
                 }
                 childRow.addView(treeLine)
-                childRow.addView(TextView(requireContext()).apply { text = "💰"; textSize = 16f; setPadding(0, 0, (12f * density).toInt(), 0) })
+                
+                // 🔥 INJEKSI IKON SUB-KATEGORI DINAMIS
+                childRow.addView(android.widget.ImageView(requireContext()).apply {
+                    layoutParams = LinearLayout.LayoutParams((24 * density).toInt(), (24 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
+                    setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(child.iconName))
+                    imageTintList = android.content.res.ColorStateList.valueOf(getThemeColor(R.color.text_secondary))
+                })
+                
                 childRow.addView(TextView(requireContext()).apply {
                     text = child.name
                     setTextColor(getThemeColor(R.color.text_primary))
