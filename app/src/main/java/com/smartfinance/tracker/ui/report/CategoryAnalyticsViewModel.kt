@@ -2,10 +2,13 @@ package com.smartfinance.tracker.ui.report
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.model.Transaction
+import com.smartfinance.tracker.data.repository.CategoryRepository
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -15,19 +18,26 @@ data class CategoryAnalyticsUiState(
     val totalIncome: Double = 0.0,  
     val totalExpense: Double = 0.0, 
     val transactions: List<Transaction> = emptyList(),
+    val categoryIconMap: Map<String, String> = emptyMap(), // 🔥 MAP IKON
     val isEmpty: Boolean = true
 )
 
 class CategoryAnalyticsViewModel : ViewModel() {
     private val repository = TransactionRepository()
+    private val catRepo = CategoryRepository()
     private val _uiState = MutableStateFlow(CategoryAnalyticsUiState())
     val uiState: StateFlow<CategoryAnalyticsUiState> = _uiState
 
-    init { repository.startListening() }
+    init { 
+        repository.startListening() 
+        catRepo.startListening()
+    }
 
     fun loadCategoryData(categoryName: String, timeFilterString: String, baseTimeMillis: Long, dayRange: String? = null, noteFilter: String? = null) {
         viewModelScope.launch {
-            repository.transactions.collect { allTx ->
+            combine(repository.transactions, catRepo.categories) { allTx, cats ->
+                Pair(allTx, cats)
+            }.collect { (allTx, cats) ->
                 val timeFilter = try { TimeFilter.valueOf(timeFilterString) } catch (e: Exception) { TimeFilter.MONTHLY }
                 val timeRange = getTimeRange(timeFilter, baseTimeMillis)
                 
@@ -72,12 +82,15 @@ class CategoryAnalyticsViewModel : ViewModel() {
                     TimeFilter.MONTHLY -> "Bulan Ini"
                 }
 
+                val iconMap = cats.associate { it.name to it.iconName }
+
                 _uiState.value = CategoryAnalyticsUiState(
                     categoryName = categoryName,
                     timeLabel = label,
                     totalIncome = income,
                     totalExpense = expense,
                     transactions = filteredTx,
+                    categoryIconMap = iconMap,
                     isEmpty = filteredTx.isEmpty()
                 )
             }
@@ -87,7 +100,6 @@ class CategoryAnalyticsViewModel : ViewModel() {
     private fun getTimeRange(filter: TimeFilter, timeMillis: Long): Pair<Long, Long> {
         val cal = Calendar.getInstance().apply { timeInMillis = timeMillis }
         val startCal = cal.clone() as Calendar; val endCal = cal.clone() as Calendar
-
         when (filter) {
             TimeFilter.DAILY -> { }
             TimeFilter.WEEKLY -> {
@@ -100,11 +112,10 @@ class CategoryAnalyticsViewModel : ViewModel() {
                 endCal.set(Calendar.DAY_OF_MONTH, endCal.getActualMaximum(Calendar.DAY_OF_MONTH))
             }
         }
-
         startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0); startCal.set(Calendar.MILLISECOND, 0)
         endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59); endCal.set(Calendar.MILLISECOND, 999)
         return Pair(startCal.timeInMillis, endCal.timeInMillis)
     }
 
-    override fun onCleared() { super.onCleared(); repository.stopListening() }
+    override fun onCleared() { super.onCleared(); repository.stopListening(); catRepo.stopListening() }
 }
