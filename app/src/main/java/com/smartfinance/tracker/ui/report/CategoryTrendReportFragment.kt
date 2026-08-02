@@ -191,7 +191,8 @@ class CategoryTrendReportFragment : Fragment() {
     }
 
     private fun renderVisualMode() {
-        val state = viewModel.uiState.value ?: return
+        // 🔥 Perbaikan Warning 3: Menghilangkan "?: return" karena .value StateFlow murni Non-Nullable!
+        val state = viewModel.uiState.value 
         
         if (state.targetType == "NOTE") {
             binding.cardPillToggle.visibility = View.GONE
@@ -230,7 +231,6 @@ class CategoryTrendReportFragment : Fragment() {
                 setOnClickListener {
                     val state = viewModel.uiState.value
                     
-                    // 🔥 FIX 3: Ambil Bendera Dropdown dan Report dari Layar Sekarang
                     val isReportMenu = arguments?.getBoolean("EXTRA_FROM_REPORT_MENU", false) ?: false
                     val allowDropdown = arguments?.getBoolean("EXTRA_SHOW_DROPDOWN", false) ?: false
                     
@@ -253,7 +253,7 @@ class CategoryTrendReportFragment : Fragment() {
                                     putString("EXTRA_TARGET_TYPE", "NOTE")
                                     putString("EXTRA_PARENT_CATEGORY", state.targetMode)
                                     putLong("EXTRA_BASE_TIME", state.selectedTimeMillis) 
-                                    putBoolean("EXTRA_SHOW_DROPDOWN", false) // Note mode tidak pernah pakai dropdown
+                                    putBoolean("EXTRA_SHOW_DROPDOWN", false) 
                                     putBoolean("EXTRA_FROM_REPORT_MENU", isReportMenu)
                                 }
                             }
