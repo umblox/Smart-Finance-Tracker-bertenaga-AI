@@ -40,6 +40,9 @@ class CategoryEditorDialog : DialogFragment() {
 
     private lateinit var viewModel: CategoryViewModel
     private var availableParents = ArrayList<Category>()
+    
+    // 🔥 VARIABEL PENYIMPAN STATE IKON SAAT INI
+    private var currentSelectedIcon = "ic_custom"
 
     override fun onStart() {
         super.onStart()
@@ -47,7 +50,6 @@ class CategoryEditorDialog : DialogFragment() {
         dialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
-    // 🔥 FIX: Menggunakan onCreateView murni
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = DialogCategoryEditorBinding.inflate(inflater, container, false)
         return binding.root
@@ -63,15 +65,33 @@ class CategoryEditorDialog : DialogFragment() {
         val isLocked = arguments?.getBoolean("IS_LOCKED") ?: false
         val currentParentId = if (arguments?.containsKey("PARENT_ID") == true) arguments?.getLong("PARENT_ID") else null
         val activeTypeFilter = arguments?.getString("TYPE_FILTER") ?: "EXPENSE"
+        
+        // 🔥 AMBIL IKON DARI ARGUMEN (Atau default jika buat baru)
+        currentSelectedIcon = arguments?.getString("ICON") ?: "ic_custom"
 
         binding.tvTitle.text = if (docId == null) "Tambah Kategori Baru" else "Ubah Detail Kategori"
         binding.btnDelete.visibility = if (docId != null && !isLocked) View.VISIBLE else View.GONE
         binding.btnSave.visibility = if (docId != null && isLocked) View.GONE else View.VISIBLE
         
         binding.etName.setText(currentName)
+        
+        // 🔥 RENDER IKON SAAT INI KE UI
+        binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(currentSelectedIcon))
+
         if (docId != null && isLocked) {
+            // KUNCI: Kategori Sistem tidak boleh diedit sama sekali
             binding.etName.isEnabled = false
             binding.spinnerParent.isEnabled = false
+            binding.ivCategoryIcon.isEnabled = false
+            binding.ivCategoryIcon.alpha = 0.5f 
+        } else {
+            // BUKA PICKER IKON JIKA DIKLIK
+            binding.ivCategoryIcon.setOnClickListener {
+                IconPickerDialog(currentSelectedIcon) { newIcon ->
+                    currentSelectedIcon = newIcon
+                    binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(newIcon))
+                }.show(parentFragmentManager, "IconPicker")
+            }
         }
 
         binding.btnClose.setOnClickListener { dismiss() }
@@ -120,14 +140,14 @@ class CategoryEditorDialog : DialogFragment() {
             val finalName = binding.etName.text.toString()
             val selectedPos = binding.spinnerParent.selectedItemPosition
             val finalParentId = if (selectedPos == 0 || availableParents.isEmpty()) null else availableParents[selectedPos - 1].id
-            val iconName = arguments?.getString("ICON") ?: "ic_custom"
 
             lifecycleScope.launch {
                 try {
+                    // 🔥 KIRIM IKON YANG DIPILIH KE VIEWMODEL
                     viewModel.validateAndSaveCategory(
                         docId = docId, currentNumericId = currentNumericId, 
                         name = finalName, type = activeTypeFilter, 
-                        iconName = iconName, isLocked = isLocked, parentId = finalParentId
+                        iconName = currentSelectedIcon, isLocked = isLocked, parentId = finalParentId
                     )
                     Toast.makeText(context, "Kategori sukses disimpan!", Toast.LENGTH_SHORT).show()
                     dismiss()
