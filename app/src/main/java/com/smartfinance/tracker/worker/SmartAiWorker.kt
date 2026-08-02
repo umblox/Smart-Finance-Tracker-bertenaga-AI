@@ -56,7 +56,7 @@ class SmartAiWorker(
                 return@withContext Result.retry()
             }
             
-            // 3. Simpan Jawaban AI ke Firestore (Hanya jika sukses)
+            // 3. Simpan Jawaban AI Database ke Room Lokal (Hanya jika sukses)
             val repo = AiNotificationRepository()
             val notif = AiNotification(
                 title = titlePrompt,
