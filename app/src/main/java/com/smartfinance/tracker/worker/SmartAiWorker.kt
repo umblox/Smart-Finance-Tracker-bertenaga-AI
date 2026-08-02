@@ -28,8 +28,7 @@ class SmartAiWorker(
         val titlePrompt = inputData.getString("title") ?: "Pesan dari Asisten AI"
 
         try {
-            // 1. Susun Prompt Cerdas untuk AI (Menghindari Token Limit & Context Lenght)
-            // AI hanya diberikan ringkasan (JSON ringan), bukan ribuan transaksi mentah.
+            // 1. Susun Prompt Cerdas untuk AI
             val prompt = """
                 Kamu adalah asisten keuangan pribadi yang ramah, cerdas, dan empatik.
                 Tugasmu: Berikan nasihat, peringatan, atau apresiasi berdasarkan data ringkas berikut.
@@ -43,21 +42,28 @@ class SmartAiWorker(
                 - Jangan memakai sapaan basa-basi (seperti "Halo/Hai"), langsung to the point.
             """.trimIndent()
 
-            // 2. Inisialisasi Otak AI Client sesuai dengan struktur aplikasi Anda
+            // 2. Inisialisasi Otak AI Client
             val assistant = com.smartfinance.tracker.ai.FinancialAssistant(context)
             val aiClient = com.smartfinance.tracker.ai.AIClient(context, assistant)
 
              // Panggil fungsi dari AiClient.kt
             val aiResponse = aiClient.sendMessageToAI(prompt)
             
-            // 3. Simpan Jawaban AI ke Firestore (Agar masuk ke Kotak Pesan)
+            // 🔥 FIX: Jaring Pengaman Internet! 
+            // Jika AI mengembalikan pesan error jaringan (berawalan ⚠️), JANGAN jadikan notifikasi!
+            // Suruh WorkManager untuk mencoba lagi (Retry) nanti saat internet HP sudah stabil.
+            if (aiResponse.startsWith("⚠️")) {
+                return@withContext Result.retry()
+            }
+            
+            // 3. Simpan Jawaban AI ke Firestore (Hanya jika sukses)
             val repo = AiNotificationRepository()
             val notif = AiNotification(
                 title = titlePrompt,
                 message = aiResponse,
                 timestamp = System.currentTimeMillis(),
                 type = taskType,
-                isRead = false // Default: Belum dibaca (akan memicu titik merah)
+                isRead = false 
             )
             repo.saveNotification(notif)
 
@@ -67,7 +73,7 @@ class SmartAiWorker(
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
-            // Jika gagal (misal koneksi internet putus), WorkManager akan mengulanginya nanti
+            // Jika kode gagal secara internal (crash), suruh sistem coba lagi nanti
             Result.retry() 
         }
     }
@@ -89,10 +95,10 @@ class SmartAiWorker(
         val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Bisa diganti logo app Anda
+            .setSmallIcon(android.R.drawable.ic_dialog_info) 
             .setContentTitle("🤖 $title")
             .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message)) // Teks panjang bisa diexpand
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message)) 
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
@@ -100,4 +106,3 @@ class SmartAiWorker(
         notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
     }
 }
-
