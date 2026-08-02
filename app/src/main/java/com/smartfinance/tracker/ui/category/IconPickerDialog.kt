@@ -111,10 +111,10 @@ class IconPickerDialog : BottomSheetDialogFragment() {
             }
 
             val imageView = AppCompatImageView(parent.context).apply {
-                // Diperbesar sedikit agar presisi dan tajam
                 layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt())
                 setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
-                scaleType = AppCompatImageView.ScaleType.FIT_CENTER
+                // 🔥 FIX COMPILE ERROR: Menggunakan namespace bawaan android.widget.ImageView
+                scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             }
             layout.addView(imageView)
 
@@ -129,7 +129,7 @@ class IconPickerDialog : BottomSheetDialogFragment() {
 
             val isSelected = icon.iconName == selectedIconName
 
-            // 🔥 FIX ABU-ABU SAMAR: Pewarnaan Kontras Ekstrem
+            // 🔥 Pewarnaan Kontras Ekstrem
             if (isSelected) {
                 holder.imageView.setBackgroundResource(R.drawable.bg_circle_icon)
                 holder.imageView.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.primary))
@@ -137,7 +137,6 @@ class IconPickerDialog : BottomSheetDialogFragment() {
             } else {
                 holder.imageView.background = null
                 holder.imageView.backgroundTintList = null
-                // Gunakan text_primary agar ikon tidak terpilih sangat jelas dan tebal
                 holder.imageView.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.text_primary))
             }
             
