@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_rounded_border"
+    android:background="@color/surface_white" 
     android:orientation="vertical"
     android:paddingTop="16dp"
     android:paddingBottom="16dp">
@@ -14,14 +14,14 @@
         android:layout_height="4dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginBottom="16dp"
-        android:background="#E0E0E0" />
+        android:background="@color/divider_color" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:text="Pilih Ikon Kategori"
-        android:textColor="?attr/colorPrimary"
+        android:textColor="@color/text_primary" 
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
@@ -31,21 +31,22 @@
         android:id="@+id/tabLayoutGroups"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@color/surface_white"
         app:tabMode="scrollable"
-        app:tabIndicatorColor="?attr/colorPrimary"
-        app:tabSelectedTextColor="?attr/colorPrimary"
+        app:tabIndicatorColor="@color/primary"
+        app:tabSelectedTextColor="@color/primary"
+        app:tabTextColor="@color/text_secondary" 
         app:tabTextAppearance="@style/TextAppearance.AppCompat.Small" />
 
-    <!-- RecyclerView untuk menampilkan Grid Ikon -->
+    <!-- RecyclerView Grid Ikon -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvIcons"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
+        android:layout_height="400dp" 
         android:layout_marginTop="8dp"
         android:padding="8dp"
         android:clipToPadding="false"
         app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-        app:spanCount="4" />
+        app:spanCount="5" />
 
 </LinearLayout>
-
