@@ -12,13 +12,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.DialogExportBottomSheetBinding
 import com.smartfinance.tracker.utils.ExportUtils
 import kotlinx.coroutines.Dispatchers
@@ -78,17 +81,37 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
         setupUI()
     }
 
+    // 🔥 FIX: Fungsi Cerdas untuk Mewarnai Teks Dropdown secara Dinamis (Day/Night)
+    private fun createThemedAdapter(items: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(requireContext(), android.R.layout.simple_spinner_dropdown_item, items) {
+            
+            // 1. Mewarnai Teks yang sedang dipilih/tampil di kotak (Header Spinner)
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent) as TextView
+                view.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                return view
+            }
+
+            // 2. Mewarnai Teks yang melayang di dalam daftar Dropdown
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getDropDownView(position, convertView, parent) as TextView
+                view.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                return view
+            }
+        }
+    }
+
     private fun setupUI() {
         binding.btnClose.setOnClickListener { dismiss() }
 
-        // Setup Spinner
-        binding.spinnerTime.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, timeOptions)
-        binding.spinnerType.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, typeOptions)
+        // 🔥 FIX: Setup Spinner menggunakan adapter kustom
+        binding.spinnerTime.adapter = createThemedAdapter(timeOptions)
+        binding.spinnerType.adapter = createThemedAdapter(typeOptions)
         
         // 🔥 FITUR BARU: Setup Spinner Kategori secara dinamis
         val categoryOptions = mutableListOf("Semua Kategori")
         categoryOptions.addAll(viewModel.getAvailableCategories())
-        val categoryAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, categoryOptions)
+        val categoryAdapter = createThemedAdapter(categoryOptions)
         binding.spinnerCategory.adapter = categoryAdapter
         
         // Jaring pengaman (Safety Net) jika data dari Cloud sedikit butuh waktu untuk termuat
