@@ -21,7 +21,7 @@ object BackupEngine {
         Gson().toJson(data)
     }
 
-    // Fungsi asli untuk sinkronisasi Google Drive (Tidak diubah agar tidak merusak SettingsFragment)
+    // Fungsi asli untuk sinkronisasi Google Drive
     suspend fun importJsonToDb(jsonString: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val data = Gson().fromJson(jsonString, BackupData::class.java)
@@ -29,13 +29,13 @@ object BackupEngine {
             
             db.clearAllTables()
             
-            // 🔥 PERBAIKAN: Tambahkan safe-call (?.) agar kebal terhadap data kosong/null dari GDrive
-            data.categories?.forEach { db.categoryDao().insert(it) }
-            data.transactions?.forEach { db.transactionDao().insert(it) }
-            data.debts?.forEach { db.debtDao().insert(it) }
-            data.budgets?.forEach { db.budgetDao().insert(it) }
-            data.recurringTransactions?.forEach { db.recurringTxDao().insert(it) }
-            data.aiNotifications?.forEach { db.aiNotificationDao().insert(it) }
+            // 🔥 Fix Warning: Hapus safe-call (?.) karena compiler membaca list ini sudah pasti non-nullable
+            data.categories.forEach { db.categoryDao().insert(it) }
+            data.transactions.forEach { db.transactionDao().insert(it) }
+            data.debts.forEach { db.debtDao().insert(it) }
+            data.budgets.forEach { db.budgetDao().insert(it) }
+            data.recurringTransactions.forEach { db.recurringTxDao().insert(it) }
+            data.aiNotifications.forEach { db.aiNotificationDao().insert(it) }
             
             true
         } catch (e: Exception) {
@@ -44,18 +44,18 @@ object BackupEngine {
         }
     }
 
-    // 🔥 FUNGSI BARU: Khusus untuk Import Lokal agar pesan Error ASLI bisa dilempar ke UI
+    // Fungsi khusus untuk Import Lokal agar pesan Error ASLI bisa dilempar ke UI
     suspend fun importJsonToDbLocal(jsonString: String) = withContext(Dispatchers.IO) {
         val data = Gson().fromJson(jsonString, BackupData::class.java)
         val db = DatabaseProvider.db
         
         db.clearAllTables()
         
-        data.categories?.forEach { db.categoryDao().insert(it) }
-        data.transactions?.forEach { db.transactionDao().insert(it) }
-        data.debts?.forEach { db.debtDao().insert(it) }
-        data.budgets?.forEach { db.budgetDao().insert(it) }
-        data.recurringTransactions?.forEach { db.recurringTxDao().insert(it) }
-        data.aiNotifications?.forEach { db.aiNotificationDao().insert(it) }
+        data.categories.forEach { db.categoryDao().insert(it) }
+        data.transactions.forEach { db.transactionDao().insert(it) }
+        data.debts.forEach { db.debtDao().insert(it) }
+        data.budgets.forEach { db.budgetDao().insert(it) }
+        data.recurringTransactions.forEach { db.recurringTxDao().insert(it) }
+        data.aiNotifications.forEach { db.aiNotificationDao().insert(it) }
     }
 }
