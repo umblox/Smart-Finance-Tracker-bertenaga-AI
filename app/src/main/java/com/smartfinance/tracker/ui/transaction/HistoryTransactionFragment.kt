@@ -30,6 +30,7 @@ class HistoryTransactionFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: TransactionViewModel
+    private lateinit var historyViewModel: HistoryViewModel // 🔥 TAMBAHAN UNTUK MAP IKON
     
     private var currentCalendar = Calendar.getInstance()
     private var searchQuery = ""
@@ -49,9 +50,9 @@ class HistoryTransactionFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProvider(requireActivity())[TransactionViewModel::class.java]
+        historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java] // 🔥 Inisialisasi HistoryViewModel
         
         binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext()).apply {
-            // Memberi jarak atas agar blok pertama tidak menempel ke header
             binding.rvTransactions.setPadding(0, (16f * resources.displayMetrics.density).toInt(), 0, 0)
         }
 
@@ -123,7 +124,6 @@ class HistoryTransactionFragment : Fragment() {
         binding.tvTotalBalance.text = formatRupiah.format(netBalance)
         binding.tvTotalBalance.setTextColor(ContextCompat.getColor(requireContext(), if (netBalance >= 0) R.color.text_primary else R.color.expense_red))
 
-        // 🔥 LOGIKA BARU: Data dibungkus ke dalam model "DailyBlock"
         val groupedMap = filteredList.sortedByDescending { it.timestamp }.groupBy { sdfDateOnly.format(Date(it.timestamp)) }
         val displayBlocks = mutableListOf<DailyBlock>()
 
@@ -142,10 +142,6 @@ class HistoryTransactionFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-
-    // ==============================================================================
-    // ADAPTER BARU: SATU CARDVIEW = SATU HARI
-    // ==============================================================================
     
     data class DailyBlock(val timestamp: Long, val dailyTotal: Double, val transactions: List<Transaction>)
 
@@ -190,8 +186,8 @@ class HistoryTransactionFragment : Fragment() {
             holder.container.removeAllViews()
             val inflater = LayoutInflater.from(holder.itemView.context)
             
-            // 🔥 AMBIL MAP IKON DARI VIEWMODEL
-            val iconMap = viewModel.uiState.value.categoryIconMap
+            // 🔥 TARIK MAP IKON MENGGUNAKAN historyViewModel
+            val iconMap = historyViewModel.uiState.value.categoryIconMap
             
             for ((index, tx) in block.transactions.withIndex()) {
                 val txView = inflater.inflate(R.layout.item_transaction, holder.container, false)
@@ -199,7 +195,7 @@ class HistoryTransactionFragment : Fragment() {
                 val tvCategory: TextView = txView.findViewById(R.id.tvItemCategory)
                 val tvNote: TextView = txView.findViewById(R.id.tvItemNote)
                 val tvAmount: TextView = txView.findViewById(R.id.tvItemAmount)
-                val ivIcon: android.widget.ImageView = txView.findViewById(R.id.ivItemIcon) // 🔥 UPDATE IMAGEVIEW
+                val ivIcon: android.widget.ImageView = txView.findViewById(R.id.ivItemIcon)
                 
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
                 tvCategory.text = tx.categoryName
