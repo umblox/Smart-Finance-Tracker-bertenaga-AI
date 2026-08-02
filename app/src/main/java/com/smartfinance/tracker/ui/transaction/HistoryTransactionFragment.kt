@@ -30,7 +30,7 @@ class HistoryTransactionFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: TransactionViewModel
-    private lateinit var historyViewModel: HistoryViewModel // 🔥 TAMBAHAN UNTUK MAP IKON
+    private lateinit var historyViewModel: HistoryViewModel 
     
     private var currentCalendar = Calendar.getInstance()
     private var searchQuery = ""
@@ -50,7 +50,7 @@ class HistoryTransactionFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProvider(requireActivity())[TransactionViewModel::class.java]
-        historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java] // 🔥 Inisialisasi HistoryViewModel
+        historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
         
         binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext()).apply {
             binding.rvTransactions.setPadding(0, (16f * resources.displayMetrics.density).toInt(), 0, 0)
@@ -186,7 +186,6 @@ class HistoryTransactionFragment : Fragment() {
             holder.container.removeAllViews()
             val inflater = LayoutInflater.from(holder.itemView.context)
             
-            // 🔥 TARIK MAP IKON MENGGUNAKAN historyViewModel
             val iconMap = historyViewModel.uiState.value.categoryIconMap
             
             for ((index, tx) in block.transactions.withIndex()) {
@@ -205,14 +204,14 @@ class HistoryTransactionFragment : Fragment() {
                 tvAmount.text = "$amtPrefix${formatRupiah.format(tx.amount)}"
                 tvAmount.setTextColor(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
                 
-                // 🔥 INJEKSI IKON
                 val iconName = iconMap[tx.categoryName] ?: "ic_custom"
                 ivIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(iconName))
                 ivIcon.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
                 
                 txView.setOnClickListener {
+                    // 🔥 Fix Warning: Menghapus Elvis Operator berlebihan pada tx.debtId
                     TransactionEditorDialog(
-                        hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to (tx.debtId ?: ""))
+                        hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to tx.debtId)
                     ) { }.show(parentFragmentManager, "EditTx")
                 }
                 
