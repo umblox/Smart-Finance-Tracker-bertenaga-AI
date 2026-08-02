@@ -70,7 +70,6 @@ class CategoryAnalyticsFragment : Fragment() {
         binding.tvTotalIncome.text = (if (state.totalIncome > 0) "+" else "") + formatRupiah.format(state.totalIncome)
         binding.tvTotalExpense.text = (if (state.totalExpense > 0) "-" else "") + formatRupiah.format(state.totalExpense)
 
-        // 🔥 FIX 2: Menggunakan ID yang benar: transactionListContainer
         binding.transactionListContainer.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
 
@@ -130,7 +129,7 @@ class CategoryAnalyticsFragment : Fragment() {
                 setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.divider_color)) 
             })
 
-            val typedValue = TypedValue()
+            val typedValue = android.util.TypedValue()
             requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
 
             txList.forEach { tx ->
@@ -142,10 +141,16 @@ class CategoryAnalyticsFragment : Fragment() {
 
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
 
+                // 🔥 INJEKSI IKON VEKTOR DINAMIS ANALYTICS
                 val iconCircle = FrameLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                     background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(ContextCompat.getColor(requireContext(), R.color.background_color)) }
-                    addView(TextView(requireContext()).apply { text = if (isInc) "📥" else "💸"; textSize = 16f; gravity = Gravity.CENTER })
+                    addView(android.widget.ImageView(requireContext()).apply {
+                        layoutParams = FrameLayout.LayoutParams((24*density).toInt(), (24*density).toInt()).apply { gravity = Gravity.CENTER }
+                        val iconName = state.categoryIconMap[tx.categoryName] ?: "ic_custom"
+                        setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(iconName))
+                        imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
+                    })
                 }
                 rowLayout.addView(iconCircle)
 
