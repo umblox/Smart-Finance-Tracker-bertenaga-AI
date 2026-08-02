@@ -137,8 +137,7 @@ class SettingsFragment : Fragment() {
         }
 
         binding.menuApiConfig.setOnClickListener { AiSettingsDialog.showApiConfig(requireContext(), layoutInflater, prefs, binding.root) }
-        binding.menuExpertMode.setOnClickListener { AiSettingsDialog.showExpertMode(requireContext(), layoutInflater, prefs) }
-    }
+        }
 
     private fun updateDriveUi(isSignedIn: Boolean) {
         if (isSignedIn) {
