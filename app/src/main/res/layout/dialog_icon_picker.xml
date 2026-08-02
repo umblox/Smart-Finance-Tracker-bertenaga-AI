@@ -3,12 +3,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/surface_white" 
+    android:background="@color/background_color"
     android:orientation="vertical"
     android:paddingTop="16dp"
     android:paddingBottom="16dp">
 
-    <!-- Handle drag (Pill di atas BottomSheet) -->
+    <!-- Garis Handle BottomSheet -->
     <View
         android:layout_width="40dp"
         android:layout_height="4dp"
@@ -21,32 +21,29 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:text="Pilih Ikon Kategori"
-        android:textColor="@color/text_primary" 
+        android:textColor="@color/text_primary"
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
 
-    <!-- TabLayout untuk Filter Grup Ikon -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayoutGroups"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surface_white"
+        android:background="@color/background_color"
         app:tabMode="scrollable"
         app:tabIndicatorColor="@color/primary"
         app:tabSelectedTextColor="@color/primary"
-        app:tabTextColor="@color/text_secondary" 
+        app:tabTextColor="@color/text_secondary"
         app:tabTextAppearance="@style/TextAppearance.AppCompat.Small" />
 
-    <!-- RecyclerView Grid Ikon -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvIcons"
         android:layout_width="match_parent"
-        android:layout_height="400dp" 
+        android:layout_height="400dp"
         android:layout_marginTop="8dp"
         android:padding="8dp"
         android:clipToPadding="false"
         app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
         app:spanCount="5" />
-
 </LinearLayout>
