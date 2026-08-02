@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 val cats = dao.getAllSync()
                 
                 // Jika ikon terkunci masih menggunakan ic_wallet atau salah, update otomatis ke ikon baru
-                cats.find { it.id == 1L && it.iconName != "ic_salary" }?,let {dao.insert(it.copy(iconName = "ic_salary")) }
+                cats.find { it.id == 1L && it.iconName != "ic_salary" }?.let {dao.insert(it.copy(iconName = "ic_salary")) }
                 cats.find { it.id == 101L && it.iconName != "ic_debt" }?.let { dao.insert(it.copy(iconName = "ic_debt")) }
                 cats.find { it.id == 102L && it.iconName != "ic_debt_pay" }?.let { dao.insert(it.copy(iconName = "ic_debt_pay")) }
                 cats.find { it.id == 103L && it.iconName != "ic_receivable_collect" }?.let { dao.insert(it.copy(iconName = "ic_receivable_collect")) }
