@@ -2,7 +2,6 @@ package com.smartfinance.tracker.ui.debt
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,6 +14,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -47,25 +48,29 @@ class DebtManualDialog(
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) launchNativeContactPicker()
-        else Toast.makeText(context, "Akses kontak ditolak.", Toast.LENGTH_SHORT).show()
+        else Toast.makeText(context, getString(R.string.toast_permission_denied), Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+        
+        // 🔥 FIX: Pakai MaterialAlertDialogBuilder agar UI rapi & mengikuti tema
+        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+            .setView(binding.root).create()
+            
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         viewModel = ViewModelProvider(this)[DebtViewModel::class.java]
 
-        binding.tvDialogTitle.text = "Tambah Utang-Piutang"
+        binding.tvDialogTitle.text = getString(R.string.debt_add_title)
         
         binding.btnCategoryPicker.visibility = View.GONE
         binding.tvCategoryLabel.visibility = View.GONE
         binding.tvContactLabel.visibility = View.VISIBLE
         binding.layoutContact.visibility = View.VISIBLE
 
-        binding.rbPremiumTxExpense.text = "Saya Berhutang (Hutang)"
-        binding.rbPremiumTxIncome.text = "Orang Lain Berhutang (Piutang)"
+        binding.rbPremiumTxExpense.text = getString(R.string.debt_rb_expense)
+        binding.rbPremiumTxIncome.text = getString(R.string.debt_rb_income)
         if (initialTabFilter == "DEBT") binding.rbPremiumTxExpense.isChecked = true else binding.rbPremiumTxIncome.isChecked = true
 
         binding.etPremiumTxDate.setText(sdfPremium.format(Date()))
@@ -82,8 +87,6 @@ class DebtManualDialog(
 
             if (name.isNotEmpty() && amountVal > 0.0 && dateVal.isNotEmpty()) {
                 lifecycleScope.launch {
-                    
-                    // 🔥 LOGIKA WAKTU CERDAS (Smart Timestamp Anti-Tabrakan)
                     val currentFormattedDate = sdfPremium.format(Date())
                     val targetTimestamp = try { 
                         if (dateVal == currentFormattedDate) System.currentTimeMillis()
@@ -120,13 +123,12 @@ class DebtManualDialog(
                     
                     viewModel.saveNewDebtAndTransaction(debtId, debtMap, txId, txMap)
                     
-                    // 🔥 UPDATE TEKS (Karena kita sudah Offline-First)
-                    Toast.makeText(context, "Berhasil Disimpan ke Database!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.debt_toast_saved), Toast.LENGTH_SHORT).show()
                     onSavedAction()
                     dialog.dismiss()
                 }
             } else {
-                Toast.makeText(context, "Mohon lengkapi nominal dan nama kontak!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.debt_toast_incomplete), Toast.LENGTH_SHORT).show()
             }
         }
         return dialog
