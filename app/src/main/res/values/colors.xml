@@ -1,25 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand Colors -->
-    <color name="primary">#0D9488</color> <!-- Premium Teal -->
+    <!-- ===== Warna Asli (JANGAN DIHAPUS) ===== -->
+    <color name="primary">#0D9488</color>
     <color name="primary_dark">#0F766E</color>
-    
-    <!-- Backgrounds -->
-    <color name="background_color">#F8FAFC</color> <!-- Soft Gray Premium -->
+
+    <color name="background_color">#F8FAFC</color>
     <color name="surface_white">#FFFFFF</color>
-    
-    <!-- Typography -->
-    <color name="text_primary">#1E293B</color> <!-- Slate 800 -->
-    <color name="text_secondary">#64748B</color> <!-- Slate 500 -->
+
+    <color name="text_primary">#1E293B</color>
+    <color name="text_secondary">#64748B</color>
     <color name="text_hint">#94A3B8</color>
-    
-    <!-- Status Colors -->
+
     <color name="income_green">#10B981</color>
     <color name="expense_red">#F43F5E</color>
-    <color name="debt_orange">#D97706</color>
-    <color name="receivable_blue">#0284C7</color>
-    
-    <!-- UI Elements -->
-    <color name="divider_color">#E2E8F0</color>
-</resources>
+    <color name="warning_orange">#D97706</color>
+    <color name="info_blue">#0284C7</color>
 
+    <color name="divider_color">#E2E8F0</color>
+
+    <!-- ===== 🎨 TAMBAHAN BARU: Aksen Modern ===== -->
+    <color name="primary_light">#14B8A6</color>
+    <color name="primary_container">#CCFBF1</color>
+    <color name="on_primary_container">#134E4A</color>
+
+    <color name="income_green_light">#D1FAE5</color>
+    <color name="expense_red_light">#FFE4E6</color>
+    <color name="warning_orange_light">#FEF3C7</color>
+    <color name="info_blue_light">#E0F2FE</color>
+
+    <!-- Gradient Header -->
+    <color name="gradient_start">#0D9488</color>
+    <color name="gradient_end">#0284C7</color>
+
+    <!-- Bottom Nav -->
+    <color name="nav_item_active">#0D9488</color>
+    <color name="nav_item_inactive">#94A3B8</color>
+
+    <!-- Dark Mode Surface -->
+    <color name="surface_dark">#1E293B</color>
+    <color name="background_dark">#0F172A</color>
+    <color name="card_dark">#334155</color>
+</resources>
