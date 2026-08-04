@@ -103,4 +103,50 @@
     <string name="success_deleted">Deleted successfully ✓</string>
     <string name="error_generic">An error occurred</string>
     <string name="loading">Loading…</string>
+
+    <!-- ===== Settings: Additional Menus & Dialogs ===== -->
+    <string name="settings_sync_group">CLOUD SYNCHRONIZATION</string>
+    <string name="settings_drive_title">Google Drive</string>
+    <string name="settings_drive_disconnected">Not Connected</string>
+    <string name="settings_drive_backup_btn">Backup Now</string>
+    <string name="settings_drive_restore_btn">Restore</string>
+    
+    <string name="settings_budget_title">🎯 Monthly Budgeting</string>
+    <string name="settings_budget_desc">Control your spending limits per category</string>
+    
+    <string name="settings_export_title">🖨️ Report Generator (PDF / CSV)</string>
+    <string name="settings_export_desc">Export transactions with custom filters</string>
+    
+    <string name="settings_local_backup_title">💾 Local Backup &amp; Restore (Offline)</string>
+    <string name="settings_local_backup_desc">Save or restore database directly to phone memory</string>
+
+    <string name="dialog_google_fail">Failed to connect to Google</string>
+    <string name="dialog_google_connected">Connected account:</string>
+    <string name="action_logout">Logout</string>
+    
+    <string name="dialog_restore_title">Restore Data</string>
+    <string name="dialog_restore_warning">This action will overwrite all data on your phone with cloud data. Continue?</string>
+    
+    <string name="dialog_local_title">🛠️ Local Backup &amp; Restore</string>
+    <string name="dialog_local_export">📤 Export Database (Save File)</string>
+    <string name="dialog_local_import">📥 Import Database (Select File)</string>
+    
+    <string name="status_tap_login">Tap to Login</string>
+    <string name="status_waiting_sync">Waiting for Sync…</string>
+    <string name="status_checking_cloud">Checking Cloud…</string>
+    <string name="status_uploading">Uploading data…</string>
+    <string name="status_downloading">Downloading data…</string>
+    <string name="status_sync_failed">Sync Failed</string>
+    
+    <string name="toast_backup_success">Backup Complete!</string>
+    <string name="toast_backup_fail">Failed to Backup to Cloud</string>
+    <string name="toast_restore_success">Restore Successful!</string>
+    <string name="toast_restore_corrupt">Backup Data Corrupted!</string>
+    <string name="toast_download_fail">Failed to Download from Cloud</string>
+
+    <string name="dialog_cloud_found_title">☁️ Backup Found</string>
+    <string name="dialog_cloud_found_desc">Backup data found in your Google Drive. Do you want to download and overwrite current local data?</string>
+    <string name="action_yes_restore">Yes, Restore</string>
+    <string name="action_ignore_overwrite">Ignore (Overwrite Cloud)</string>
+    
 </resources>
