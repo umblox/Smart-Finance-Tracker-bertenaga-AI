@@ -13,7 +13,7 @@
         android:roundIcon="@drawable/app_logo"
         android:label="Smart Finance Tracker"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
+        android:theme="@style/Theme.SmartFinance"> <!-- 🔥 FIX: Menggunakan tema kustom kita agar UI selaras dan Dark Mode berfungsi -->
         
         <activity
             android:name=".MainActivity"
