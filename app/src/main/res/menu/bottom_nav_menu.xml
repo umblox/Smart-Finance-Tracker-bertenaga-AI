@@ -8,7 +8,7 @@
 
     <item
         android:id="@+id/menu_chat"
-        android:icon="@android:drawable/ic_menu_chat_dashboard"
+        android:icon="@android:drawable/ic_menu_send"
         android:title="@string/nav_ai_assistant" />
 
     <item
