@@ -10,6 +10,13 @@
     <string name="nav_debt">Buku Utang</string>
     <string name="nav_settings">Pengaturan</string>
 
+        <!-- 🔥 FIX: Mengembalikan ID String yang dihapus sembarangan oleh AI sebelumnya -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_ai_group">Kecerdasan Buatan (AI)</string>
+    <string name="settings_data_group">Manajemen Data &amp; Cloud</string>
+    <string name="settings_recurring_tx">Transaksi Berkala</string>
+    <string name="settings_security_group">Keamanan</string>
+    
     <!-- ===== Pengaturan: Sistem ===== -->
     <string name="settings_system">Pengaturan Sistem</string>
     <string name="settings_theme">Tema Aplikasi</string>
