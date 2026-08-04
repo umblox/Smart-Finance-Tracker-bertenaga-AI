@@ -9,6 +9,9 @@
         <item name="cardViewStyle">@style/Widget.SmartFinance.CardView</item>
     </style>
 
+    <!-- 🔥 FIX: Deklarasi Induk Kosong agar compiler AAPT tidak bingung dengan notasi titik (.) -->
+    <style name="Widget.SmartFinance" />
+
     <style name="Widget.SmartFinance.CardView" parent="Widget.MaterialComponents.CardView">
         <item name="cardElevation">2dp</item>
         <item name="cardCornerRadius">16dp</item>
@@ -36,7 +39,7 @@
         <item name="cornerRadius">14dp</item>
     </style>
 
-    <!-- Chip kategori (Akar masalah Error sebelumnya) -->
+    <!-- Chip kategori -->
     <style name="Widget.SmartFinance.Chip" parent="Widget.MaterialComponents.Chip.Action">
         <item name="chipCornerRadius">12dp</item>
     </style>
