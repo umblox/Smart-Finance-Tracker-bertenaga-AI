@@ -52,8 +52,9 @@ class DebtAdapter(
             val paidAmount = debt.amount - debt.remainingAmount
             val progressPercent = if (debt.amount > 0) ((paidAmount / debt.amount) * 100).toInt() else 0
 
-            binding.tvTotalAmount.text = "Total Pinjaman: ${formatRupiah.format(debt.amount)}"
-            binding.tvProgressPercent.text = "$progressPercent% Terbayar"
+            // 🔥 FIX: Menggunakan string dinamis dari resources untuk mendukung dual bahasa
+            binding.tvTotalAmount.text = context.getString(R.string.debt_total_loan, formatRupiah.format(debt.amount))
+            binding.tvProgressPercent.text = context.getString(R.string.debt_progress_percent, progressPercent)
 
             // Logika Status Lunas / Belum
             if (debt.isPaid) {
