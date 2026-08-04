@@ -1,7 +1,6 @@
 package com.smartfinance.tracker.ui.transaction
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
 import android.provider.ContactsContract
@@ -12,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -33,7 +34,6 @@ class TransactionEditorDialog(
     private var selectedCategoryMap: Map<String, Any>? = null
     private var isDebtTransaction = false
     
-    // 🔥 LAPIS 1: Tameng kebal anti-trigger dari RadioGroup Android
     private var isInitialized = false 
 
     private val sdfPremium = SimpleDateFormat("dd-MM-yyyy • HH:mm 'WIB'", Locale("id", "ID"))
@@ -53,12 +53,16 @@ class TransactionEditorDialog(
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+        
+        // 🔥 FIX: Upgrade UI Dialog
+        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+            .setView(binding.root)
+            .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         viewModel = ViewModelProvider(this)[TransactionViewModel::class.java]
 
-        binding.tvDialogTitle.text = "Edit Transaksi"
+        binding.tvDialogTitle.text = getString(R.string.tx_edit_title)
         binding.btnDelete.visibility = View.VISIBLE
 
         val docId = transactionData["id"] as? String ?: ""
@@ -74,8 +78,8 @@ class TransactionEditorDialog(
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
 
         if (isDebtTransaction) {
-            binding.rbPremiumTxExpense.text = "Saya Berhutang (Hutang)"
-            binding.rbPremiumTxIncome.text = "Orang Lain Berhutang (Piutang)"
+            binding.rbPremiumTxExpense.text = getString(R.string.debt_rb_expense)
+            binding.rbPremiumTxIncome.text = getString(R.string.debt_rb_income)
             
             binding.tvContactLabel.visibility = View.VISIBLE
             binding.layoutContact.visibility = View.VISIBLE
@@ -89,7 +93,7 @@ class TransactionEditorDialog(
             var extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
             if (extractedName.contains("-")) extractedName = extractedName.split("-")[0].trim()
             
-            binding.etPremiumTxNote.setText(currentNote.substringAfter("- ").ifEmpty { "INPUT MANUAL" })
+            binding.etPremiumTxNote.setText(currentNote.substringAfter("- ").ifEmpty { "MANUAL" })
             binding.etContact.setText(extractedName)
 
             binding.btnPickContact.setOnClickListener {
@@ -109,7 +113,6 @@ class TransactionEditorDialog(
         }
 
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
-            // 🔥 Tameng Aktif: Jangan lakukan apapun jika dialog belum selesai di-render
             if (!isInitialized) return@setOnCheckedChangeListener 
 
             if (!isDebtTransaction) {
@@ -117,7 +120,7 @@ class TransactionEditorDialog(
                 if (currentType != newType) {
                     currentType = newType
                     selectedCategoryMap = null
-                    binding.btnCategoryPicker.text = "Pilih Kategori"
+                    binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
                 }
             }
         }
@@ -145,13 +148,12 @@ class TransactionEditorDialog(
                 selectedCategoryMap = dbCategory
             }
 
-            // 🔥 LAPIS 2: PAKSA AMBIL DARI DATABASE (Ultimate Source of Truth)
             if (!isDebtTransaction) {
                 val nameToDisplay = selectedCategoryMap?.get("name") as? String ?: currentCategoryName
                 if (nameToDisplay.isNotBlank() && nameToDisplay != "null") {
                     binding.btnCategoryPicker.text = nameToDisplay
                 } else {
-                    binding.btnCategoryPicker.text = "Pilih Kategori"
+                    binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
                 }
             }
         }
@@ -164,7 +166,7 @@ class TransactionEditorDialog(
                     if (targetDebtId.isNotEmpty()) viewModel.deleteDebt(targetDebtId)
                     viewModel.deleteTransaction(docId)
                     
-                    Toast.makeText(context, "Berhasil dihapus!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.success_deleted), Toast.LENGTH_SHORT).show()
                     onUpdateAction()
                     dialog.dismiss()
                 }
@@ -179,7 +181,7 @@ class TransactionEditorDialog(
             if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && docId.isNotEmpty()) {
                 
                 if (!isDebtTransaction && selectedCategoryMap == null) {
-                    Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.tx_toast_select_category), Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
@@ -208,7 +210,7 @@ class TransactionEditorDialog(
                     if (isDebtTransaction) {
                         val contactNameVal = binding.etContact.text.toString().trim().uppercase(Locale.ROOT)
                         if (contactNameVal.isEmpty()) {
-                            Toast.makeText(context, "Nama kontak wajib diisi!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, getString(R.string.tx_toast_contact_required_simple), Toast.LENGTH_SHORT).show()
                             return@launch
                         }
 
@@ -233,16 +235,15 @@ class TransactionEditorDialog(
 
                     viewModel.saveTransaction(docId, updatedTxMap)
                     
-                    Toast.makeText(context, "Perubahan sukses disimpan!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.tx_toast_update_success), Toast.LENGTH_SHORT).show()
                     onUpdateAction()
                     dialog.dismiss()
                 }
             } else {
-                Toast.makeText(context, "Data input tidak valid!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.tx_toast_invalid_input), Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 🔥 Tameng dicabut, aplikasi siap memantau klik pengguna secara real-time
         isInitialized = true 
         return dialog
     }
