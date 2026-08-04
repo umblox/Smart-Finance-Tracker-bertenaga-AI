@@ -9,9 +9,6 @@
         <item name="cardViewStyle">@style/Widget.SmartFinance.CardView</item>
     </style>
 
-    <!-- 🔥 FIX: Deklarasi Induk Kosong agar compiler AAPT tidak bingung dengan notasi titik (.) -->
-    <style name="Widget.SmartFinance" />
-
     <style name="Widget.SmartFinance.CardView" parent="Widget.MaterialComponents.CardView">
         <item name="cardElevation">2dp</item>
         <item name="cardCornerRadius">16dp</item>
@@ -52,8 +49,8 @@
         <item name="boxCornerRadiusBottomEnd">14dp</item>
     </style>
     
-    <!-- Style Dummy untuk NavIndicator agar tidak error jika dipanggil -->
-    <style name="Widget.SmartFinance.NavIndicator">
+    <!-- 🔥 FIX MUTLAK: Menambahkan parent="" untuk memutus rantai pewarisan otomatis -->
+    <style name="Widget.SmartFinance.NavIndicator" parent="">
         <item name="android:color">@color/primary_container</item>
     </style>
 </resources>
