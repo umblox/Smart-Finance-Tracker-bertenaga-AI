@@ -10,7 +10,6 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- 1. HEADER UTAMA -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -24,13 +23,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="🤝 Buku Utang Piutang"
+                android:text="@string/debt_header"
                 android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- 2. SUMMARY GLOBAL -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -57,7 +55,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Sisa Utang Saya (Global)"
+                        android:text="@string/debt_total_mine"
                         android:textColor="@color/text_secondary"
                         android:textSize="11.5sp" />
                     <TextView
@@ -88,7 +86,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Uang Saya di Orang (Global)"
+                        android:text="@string/debt_total_others"
                         android:textColor="@color/text_secondary"
                         android:textSize="11.5sp" />
                     <TextView
@@ -103,7 +101,6 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
-        <!-- 3. TAB FILTER -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
@@ -120,7 +117,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="Hutang Saya"
+                android:text="@string/debt_tab_mine"
                 android:textSize="13sp" />
             <TextView
                 android:id="@+id/btnTabReceivable"
@@ -128,11 +125,10 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="Piutang / Tagihan"
+                android:text="@string/debt_tab_others"
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- 4. NAVIGASI BULAN -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -164,7 +160,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Riwayat Bulan:"
+                    android:text="@string/debt_history_month"
                     android:textSize="11sp"
                     android:textColor="@color/text_secondary"/>
                 <TextView
@@ -190,7 +186,6 @@
                 app:cornerRadius="10dp" />
         </LinearLayout>
 
-        <!-- 5. DAFTAR LIST (Sekarang Menggunakan RecyclerView!) -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent">
@@ -213,7 +208,7 @@
                 android:layout_marginBottom="50dp"
                 android:gravity="center"
                 android:padding="32dp"
-                android:text="Belum ada catatan riwayat pinjaman/utang yang dibuat pada periode bulan ini."
+                android:text="@string/debt_empty_state"
                 android:textColor="@color/text_secondary"
                 android:textSize="13.5sp"
                 android:textStyle="italic"
@@ -221,7 +216,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddDebt"
         android:layout_width="wrap_content"
