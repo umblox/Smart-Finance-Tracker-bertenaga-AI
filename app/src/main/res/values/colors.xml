@@ -40,4 +40,6 @@
     <color name="surface_dark">#1E293B</color>
     <color name="background_dark">#0F172A</color>
     <color name="card_dark">#334155</color>
+    <color name="debt_orange">#F59E0B</color>
+    <color name="receivable_blue">#3B82F6</color>
 </resources>
