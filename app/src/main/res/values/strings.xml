@@ -182,5 +182,7 @@
     <string name="debt_delete_title">Hapus Data</string>
     <string name="debt_delete_message">Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari %1$s?</string>
     <string name="toast_permission_denied">Akses kontak ditolak.</string>
+    <string name="debt_total_loan">Total Pinjaman: %1$s</string>
+    <string name="debt_progress_percent">%1$d%% Terbayar</string>
     
 </resources>
