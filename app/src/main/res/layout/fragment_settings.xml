@@ -51,10 +51,12 @@
                     app:cardCornerRadius="10dp"
                     app:cardElevation="1dp"
                     app:strokeWidth="0dp">
+                    <!-- 🔥 FIX: popupBackground agar dropdown menyatu dengan tema gelap/terang -->
                     <Spinner
                         android:id="@+id/spinnerTheme"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
+                        android:layout_height="match_parent"
+                        android:popupBackground="?attr/colorSurface" />
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
@@ -79,10 +81,12 @@
                     app:cardCornerRadius="10dp"
                     app:cardElevation="1dp"
                     app:strokeWidth="0dp">
+                    <!-- 🔥 FIX: popupBackground -->
                     <Spinner
                         android:id="@+id/spinnerLanguage"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
+                        android:layout_height="match_parent"
+                        android:popupBackground="?attr/colorSurface" />
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
         </LinearLayout>
@@ -120,7 +124,7 @@
             android:layout_height="wrap_content"
             android:paddingStart="4dp"
             android:paddingBottom="8dp"
-            android:text="SINKRONISASI CLOUD"
+            android:text="@string/settings_sync_group"
             android:textColor="@color/text_secondary"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -157,7 +161,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Google Drive"
+                        android:text="@string/settings_drive_title"
                         android:textColor="@color/text_primary"
                         android:textStyle="bold"
                         android:textSize="15sp"/>
@@ -165,7 +169,7 @@
                         android:id="@+id/tvDriveStatusSubtitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Belum Terhubung"
+                        android:text="@string/settings_drive_disconnected"
                         android:textColor="@color/expense_red"
                         android:textSize="13sp"/>
                 </LinearLayout>
@@ -186,7 +190,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginEnd="4dp"
-                android:text="Backup Now" />
+                android:text="@string/settings_drive_backup_btn" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDriveRestore"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -194,7 +198,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
-                android:text="Restore" />
+                android:text="@string/settings_drive_restore_btn" />
         </LinearLayout>
 
         <!-- Group: Manajemen Data -->
@@ -219,8 +223,8 @@
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                 
                 <LinearLayout android:id="@+id/menuBudgeting" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:padding="16dp" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎯 Anggaran Bulanan (Budgeting)" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kendalikan limit pengeluaran per kategori" android:textColor="@color/text_secondary" android:textSize="12sp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_budget_title" android:textColor="@color/text_primary" android:textStyle="bold" android:textSize="15sp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/settings_budget_desc" android:textColor="@color/text_secondary" android:textSize="12sp"/>
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
                 
@@ -246,20 +250,19 @@
                     <TextView 
                         android:layout_width="wrap_content" 
                         android:layout_height="wrap_content" 
-                        android:text="🖨️ Mesin Cetak Laporan (PDF / CSV)" 
+                        android:text="@string/settings_export_title" 
                         android:textColor="@color/text_primary" 
                         android:textStyle="bold" 
                         android:textSize="15sp"/>
                     <TextView 
                         android:layout_width="wrap_content" 
                         android:layout_height="wrap_content" 
-                        android:text="Ekspor transaksi dengan filter khusus" 
+                        android:text="@string/settings_export_desc" 
                         android:textColor="@color/text_secondary" 
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider_color"/>
 
-                <!-- 🔥 TAMBAHAN MENU BACKUP & RESTORE LOKAL -->
                 <LinearLayout 
                     android:id="@+id/menuLocalBackup" 
                     android:layout_width="match_parent" 
@@ -272,14 +275,14 @@
                     <TextView 
                         android:layout_width="wrap_content" 
                         android:layout_height="wrap_content" 
-                        android:text="💾 Backup &amp; Restore Lokal (Offline)" 
+                        android:text="@string/settings_local_backup_title" 
                         android:textColor="@color/text_primary" 
                         android:textStyle="bold" 
                         android:textSize="15sp"/>
                     <TextView 
                         android:layout_width="wrap_content" 
                         android:layout_height="wrap_content" 
-                        android:text="Simpan atau pulihkan database langsung ke memori HP" 
+                        android:text="@string/settings_local_backup_desc" 
                         android:textColor="@color/text_secondary" 
                         android:textSize="12sp"/>
                 </LinearLayout>
