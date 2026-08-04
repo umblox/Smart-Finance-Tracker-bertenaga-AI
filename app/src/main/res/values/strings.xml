@@ -217,5 +217,10 @@
     <string name="tx_toast_incomplete">Mohon lengkapi nominal dan nama transaksi!</string>
     <string name="tx_toast_invalid_input">Data input tidak valid!</string>
     <string name="tx_toast_update_success">Perubahan sukses disimpan!</string>
+
+    <!-- ===== Riwayat Transaksi ===== -->
+    <string name="history_today">Hari ini</string>
+    <string name="history_yesterday">Kemarin</string>
+    <string name="history_no_note">Tanpa catatan</string>
     
 </resources>
