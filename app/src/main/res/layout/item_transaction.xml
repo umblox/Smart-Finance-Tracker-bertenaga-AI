@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -15,7 +16,6 @@
         android:backgroundTint="@color/background_color"
         android:layout_marginEnd="12dp">
         
-        <!-- 🔥 FIX: Diubah menjadi ImageView Vektor Dinamis -->
         <ImageView
             android:id="@+id/ivItemIcon"
             android:layout_width="24dp"
@@ -33,7 +33,7 @@
             android:id="@+id/tvItemCategory"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Kategori"
+            tools:text="Kategori"
             android:textStyle="bold"
             android:textSize="15sp"
             android:textColor="@color/text_primary"/>
@@ -42,7 +42,7 @@
             android:id="@+id/tvItemNote"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Catatan"
+            tools:text="Catatan"
             android:textSize="13sp"
             android:textColor="@color/text_secondary"
             android:layout_marginTop="2dp"
@@ -54,7 +54,7 @@
         android:id="@+id/tvItemAmount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="-Rp 0"
+        tools:text="-Rp 0"
         android:textSize="15sp"
         android:textStyle="bold"
         android:textColor="@color/expense_red"/>
