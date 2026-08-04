@@ -1,39 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Smart Finance Tracker</string>
-    
-    <!-- Menu Settings -->
-    <string name="settings_title">System Settings</string>
+
+    <!-- ===== Bottom Navigation ===== -->
+    <string name="nav_home">Home</string>
+    <string name="nav_ai_assistant">AI Assistant</string>
+    <string name="nav_add">Add</string>
+    <string name="nav_transactions">History</string>
+    <string name="nav_debt">Debts Book</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- ===== Settings: System ===== -->
+    <string name="settings_system">System Settings</string>
     <string name="settings_theme">App Theme</string>
     <string name="settings_language">Language (Bahasa)</string>
     <string name="theme_system">System Default</string>
     <string name="theme_light">Light Mode</string>
     <string name="theme_dark">Dark Mode</string>
-    
-    <!-- AI Group -->
-    <string name="settings_ai_group">Artificial Intelligence (AI)</string>
+
+    <!-- ===== Settings: AI ===== -->
+    <string name="settings_ai_section">Artificial Intelligence (AI)</string>
     <string name="settings_ai_config">⚙️ AI Engine Configuration</string>
     <string name="settings_ai_config_desc">Select model and set API Key</string>
-    <string name="settings_ai_expert">🧠 Expert Mode (Prompt)</string>
-    <string name="settings_ai_expert_desc">Modify AI behavior and rules</string>
-    
-    <!-- Data Group -->
-    <string name="settings_data_group">Data &amp; Cloud Management</string>
-    <string name="settings_upload_json">☁️ Upload Database (JSON)</string>
-    <string name="settings_upload_json_desc">Connect to your Firestore server</string>
+    <string name="settings_expert_mode">🧠 Expert Mode (Prompt)</string>
+    <string name="settings_expert_mode_desc">Modify AI behavior and rules</string>
+
+    <!-- ===== Settings: Data & Cloud ===== -->
+    <string name="settings_data_section">Data &amp; Cloud Management</string>
+    <string name="settings_upload_db">☁️ Upload Database (JSON)</string>
+    <string name="settings_upload_db_desc">Connect to your Firestore server</string>
     <string name="settings_manage_category">🗂️ Manage Categories</string>
-    <string name="settings_recurring_tx">⏳ Recurring Transactions</string>
+    <string name="settings_recurring">⏳ Recurring Transactions</string>
     <string name="settings_export_csv">📄 Export CSV Report</string>
     <string name="settings_export_pdf">🖨️ Export PDF Report (Print)</string>
-    
-    <!-- Security Group -->
-    <string name="settings_security_group">Security</string>
+
+    <!-- ===== Settings: Security ===== -->
+    <string name="settings_security_section">Security</string>
     <string name="settings_biometric">🔒 Biometric Lock</string>
     <string name="settings_biometric_desc">Use fingerprint to unlock app</string>
 
-    <!-- Bottom Navigation -->
-    <string name="nav_home">Home</string>
-    <string name="nav_ai_assistant">AI Assistant</string>
-    <string name="nav_transaction">History</string>
-    <string name="nav_debt">Debts Book</string>
-    <string name="nav_settings">Settings</string>
+    <!-- ===== Biometric (MainActivity) ===== -->
+    <string name="biometric_title">Smart Finance Locked</string>
+    <string name="biometric_subtitle">Use your fingerprint to unlock</string>
+    <string name="biometric_cancel">Cancel</string>
+
+    <!-- ===== Setup Dialog (MainActivity) ===== -->
+    <string name="setup_title">⚙️ App Setup</string>
+    <string name="setup_message">Welcome!\n\nTo get started, you must enter your AI Engine API Key first.</string>
+    <string name="setup_open_settings">Open Settings</string>
+
+    <!-- ===== Dashboard ===== -->
+    <string name="dashboard_title">Financial Dashboard</string>
+    <string name="dashboard_balance">Current Balance</string>
+    <string name="dashboard_income">Income</string>
+    <string name="dashboard_expense">Expense</string>
+    <string name="dashboard_this_month">This Month</string>
+    <string name="dashboard_ai_inbox">📬 AI Inbox</string>
+    <string name="dashboard_no_data">No transactions yet. Let\'s record your first one!</string>
+
+    <!-- ===== Transactions ===== -->
+    <string name="tx_add_title">Add Transaction</string>
+    <string name="tx_amount">Amount (Rp)</string>
+    <string name="tx_note">Note</string>
+    <string name="tx_category">Category</string>
+    <string name="tx_date">Date</string>
+    <string name="tx_type_income">Income</string>
+    <string name="tx_type_expense">Expense</string>
+    <string name="tx_save">Save</string>
+    <string name="tx_cancel">Cancel</string>
+    <string name="tx_history">Transaction History</string>
+    <string name="tx_empty">No transactions yet</string>
+
+    <!-- ===== Debt ===== -->
+    <string name="debt_title">Debt &amp; Receivable Book</string>
+    <string name="debt_add">Add Debt/Receivable</string>
+    <string name="debt_person">Person\'s Name</string>
+    <string name="debt_amount">Amount (Rp)</string>
+    <string name="debt_due_date">Due Date</string>
+    <string name="debt_type_owe">I Owe</string>
+    <string name="debt_type_lent">I Lent</string>
+    <string name="debt_paid">Paid Off</string>
+    <string name="debt_unpaid">Unpaid</string>
+
+    <!-- ===== AI Chat ===== -->
+    <string name="chat_title">AI Financial Assistant</string>
+    <string name="chat_hint">Ask something about your finances…</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_thinking">AI is thinking…</string>
+    <string name="chat_error">Sorry, something went wrong. Try again.</string>
+
+    <!-- ===== Common ===== -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_close">Close</string>
+    <string name="action_ok">OK</string>
+    <string name="confirm_delete_title">Delete Data?</string>
+    <string name="confirm_delete_message">Deleted data cannot be recovered.</string>
+    <string name="success_saved">Saved successfully ✓</string>
+    <string name="success_deleted">Deleted successfully ✓</string>
+    <string name="error_generic">An error occurred</string>
+    <string name="loading">Loading…</string>
 </resources>
