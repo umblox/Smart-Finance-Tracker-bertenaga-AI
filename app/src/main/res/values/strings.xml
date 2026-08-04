@@ -148,5 +148,39 @@
     <string name="dialog_cloud_found_desc">Ditemukan data backup di Google Drive Anda. Apakah Anda ingin mengunduh dan menimpa data lokal saat ini?</string>
     <string name="action_yes_restore">Ya, Restore</string>
     <string name="action_ignore_overwrite">Abaikan (Timpa Cloud)</string>
+
+        <!-- ===== Buku Utang Piutang ===== -->
+    <string name="debt_header">🤝 Buku Utang Piutang</string>
+    <string name="debt_total_mine">Sisa Utang Saya (Global)</string>
+    <string name="debt_total_others">Uang Saya di Orang (Global)</string>
+    <string name="debt_tab_mine">Hutang Saya</string>
+    <string name="debt_tab_others">Piutang / Tagihan</string>
+    <string name="debt_history_month">Riwayat Bulan:</string>
+    <string name="debt_empty_state">Belum ada catatan riwayat pinjaman/utang yang dibuat pada periode bulan ini.</string>
+    <string name="debt_item_paid">LUNAS ✅</string>
+    <string name="debt_item_remaining">SISA TAGIHAN</string>
+    
+    <string name="debt_add_title">Tambah Utang-Piutang</string>
+    <string name="debt_rb_expense">Saya Berhutang (Hutang)</string>
+    <string name="debt_rb_income">Orang Lain Berhutang (Piutang)</string>
+    <string name="debt_toast_saved">Berhasil Disimpan ke Database!</string>
+    <string name="debt_toast_incomplete">Mohon lengkapi nominal dan nama kontak!</string>
+    
+    <string name="debt_action_title">Aksi Kontak: %1$s</string>
+    <string name="debt_action_pay">✏️ Bayar / Cicil Pinjaman</string>
+    <string name="debt_action_delete">🗑️ Hapus Catatan Ini</string>
+    <string name="debt_toast_paid_off">Pinjaman ini sudah lunas sepenuhnya!</string>
+    
+    <string name="debt_pay_title">Bayar/Cicil %1$s</string>
+    <string name="debt_pay_hint_amount">Nominal Pembayaran (Rp)</string>
+    <string name="debt_pay_hint_note">Keterangan cicilan (Opsional)</string>
+    <string name="debt_pay_btn">Proses Cicilan</string>
+    <string name="debt_toast_installment_success">Cicilan Berhasil Tercatat!</string>
+    <string name="debt_toast_installment_fail">Gagal memproses cicilan!</string>
+    <string name="debt_toast_invalid_amount">Mohon masukkan nominal cicilan valid!</string>
+    
+    <string name="debt_delete_title">Hapus Data</string>
+    <string name="debt_delete_message">Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari %1$s?</string>
+    <string name="toast_permission_denied">Akses kontak ditolak.</string>
     
 </resources>
