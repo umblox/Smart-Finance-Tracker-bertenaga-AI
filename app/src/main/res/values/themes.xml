@@ -49,4 +49,9 @@
         <item name="boxCornerRadiusBottomStart">14dp</item>
         <item name="boxCornerRadiusBottomEnd">14dp</item>
     </style>
+    
+    <!-- Tombol Navigasi -->
+    <style name="Widget.SmartFinance.NavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+    <item name="android:color">@color/primary_container</item>
+    </style>
 </resources>
