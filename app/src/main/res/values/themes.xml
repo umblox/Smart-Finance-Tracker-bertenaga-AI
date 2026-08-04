@@ -1,23 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.MaterialComponents.Light.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar.Bridge">
-        <!-- Colors -->
+    <!-- ===== Tema Asli (JANGAN DIHAPUS) ===== -->
+    <style name="Theme.SmartFinance" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
         <item name="android:colorBackground">@color/background_color</item>
-        <item name="android:textColorPrimary">@color/text_primary</item>
-        <item name="android:textColorSecondary">@color/text_secondary</item>
-        
-        <!-- Modern UI Defaults -->
-        <item name="materialCardViewStyle">@style/Widget.SmartFinance.CardView</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="cardViewStyle">@style/Widget.SmartFinance.CardView</item>
     </style>
 
-    <!-- Custom Modern Card Style -->
-    <style name="Widget.SmartFinance.CardView" parent="Widget.MaterialComponents.CardView">
+    <style name="Widget.SmartFinance.CardView" parent="Widget.Material3.CardView.Elevated">
         <item name="cardElevation">2dp</item>
         <item name="cardCornerRadius">16dp</item>
-        <item name="strokeWidth">0dp</item>
         <item name="cardBackgroundColor">@color/surface_white</item>
     </style>
-</resources>
 
+    <!-- ===== ✨ TAMBAHAN BARU: Style Keren (tidak mengubah yang lama) ===== -->
+
+    <!-- Card dengan sudut lebih membulat & bayangan lembut -->
+    <style name="Widget.SmartFinance.CardView.Rounded" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardElevation">4dp</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardBackgroundColor">@color/surface_white</item>
+    </style>
+
+    <!-- Tombol utama bergradasi feel -->
+    <style name="Widget.SmartFinance.Button.Primary" parent="Widget.Material3.Button">
+        <item name="android:backgroundTint">@color/primary</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+    <!-- Tombol tonal (lembut) -->
+    <style name="Widget.SmartFinance.Button.Tonal" parent="Widget.Material3.Button.TonalButton">
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- Chip kategori -->
+    <style name="Widget.SmartFinance.Chip" parent="Widget.Material3.Chip.Assistant.Elevated">
+        <item name="chipCornerRadius">12dp</item>
+    </style>
+
+    <!-- Text field modern -->
+    <style name="Widget.SmartFinance.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">14dp</item>
+        <item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">14dp</item>
+        <item name="boxCornerRadiusBottomEnd">14dp</item>
+    </style>
+</resources>
