@@ -184,5 +184,38 @@
     <string name="toast_permission_denied">Contact permission denied.</string>
     <string name="debt_total_loan">Total Loan: %1$s</string>
     <string name="debt_progress_percent">%1$d%% Paid</string>
+
+    <!-- ===== Transaction Menu ===== -->
+    <string name="tx_add_manual_title">Add Manual Transaction</string>
+    <string name="tx_edit_title">Edit Transaction</string>
+    
+    <string name="tx_hint_amount">Transaction Amount (Rp)</string>
+    <string name="tx_hint_amount_simple">Amount (Rp)</string>
+    
+    <string name="tx_flow_type_label">Cash Flow Type:</string>
+    <string name="tx_type_debt_receivable">Debt/Receivable</string>
+    <string name="tx_type_expense_debt">Expense / My Debt</string>
+    <string name="tx_type_income_receivable">Income / Receivable</string>
+    
+    <string name="tx_category_label">Transaction Category:</string>
+    <string name="tx_choose_category">Select Category</string>
+    
+    <string name="tx_hint_note">Transaction Name / Note</string>
+    <string name="tx_hint_note_simple">Description / Note</string>
+    
+    <string name="tx_hint_date">Date (DD-MM-YYYY • HH:mm WIB)</string>
+    
+    <string name="tx_contact_label_required">Related Contact (Required for Debt/Receivable):</string>
+    <string name="tx_contact_label">Related Contact Name:</string>
+    
+    <string name="action_delete_permanent">🗑️ DELETE PERMANENTLY</string>
+    
+    <!-- Toast Messages -->
+    <string name="tx_toast_select_category">Please select a Category first!</string>
+    <string name="tx_toast_contact_required">Contact name is required for Debt/Receivable transactions!</string>
+    <string name="tx_toast_contact_required_simple">Contact name is required!</string>
+    <string name="tx_toast_incomplete">Please complete the amount and transaction name!</string>
+    <string name="tx_toast_invalid_input">Invalid input data!</string>
+    <string name="tx_toast_update_success">Changes saved successfully!</string>
     
 </resources>
