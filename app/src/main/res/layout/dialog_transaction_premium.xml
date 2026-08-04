@@ -25,7 +25,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:text="Formulir Transaksi"
+                android:text="@string/tx_edit_title"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -36,7 +36,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="6dp"
-                android:text="Nama Kontak Terkait:"
+                android:text="@string/tx_contact_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="bold"
@@ -88,7 +88,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:hint="Nominal (Rp)"
+                android:hint="@string/tx_hint_amount_simple"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
@@ -108,7 +108,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:hint="Keterangan / Catatan"
+                android:hint="@string/tx_hint_note_simple"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
@@ -128,7 +128,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="6dp"
-                android:text="Aliran Arus Kas:"
+                android:text="@string/tx_flow_type_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -142,23 +142,23 @@
                     android:id="@+id/rbPremiumTxExpense"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pengeluaran / Utang Saya"
+                    android:text="@string/tx_type_expense_debt"
                     android:textColor="@color/text_primary" />
                 <RadioButton
                     android:id="@+id/rbPremiumTxIncome"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pemasukan / Piutang"
+                    android:text="@string/tx_type_income_receivable"
                     android:textColor="@color/text_primary" />
             </RadioGroup>
 
-            <!-- 🔥 Kategori (Diubah menjadi Tombol ala Money Lover) -->
+            <!-- Kategori -->
             <TextView
                 android:id="@+id/tvCategoryLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="6dp"
-                android:text="Kategori Transaksi:"
+                android:text="@string/tx_category_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -170,7 +170,7 @@
                 android:layout_height="54dp"
                 android:layout_marginBottom="12dp"
                 android:gravity="start|center_vertical"
-                android:text="Pilih Kategori"
+                android:text="@string/tx_choose_category"
                 android:textColor="@color/text_primary"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
@@ -181,7 +181,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="6dp"
-                android:text="Tanggal (DD-MM-YYYY • HH:mm WIB)"
+                android:text="@string/tx_hint_date"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -216,7 +216,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
-                    android:text="Batal"
+                    android:text="@string/action_cancel"
                     android:textColor="@color/text_secondary"
                     app:backgroundTint="@color/divider_color"
                     app:cornerRadius="24dp" />
@@ -226,7 +226,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:text="Simpan"
+                    android:text="@string/action_save"
                     android:textColor="@color/surface_white"
                     app:backgroundTint="@color/primary"
                     app:cornerRadius="24dp" />
@@ -237,7 +237,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="12dp"
-                android:text="🗑️ HAPUS PERMANEN"
+                android:text="@string/action_delete_permanent"
                 android:textColor="@android:color/white"
                 android:visibility="gone"
                 app:backgroundTint="@color/expense_red"
