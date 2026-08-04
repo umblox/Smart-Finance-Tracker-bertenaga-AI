@@ -217,5 +217,10 @@
     <string name="tx_toast_incomplete">Please complete the amount and transaction name!</string>
     <string name="tx_toast_invalid_input">Invalid input data!</string>
     <string name="tx_toast_update_success">Changes saved successfully!</string>
+
+    <!-- ===== Transaction History ===== -->
+    <string name="history_today">Today</string>
+    <string name="history_yesterday">Yesterday</string>
+    <string name="history_no_note">No note</string>
     
 </resources>
