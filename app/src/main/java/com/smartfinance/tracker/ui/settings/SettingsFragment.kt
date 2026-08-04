@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
@@ -46,7 +47,7 @@ class SettingsFragment : Fragment() {
                 updateDriveUi(account != null)
                 checkAndPromptRestore()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Gagal terhubung ke Google", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.dialog_google_fail), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -96,23 +97,23 @@ class SettingsFragment : Fragment() {
                 googleSignInLauncher.launch(client.signInIntent)
             } else {
                 AlertDialog.Builder(requireContext())
-                    .setTitle("Google Drive")
-                    .setMessage("Akun terhubung: ${account.email}")
-                    .setPositiveButton("Logout") { _, _ ->
+                    .setTitle(getString(R.string.settings_drive_title))
+                    .setMessage("${getString(R.string.dialog_google_connected)} ${account.email}")
+                    .setPositiveButton(getString(R.string.action_logout)) { _, _ ->
                         GoogleSignIn.getClient(requireContext(), GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
                         updateDriveUi(false)
                     }
-                    .setNegativeButton("Batal", null).show()
+                    .setNegativeButton(getString(R.string.action_cancel), null).show()
             }
         }
 
         binding.btnDriveBackup.setOnClickListener { performBackup() }
         binding.btnDriveRestore.setOnClickListener {
             AlertDialog.Builder(requireContext())
-                .setTitle("Restore Data")
-                .setMessage("Tindakan ini akan menimpa seluruh data di HP Anda dengan data dari Cloud. Lanjutkan?")
-                .setPositiveButton("Restore") { _, _ -> performRestore() }
-                .setNegativeButton("Batal", null).show()
+                .setTitle(getString(R.string.dialog_restore_title))
+                .setMessage(getString(R.string.dialog_restore_warning))
+                .setPositiveButton(getString(R.string.settings_drive_restore_btn)) { _, _ -> performRestore() }
+                .setNegativeButton(getString(R.string.action_cancel), null).show()
         }
         
         binding.menuExportReport.setOnClickListener { ExportBottomSheet().show(parentFragmentManager, "ExportBottomSheet") }
@@ -122,8 +123,8 @@ class SettingsFragment : Fragment() {
 
         binding.menuLocalBackup.setOnClickListener {
             AlertDialog.Builder(requireContext())
-                .setTitle("🛠️ Backup & Restore Lokal")
-                .setItems(arrayOf("📤 Export Database (Simpan File)", "📥 Import Database (Pilih File)")) { _, which ->
+                .setTitle(getString(R.string.dialog_local_title))
+                .setItems(arrayOf(getString(R.string.dialog_local_export), getString(R.string.dialog_local_import))) { _, which ->
                     if (which == 0) {
                         val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale("id", "ID"))
                         exportBackupLauncher.launch("SmartFinance_Backup_${sdf.format(Date())}.json")
@@ -139,15 +140,14 @@ class SettingsFragment : Fragment() {
 
     private fun updateDriveUi(isSignedIn: Boolean) {
         if (isSignedIn) {
-            // 🔥 MENGAMBIL WAKTU TERAKHIR SINKRONISASI
             val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-            val lastSync = prefs.getString("last_sync_time", "Menunggu Sinkronisasi...")
+            val lastSync = prefs.getString("last_sync_time", getString(R.string.status_waiting_sync))
             
             binding.tvDriveStatusSubtitle.text = lastSync
             binding.tvDriveStatusSubtitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.income_green))
             binding.layoutDriveActions.visibility = View.VISIBLE
         } else {
-            binding.tvDriveStatusSubtitle.text = "Ketuk untuk Login"
+            binding.tvDriveStatusSubtitle.text = getString(R.string.status_tap_login)
             binding.tvDriveStatusSubtitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.expense_red))
             binding.layoutDriveActions.visibility = View.GONE
         }
@@ -155,14 +155,14 @@ class SettingsFragment : Fragment() {
 
     private fun checkAndPromptRestore() {
         lifecycleScope.launch {
-            binding.tvDriveStatusSubtitle.text = "Memeriksa Cloud..."
+            binding.tvDriveStatusSubtitle.text = getString(R.string.status_checking_cloud)
             val fileId = GoogleDriveManager.checkBackupFileId(requireContext())
             if (fileId != null) {
                 AlertDialog.Builder(requireContext())
-                    .setTitle("☁️ Backup Ditemukan")
-                    .setMessage("Ditemukan data backup di Google Drive Anda. Apakah Anda ingin mengunduh dan menimpa data lokal saat ini?")
-                    .setPositiveButton("Ya, Restore") { _, _ -> performRestore() }
-                    .setNegativeButton("Abaikan (Timpa Cloud)") { _, _ -> performBackup() }
+                    .setTitle(getString(R.string.dialog_cloud_found_title))
+                    .setMessage(getString(R.string.dialog_cloud_found_desc))
+                    .setPositiveButton(getString(R.string.action_yes_restore)) { _, _ -> performRestore() }
+                    .setNegativeButton(getString(R.string.action_ignore_overwrite)) { _, _ -> performBackup() }
                     .setCancelable(false)
                     .show()
                 updateDriveUi(true)
@@ -174,60 +174,78 @@ class SettingsFragment : Fragment() {
 
     private fun performBackup() {
         lifecycleScope.launch {
-            binding.tvDriveStatusSubtitle.text = "Mengunggah data..."
+            binding.tvDriveStatusSubtitle.text = getString(R.string.status_uploading)
             val json = BackupEngine.exportDbToJson()
             val success = GoogleDriveManager.uploadBackup(requireContext(), json)
             if (success) {
-                // 🔥 REKAM JEJAK: MANUAL SYNC BACKUP
                 val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
                 val timeStr = sdf.format(Date())
                 requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                     .edit().putString("last_sync_time", "Manual Sync: $timeStr").apply()
                     
-                Toast.makeText(requireContext(), "Backup Selesai!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.toast_backup_success), Toast.LENGTH_SHORT).show()
                 updateDriveUi(true)
             } else {
-                Toast.makeText(requireContext(), "Gagal Backup ke Cloud", Toast.LENGTH_SHORT).show()
-                binding.tvDriveStatusSubtitle.text = "Gagal Sinkronisasi"
+                Toast.makeText(requireContext(), getString(R.string.toast_backup_fail), Toast.LENGTH_SHORT).show()
+                binding.tvDriveStatusSubtitle.text = getString(R.string.status_sync_failed)
             }
         }
     }
 
     private fun performRestore() {
         lifecycleScope.launch {
-            binding.tvDriveStatusSubtitle.text = "Mengunduh data..."
+            binding.tvDriveStatusSubtitle.text = getString(R.string.status_downloading)
             val json = GoogleDriveManager.downloadBackup(requireContext())
             if (json != null) {
                 val success = BackupEngine.importJsonToDb(json)
                 if (success) {
-                    // 🔥 REKAM JEJAK: MANUAL SYNC RESTORE
                     val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
                     val timeStr = sdf.format(Date())
                     requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
                         .edit().putString("last_sync_time", "Manual Restore: $timeStr").apply()
                         
-                    Toast.makeText(requireContext(), "Restore Sukses!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.toast_restore_success), Toast.LENGTH_SHORT).show()
                     updateDriveUi(true)
                 } else {
-                    Toast.makeText(requireContext(), "Data Backup Rusak!", Toast.LENGTH_SHORT).show()
-                    binding.tvDriveStatusSubtitle.text = "Restore Gagal"
+                    Toast.makeText(requireContext(), getString(R.string.toast_restore_corrupt), Toast.LENGTH_SHORT).show()
+                    binding.tvDriveStatusSubtitle.text = getString(R.string.status_sync_failed)
                 }
             } else {
-                Toast.makeText(requireContext(), "Gagal Mengunduh dari Cloud", Toast.LENGTH_SHORT).show()
-                binding.tvDriveStatusSubtitle.text = "Gagal Sinkronisasi"
+                Toast.makeText(requireContext(), getString(R.string.toast_download_fail), Toast.LENGTH_SHORT).show()
+                binding.tvDriveStatusSubtitle.text = getString(R.string.status_sync_failed)
             }
         }
+    }
+
+    // 🔥 FIX: Fungsi Cerdas untuk Mewarnai Teks Dropdown secara Dinamis
+    private fun createThemedAdapter(items: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(requireContext(), android.R.layout.simple_spinner_item, items) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent) as TextView
+                view.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                return view
+            }
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getDropDownView(position, convertView, parent) as TextView
+                view.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                return view
+            }
+        }.apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
     }
 
     private fun setupThemeAndLanguageSpinners() {
         val themeNames = listOf(getString(R.string.theme_system), getString(R.string.theme_light), getString(R.string.theme_dark))
         val themeValues = listOf(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM, AppCompatDelegate.MODE_NIGHT_NO, AppCompatDelegate.MODE_NIGHT_YES)
-        binding.spinnerTheme.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, themeNames).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        
+        // 🔥 FIX: Gunakan Custom Adapter
+        binding.spinnerTheme.adapter = createThemedAdapter(themeNames)
         binding.spinnerTheme.setSelection(themeValues.indexOf(viewModel.themeMode.value).takeIf { it >= 0 } ?: 0)
 
         val langNames = listOf("🇮🇩 Indonesia", "🇬🇧 English")
         val langValues = listOf("id", "en")
-        binding.spinnerLanguage.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, langNames).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        
+        // 🔥 FIX: Gunakan Custom Adapter
+        binding.spinnerLanguage.adapter = createThemedAdapter(langNames)
         binding.spinnerLanguage.setSelection(langValues.indexOf(viewModel.appLanguage.value).takeIf { it >= 0 } ?: 0)
 
         binding.spinnerTheme.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
