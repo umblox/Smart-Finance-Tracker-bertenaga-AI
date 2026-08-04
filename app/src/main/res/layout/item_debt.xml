@@ -11,7 +11,8 @@
     android:foreground="?attr/selectableItemBackground"
     app:cardCornerRadius="16dp"
     app:cardElevation="1.5dp"
-    app:strokeWidth="0dp">
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="@color/surface_white">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -50,20 +51,18 @@
                     tools:text="📅 28 Jul 2026 • 07:17" />
             </LinearLayout>
 
-            <!-- Badge Lunas -->
             <TextView
                 android:id="@+id/tvBadgeLunas"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="4dp"
-                android:text="LUNAS ✅"
-                android:textColor="@color/surface_white"
+                android:text="@string/debt_item_paid"
+                android:textColor="@android:color/white"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
 
-            <!-- Sisa Tagihan -->
             <LinearLayout
                 android:id="@+id/layoutRemaining"
                 android:layout_width="wrap_content"
@@ -74,7 +73,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="SISA TAGIHAN"
+                    android:text="@string/debt_item_remaining"
                     android:textColor="@color/text_secondary"
                     android:textSize="10sp"
                     android:textStyle="bold" />
@@ -89,7 +88,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Garis Pembatas -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -97,7 +95,6 @@
             android:layout_marginBottom="12dp"
             android:background="@color/divider_color" />
 
-        <!-- Baris 2: Progress -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -136,4 +133,3 @@
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
-
