@@ -185,6 +185,9 @@
     <string name="debt_total_loan">Total Pinjaman: %1$s</string>
     <string name="debt_progress_percent">%1$d%% Terbayar</string>
 
+    <string name="debt_toast_deleted">Catatan berhasil dihapus!</string>
+    <string name="debt_toast_delete_fail">Gagal menghapus!</string>
+    
     <!-- ===== Menu Transaksi ===== -->
     <string name="tx_add_manual_title">Tambah Transaksi Manual</string>
     <string name="tx_edit_title">Edit Transaksi</string>
