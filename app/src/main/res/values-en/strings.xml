@@ -182,5 +182,7 @@
     <string name="debt_delete_title">Delete Data</string>
     <string name="debt_delete_message">Are you sure you want to permanently delete the loan record for %1$s?</string>
     <string name="toast_permission_denied">Contact permission denied.</string>
+    <string name="debt_total_loan">Total Loan: %1$s</string>
+    <string name="debt_progress_percent">%1$d%% Paid</string>
     
 </resources>
