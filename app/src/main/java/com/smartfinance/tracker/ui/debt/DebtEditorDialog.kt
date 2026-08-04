@@ -1,6 +1,5 @@
 package com.smartfinance.tracker.ui.debt
 
-import android.app.AlertDialog
 import android.app.Dialog
 import android.os.Bundle
 import android.view.View
@@ -8,6 +7,8 @@ import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.DialogTransactionPremiumBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -28,24 +29,31 @@ class DebtEditorDialog(
         val isPaid = debtItemData["isPaid"] as? Boolean ?: false
         val debtType = debtItemData["type"] as? String ?: "DEBT"
 
-        val options = arrayOf("✏️ Bayar / Cicil Pinjaman", "🗑️ Hapus Catatan Ini")
+        val options = arrayOf(
+            getString(R.string.debt_action_pay),
+            getString(R.string.debt_action_delete)
+        )
         
-        return AlertDialog.Builder(requireContext())
-            .setTitle("Aksi Kontak: $contactName")
+        // 🔥 FIX: Menggunakan MaterialAlertDialogBuilder agar UI melengkung, elegan, & ramah Dark Mode
+        return MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+            .setTitle(getString(R.string.debt_action_title, contactName))
             .setItems(options) { _, which ->
                 if (which == 0) {
                     if (isPaid) {
-                        Toast.makeText(context, "Pinjaman ini sudah lunas sepenuhnya!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, getString(R.string.debt_toast_paid_off), Toast.LENGTH_SHORT).show()
                         return@setItems
                     }
 
                     val localBinding = DialogTransactionPremiumBinding.inflate(layoutInflater)
                     val activityContext = requireActivity()
                     
-                    val payDialog = AlertDialog.Builder(activityContext).setView(localBinding.root).create()
+                    val payDialog = MaterialAlertDialogBuilder(activityContext, R.style.Theme_SmartFinance)
+                        .setView(localBinding.root)
+                        .create()
+                        
                     payDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-                    localBinding.tvDialogTitle.text = "Bayar/Cicil $contactName"
+                    localBinding.tvDialogTitle.text = getString(R.string.debt_pay_title, contactName)
                     
                     localBinding.btnCategoryPicker.visibility = View.GONE
                     localBinding.tvCategoryLabel.visibility = View.GONE
@@ -55,14 +63,14 @@ class DebtEditorDialog(
                     val parentAmountLayout = localBinding.etPremiumTxAmount.parent.parent as? com.google.android.material.textfield.TextInputLayout
                     val parentNoteLayout = localBinding.etPremiumTxNote.parent.parent as? com.google.android.material.textfield.TextInputLayout
                     
-                    parentAmountLayout?.hint = "Nominal Pembayaran (Rp)"
-                    parentNoteLayout?.hint = "Keterangan cicilan (Opsional)"
+                    parentAmountLayout?.hint = getString(R.string.debt_pay_hint_amount)
+                    parentNoteLayout?.hint = getString(R.string.debt_pay_hint_note)
                     
                     localBinding.etPremiumTxDate.setText(sdfPremium.format(Date()))
 
                     localBinding.btnCancel.setOnClickListener { payDialog.dismiss() }
 
-                    localBinding.btnSave.text = "Proses Cicilan"
+                    localBinding.btnSave.text = getString(R.string.debt_pay_btn)
                     localBinding.btnSave.setOnClickListener {
                         val payValue = localBinding.etPremiumTxAmount.text.toString().toDoubleOrNull() ?: 0.0
                         val userPayNote = localBinding.etPremiumTxNote.text.toString().trim()
@@ -75,7 +83,6 @@ class DebtEditorDialog(
                             
                             safeScope.launch {
                                 try {
-                                    // 🔥 LOGIKA WAKTU CERDAS (Mencegah Tabrakan Pembulatan)
                                     val currentFormattedDate = sdfPremium.format(Date())
                                     val payTimestamp = try { 
                                         if (payDateVal == currentFormattedDate) System.currentTimeMillis()
@@ -101,38 +108,38 @@ class DebtEditorDialog(
                                     
                                     safeViewModel.processDebtInstallment(docId, newRemaining, newRemaining <= 0.0, txId, payTransactionMap)
                                     
-                                    Toast.makeText(activityContext, "Cicilan Berhasil Tercatat!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(activityContext, getString(R.string.debt_toast_installment_success), Toast.LENGTH_SHORT).show()
                                     onUpdateAction()
                                     payDialog.dismiss()
                                 } catch (e: Exception) {
-                                    Toast.makeText(activityContext, "Gagal memproses cicilan!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(activityContext, getString(R.string.debt_toast_installment_fail), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } else {
-                            Toast.makeText(activityContext, "Mohon masukkan nominal cicilan valid!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(activityContext, getString(R.string.debt_toast_invalid_amount), Toast.LENGTH_SHORT).show()
                         }
                     }
                     payDialog.show()
                     
                 } else if (which == 1) {
-                    AlertDialog.Builder(requireContext()).apply {
-                        setTitle("Hapus Data")
-                        setMessage("Apakah Anda yakin ingin menghapus permanen catatan pinjaman dari $contactName?")
-                        setPositiveButton("Hapus") { _, _ ->
+                    MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance).apply {
+                        setTitle(getString(R.string.debt_delete_title))
+                        setMessage(getString(R.string.debt_delete_message, contactName))
+                        setPositiveButton(getString(R.string.action_delete)) { _, _ ->
                             val safeScope = requireActivity().lifecycleScope
                             val safeViewModel = ViewModelProvider(requireActivity())[DebtViewModel::class.java]
                             
                             safeScope.launch {
                                 try {
                                     safeViewModel.deleteDebtPermanently(docId)
-                                    Toast.makeText(requireActivity(), "Catatan berhasil dihapus!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(requireActivity(), getString(R.string.debt_toast_deleted), Toast.LENGTH_SHORT).show()
                                     onUpdateAction()
                                 } catch (e: Exception) {
-                                    Toast.makeText(requireActivity(), "Gagal menghapus!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(requireActivity(), getString(R.string.debt_toast_delete_fail), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
-                        setNegativeButton("Batal", null)
+                        setNegativeButton(getString(R.string.action_cancel), null)
                         show()
                     }
                 }
