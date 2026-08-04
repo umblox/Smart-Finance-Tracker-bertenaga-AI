@@ -148,5 +148,39 @@
     <string name="dialog_cloud_found_desc">Backup data found in your Google Drive. Do you want to download and overwrite current local data?</string>
     <string name="action_yes_restore">Yes, Restore</string>
     <string name="action_ignore_overwrite">Ignore (Overwrite Cloud)</string>
+
+        <!-- ===== Debt Book ===== -->
+    <string name="debt_header">🤝 Debt &amp; Receivable Book</string>
+    <string name="debt_total_mine">My Total Debt (Global)</string>
+    <string name="debt_total_others">My Money Owed (Global)</string>
+    <string name="debt_tab_mine">My Debts</string>
+    <string name="debt_tab_others">Receivables</string>
+    <string name="debt_history_month">Month History:</string>
+    <string name="debt_empty_state">No loan/debt records created for this month.</string>
+    <string name="debt_item_paid">PAID OFF ✅</string>
+    <string name="debt_item_remaining">REMAINING</string>
+    
+    <string name="debt_add_title">Add Debt/Receivable</string>
+    <string name="debt_rb_expense">I Owe Money (Debt)</string>
+    <string name="debt_rb_income">Others Owe Me (Receivable)</string>
+    <string name="debt_toast_saved">Successfully Saved to Database!</string>
+    <string name="debt_toast_incomplete">Please complete the amount and contact name!</string>
+    
+    <string name="debt_action_title">Action for: %1$s</string>
+    <string name="debt_action_pay">✏️ Pay / Installment</string>
+    <string name="debt_action_delete">🗑️ Delete This Record</string>
+    <string name="debt_toast_paid_off">This loan is already fully paid!</string>
+    
+    <string name="debt_pay_title">Pay/Installment %1$s</string>
+    <string name="debt_pay_hint_amount">Payment Amount (Rp)</string>
+    <string name="debt_pay_hint_note">Installment note (Optional)</string>
+    <string name="debt_pay_btn">Process Installment</string>
+    <string name="debt_toast_installment_success">Installment Successfully Recorded!</string>
+    <string name="debt_toast_installment_fail">Failed to process installment!</string>
+    <string name="debt_toast_invalid_amount">Please enter a valid installment amount!</string>
+    
+    <string name="debt_delete_title">Delete Data</string>
+    <string name="debt_delete_message">Are you sure you want to permanently delete the loan record for %1$s?</string>
+    <string name="toast_permission_denied">Contact permission denied.</string>
     
 </resources>
