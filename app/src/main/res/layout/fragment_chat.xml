@@ -21,7 +21,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Asisten Finansial AI"
+            android:text="@string/chat_title"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -31,7 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="8dp"
-            android:text="Bersihkan"
+            android:text="@string/chat_clear"
             android:textColor="@color/expense_red"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -91,7 +91,7 @@
                 android:id="@+id/etMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Ketik pesan atau instruksi..."
+                android:hint="@string/chat_hint"
                 android:inputType="textMultiLine|textCapSentences"
                 android:maxLines="4"
                 android:minHeight="48dp"
