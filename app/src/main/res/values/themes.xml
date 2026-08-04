@@ -38,7 +38,7 @@
     </style>
 
     <!-- Chip kategori -->
-    <style name="Widget.SmartFinance.Chip" parent="Widget.Material3.Chip.Assistant.Elevated">
+    <style name="Widget.SmartFinance.Chip" parent="Widget.Material3.Chip.Action">
         <item name="chipCornerRadius">12dp</item>
     </style>
 
