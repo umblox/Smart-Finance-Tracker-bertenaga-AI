@@ -35,21 +35,22 @@ class MainActivity : AppCompatActivity() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { }
             })
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Smart Finance Locked")
-                .setSubtitle("Gunakan sidik jari untuk membuka")
-                .setNegativeButtonText("Batal")
-                .build()
+            .setTitle(getString(R.string.biometric_title))
+            .setSubtitle(getString(R.string.biometric_subtitle))
+            .setNegativeButtonText(getString(R.string.biometric_cancel))
+            .build()
             biometricPrompt.authenticate(promptInfo)
         }
     }
 
     private fun showSetupRequiredDialog() {
         MaterialAlertDialogBuilder(this)
-            .setTitle("⚙️ Persiapan Aplikasi")
-            .setMessage("Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan API Key Mesin AI terlebih dahulu.")
+            .setTitle(getString(R.string.setup_title))
+            .setMessage(getString(R.string.setup_message))
             .setCancelable(false)
-            .setPositiveButton("Buka Pengaturan") { _, _ ->
-                findViewById<BottomNavigationView>(R.id.bottomNavigation).selectedItemId = R.id.menu_settings
+            .setPositiveButton(getString(R.string.setup_open_settings)) { _, _ ->
+                findViewById<BottomNavigationView>(R.id.bottomNavigation)
+                    .selectedItemId = R.id.menu_settings
             }
             .show()
     }
