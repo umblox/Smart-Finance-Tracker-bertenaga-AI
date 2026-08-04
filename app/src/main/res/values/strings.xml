@@ -184,5 +184,38 @@
     <string name="toast_permission_denied">Akses kontak ditolak.</string>
     <string name="debt_total_loan">Total Pinjaman: %1$s</string>
     <string name="debt_progress_percent">%1$d%% Terbayar</string>
+
+    <!-- ===== Menu Transaksi ===== -->
+    <string name="tx_add_manual_title">Tambah Transaksi Manual</string>
+    <string name="tx_edit_title">Edit Transaksi</string>
+    
+    <string name="tx_hint_amount">Nominal Transaksi (Rp)</string>
+    <string name="tx_hint_amount_simple">Nominal (Rp)</string>
+    
+    <string name="tx_flow_type_label">Jenis Aliran Arus Kas:</string>
+    <string name="tx_type_debt_receivable">Utang-Piutang</string>
+    <string name="tx_type_expense_debt">Pengeluaran / Utang Saya</string>
+    <string name="tx_type_income_receivable">Pemasukan / Piutang</string>
+    
+    <string name="tx_category_label">Kategori Transaksi:</string>
+    <string name="tx_choose_category">Pilih Kategori</string>
+    
+    <string name="tx_hint_note">Nama Transaksi / Catatan</string>
+    <string name="tx_hint_note_simple">Keterangan / Catatan</string>
+    
+    <string name="tx_hint_date">Tanggal (DD-MM-YYYY • HH:mm WIB)</string>
+    
+    <string name="tx_contact_label_required">Kontak Terkait (Wajib untuk Utang-Piutang):</string>
+    <string name="tx_contact_label">Nama Kontak Terkait:</string>
+    
+    <string name="action_delete_permanent">🗑️ HAPUS PERMANEN</string>
+    
+    <!-- Toast Messages -->
+    <string name="tx_toast_select_category">Harap pilih Kategori terlebih dahulu!</string>
+    <string name="tx_toast_contact_required">Nama kontak wajib diisi untuk transaksi Utang-Piutang!</string>
+    <string name="tx_toast_contact_required_simple">Nama kontak wajib diisi!</string>
+    <string name="tx_toast_incomplete">Mohon lengkapi nominal dan nama transaksi!</string>
+    <string name="tx_toast_invalid_input">Data input tidak valid!</string>
+    <string name="tx_toast_update_success">Perubahan sukses disimpan!</string>
     
 </resources>
