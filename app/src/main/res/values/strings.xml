@@ -1,39 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Smart Finance Tracker</string>
-    
-    <!-- Menu Settings -->
-    <string name="settings_title">Pengaturan Sistem</string>
+
+    <!-- ===== Bottom Navigation ===== -->
+    <string name="nav_home">Beranda</string>
+    <string name="nav_ai_assistant">AI Asisten</string>
+    <string name="nav_add">Tambah</string>
+    <string name="nav_transactions">Transaksi</string>
+    <string name="nav_debt">Buku Utang</string>
+    <string name="nav_settings">Pengaturan</string>
+
+    <!-- ===== Pengaturan: Sistem ===== -->
+    <string name="settings_system">Pengaturan Sistem</string>
     <string name="settings_theme">Tema Aplikasi</string>
     <string name="settings_language">Bahasa (Language)</string>
     <string name="theme_system">Sistem (Otomatis)</string>
     <string name="theme_light">Terang (Light)</string>
     <string name="theme_dark">Gelap (Dark)</string>
-    
-    <!-- AI Group -->
-    <string name="settings_ai_group">Kecerdasan Buatan (AI)</string>
+
+    <!-- ===== Pengaturan: AI ===== -->
+    <string name="settings_ai_section">Kecerdasan Buatan (AI)</string>
     <string name="settings_ai_config">⚙️ Konfigurasi Mesin AI</string>
     <string name="settings_ai_config_desc">Pilih model dan atur API Key</string>
-    <string name="settings_ai_expert">🧠 Expert Mode (Prompt)</string>
-    <string name="settings_ai_expert_desc">Modifikasi karakter dan aturan AI</string>
-    
-    <!-- Data Group -->
-    <string name="settings_data_group">Manajemen Data &amp; Cloud</string>
-    <string name="settings_upload_json">☁️ Upload Database (JSON)</string>
-    <string name="settings_upload_json_desc">Hubungkan dengan server Firestore Anda</string>
+    <string name="settings_expert_mode">🧠 Expert Mode (Prompt)</string>
+    <string name="settings_expert_mode_desc">Modifikasi karakter dan aturan AI</string>
+
+    <!-- ===== Pengaturan: Data & Cloud ===== -->
+    <string name="settings_data_section">Manajemen Data &amp; Cloud</string>
+    <string name="settings_upload_db">☁️ Upload Database (JSON)</string>
+    <string name="settings_upload_db_desc">Hubungkan dengan server Firestore Anda</string>
     <string name="settings_manage_category">🗂️ Manajemen Kategori</string>
-    <string name="settings_recurring_tx">⏳ Transaksi Berkala</string>
+    <string name="settings_recurring">⏳ Transaksi Berkala</string>
     <string name="settings_export_csv">📄 Export Laporan CSV</string>
     <string name="settings_export_pdf">🖨️ Export Laporan PDF (Cetak)</string>
-    
-    <!-- Security Group -->
-    <string name="settings_security_group">Keamanan</string>
+
+    <!-- ===== Pengaturan: Keamanan ===== -->
+    <string name="settings_security_section">Keamanan</string>
     <string name="settings_biometric">🔒 Kunci Biometrik</string>
     <string name="settings_biometric_desc">Gunakan sidik jari untuk membuka aplikasi</string>
 
-    <!-- Bottom Navigation -->
-    <string name="nav_home">Beranda</string>
-    <string name="nav_ai_assistant">AI Asisten</string>
-    <string name="nav_transaction">Transaksi</string>
-    <string name="nav_debt">Buku Utang</string>
-    <string name="nav_settings">Pengaturan</string>
+    <!-- ===== Biometrik (MainActivity) ===== -->
+    <string name="biometric_title">Smart Finance Terkunci</string>
+    <string name="biometric_subtitle">Gunakan sidik jari untuk membuka</string>
+    <string name="biometric_cancel">Batal</string>
+
+    <!-- ===== Dialog Setup Awal (MainActivity) ===== -->
+    <string name="setup_title">⚙️ Persiapan Aplikasi</string>
+    <string name="setup_message">Selamat datang!\n\nUntuk memulai, Anda wajib memasukkan API Key Mesin AI terlebih dahulu.</string>
+    <string name="setup_open_settings">Buka Pengaturan</string>
+
+    <!-- ===== Dashboard ===== -->
+    <string name="dashboard_title">Dashboard Keuangan</string>
+    <string name="dashboard_balance">Saldo Saat Ini</string>
+    <string name="dashboard_income">Pemasukan</string>
+    <string name="dashboard_expense">Pengeluaran</string>
+    <string name="dashboard_this_month">Bulan Ini</string>
+    <string name="dashboard_ai_inbox">📬 Kotak Masuk AI</string>
+    <string name="dashboard_no_data">Belum ada transaksi. Yuk catat transaksi pertamamu!</string>
+
+    <!-- ===== Transaksi ===== -->
+    <string name="tx_add_title">Tambah Transaksi</string>
+    <string name="tx_amount">Jumlah (Rp)</string>
+    <string name="tx_note">Catatan</string>
+    <string name="tx_category">Kategori</string>
+    <string name="tx_date">Tanggal</string>
+    <string name="tx_type_income">Pemasukan</string>
+    <string name="tx_type_expense">Pengeluaran</string>
+    <string name="tx_save">Simpan</string>
+    <string name="tx_cancel">Batal</string>
+    <string name="tx_history">Riwayat Transaksi</string>
+    <string name="tx_empty">Belum ada transaksi</string>
+
+    <!-- ===== Utang ===== -->
+    <string name="debt_title">Buku Utang &amp; Piutang</string>
+    <string name="debt_add">Tambah Utang/Piutang</string>
+    <string name="debt_person">Nama Orang</string>
+    <string name="debt_amount">Jumlah (Rp)</string>
+    <string name="debt_due_date">Jatuh Tempo</string>
+    <string name="debt_type_owe">Saya Berutang</string>
+    <string name="debt_type_lent">Saya Meminjamkan</string>
+    <string name="debt_paid">Lunas</string>
+    <string name="debt_unpaid">Belum Lunas</string>
+
+    <!-- ===== Chat AI ===== -->
+    <string name="chat_title">Asisten Keuangan AI</string>
+    <string name="chat_hint">Tanya sesuatu tentang keuanganmu…</string>
+    <string name="chat_send">Kirim</string>
+    <string name="chat_thinking">AI sedang berpikir…</string>
+    <string name="chat_error">Maaf, terjadi kesalahan. Coba lagi.</string>
+
+    <!-- ===== Umum ===== -->
+    <string name="action_save">Simpan</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_edit">Ubah</string>
+    <string name="action_close">Tutup</string>
+    <string name="action_ok">OK</string>
+    <string name="confirm_delete_title">Hapus Data?</string>
+    <string name="confirm_delete_message">Data yang dihapus tidak dapat dikembalikan.</string>
+    <string name="success_saved">Berhasil disimpan ✓</string>
+    <string name="success_deleted">Berhasil dihapus ✓</string>
+    <string name="error_generic">Terjadi kesalahan</string>
+    <string name="loading">Memuat…</string>
 </resources>
