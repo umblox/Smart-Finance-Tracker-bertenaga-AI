@@ -225,5 +225,11 @@
     <string name="history_today">Today</string>
     <string name="history_yesterday">Yesterday</string>
     <string name="history_no_note">No note</string>
+
+    <!-- ===== AI Chat Menu ===== -->
+    <string name="chat_clear">Clear</string>
+    <string name="chat_clear_title">🗑️ Clear Chat History?</string>
+    <string name="chat_clear_message">Are you sure you want to permanently delete all conversation history from the Cloud?</string>
+    <string name="chat_clear_confirm">Yes, Clear All</string>
     
 </resources>
