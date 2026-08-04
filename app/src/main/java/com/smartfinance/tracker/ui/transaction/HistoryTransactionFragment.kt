@@ -34,12 +34,15 @@ class HistoryTransactionFragment : Fragment() {
     
     private var currentCalendar = Calendar.getInstance()
     private var searchQuery = ""
-    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
+    
+    // 🔥 FIX: Menggunakan Locale.getDefault() agar nama bulan & hari dinamis sesuai bahasa
+    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+    private val sdfDateOnly = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val sdfDayNum = SimpleDateFormat("dd", Locale.getDefault())
+    private val sdfMonthYear = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
 
+    // 🔥 FIX: Uang tetap dikunci ke Locale ID agar selalu berformat Rupiah (Rp)
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val sdfDateOnly = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
-    private val sdfDayNum = SimpleDateFormat("dd", Locale("id", "ID"))
-    private val sdfMonthYear = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHistoryTransactionBinding.inflate(inflater, container, false)
@@ -170,11 +173,13 @@ class HistoryTransactionFragment : Fragment() {
             cal.add(Calendar.DAY_OF_YEAR, -1)
             val yesterdayStr = sdfDateOnly.format(cal.time)
             val itemDateStr = sdfDateOnly.format(date)
+            val ctx = holder.itemView.context
 
+            // 🔥 FIX: Teks "Hari ini" & "Kemarin" dinamis dwibahasa
             holder.tvDayName.text = when (itemDateStr) {
-                todayStr -> "Hari ini"
-                yesterdayStr -> "Kemarin"
-                else -> SimpleDateFormat("EEEE", Locale("id", "ID")).format(date)
+                todayStr -> ctx.getString(R.string.history_today)
+                yesterdayStr -> ctx.getString(R.string.history_yesterday)
+                else -> SimpleDateFormat("EEEE", Locale.getDefault()).format(date)
             }
             
             holder.tvMonth.text = sdfMonthYear.format(date)
@@ -184,7 +189,7 @@ class HistoryTransactionFragment : Fragment() {
             holder.tvDailyTotal.setTextColor(ContextCompat.getColor(requireContext(), if (block.dailyTotal >= 0) R.color.income_green else R.color.expense_red))
             
             holder.container.removeAllViews()
-            val inflater = LayoutInflater.from(holder.itemView.context)
+            val inflater = LayoutInflater.from(ctx)
             
             val iconMap = historyViewModel.uiState.value.categoryIconMap
             
@@ -198,7 +203,9 @@ class HistoryTransactionFragment : Fragment() {
                 
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
                 tvCategory.text = tx.categoryName
-                tvNote.text = tx.note.ifEmpty { "Tanpa catatan" }
+                
+                // 🔥 FIX: Teks "Tanpa catatan" dinamis dwibahasa
+                tvNote.text = tx.note.ifEmpty { ctx.getString(R.string.history_no_note) }
                 
                 val amtPrefix = if (isInc) "+" else "-"
                 tvAmount.text = "$amtPrefix${formatRupiah.format(tx.amount)}"
@@ -209,7 +216,6 @@ class HistoryTransactionFragment : Fragment() {
                 ivIcon.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
                 
                 txView.setOnClickListener {
-                    // 🔥 Fix Warning: Menghapus Elvis Operator berlebihan pada tx.debtId
                     TransactionEditorDialog(
                         hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to tx.debtId)
                     ) { }.show(parentFragmentManager, "EditTx")
@@ -218,7 +224,7 @@ class HistoryTransactionFragment : Fragment() {
                 holder.container.addView(txView)
                 
                 if (index < block.transactions.size - 1) {
-                    val divider = View(holder.itemView.context).apply {
+                    val divider = View(ctx).apply {
                         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2).apply {
                             val marginStart = (70f * resources.displayMetrics.density).toInt()
                             setMargins(marginStart, 0, 0, 0)
