@@ -185,6 +185,9 @@
     <string name="debt_total_loan">Total Loan: %1$s</string>
     <string name="debt_progress_percent">%1$d%% Paid</string>
 
+    <string name="debt_toast_deleted">Record successfully deleted!</string>
+    <string name="debt_toast_delete_fail">Failed to delete!</string>
+    
     <!-- ===== Transaction Menu ===== -->
     <string name="tx_add_manual_title">Add Manual Transaction</string>
     <string name="tx_edit_title">Edit Transaction</string>
