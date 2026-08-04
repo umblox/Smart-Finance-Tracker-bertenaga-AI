@@ -103,4 +103,50 @@
     <string name="success_deleted">Berhasil dihapus ✓</string>
     <string name="error_generic">Terjadi kesalahan</string>
     <string name="loading">Memuat…</string>
+
+    <!-- ===== Pengaturan: Tambahan Menu & Dialog ===== -->
+    <string name="settings_sync_group">SINKRONISASI CLOUD</string>
+    <string name="settings_drive_title">Google Drive</string>
+    <string name="settings_drive_disconnected">Belum Terhubung</string>
+    <string name="settings_drive_backup_btn">Backup Now</string>
+    <string name="settings_drive_restore_btn">Restore</string>
+    
+    <string name="settings_budget_title">🎯 Anggaran Bulanan (Budgeting)</string>
+    <string name="settings_budget_desc">Kendalikan limit pengeluaran per kategori</string>
+    
+    <string name="settings_export_title">🖨️ Mesin Cetak Laporan (PDF / CSV)</string>
+    <string name="settings_export_desc">Ekspor transaksi dengan filter khusus</string>
+    
+    <string name="settings_local_backup_title">💾 Backup &amp; Restore Lokal (Offline)</string>
+    <string name="settings_local_backup_desc">Simpan atau pulihkan database langsung ke memori HP</string>
+
+    <string name="dialog_google_fail">Gagal terhubung ke Google</string>
+    <string name="dialog_google_connected">Akun terhubung:</string>
+    <string name="action_logout">Logout</string>
+    
+    <string name="dialog_restore_title">Restore Data</string>
+    <string name="dialog_restore_warning">Tindakan ini akan menimpa seluruh data di HP Anda dengan data dari Cloud. Lanjutkan?</string>
+    
+    <string name="dialog_local_title">🛠️ Backup &amp; Restore Lokal</string>
+    <string name="dialog_local_export">📤 Export Database (Simpan File)</string>
+    <string name="dialog_local_import">📥 Import Database (Pilih File)</string>
+    
+    <string name="status_tap_login">Ketuk untuk Login</string>
+    <string name="status_waiting_sync">Menunggu Sinkronisasi…</string>
+    <string name="status_checking_cloud">Memeriksa Cloud…</string>
+    <string name="status_uploading">Mengunggah data…</string>
+    <string name="status_downloading">Mengunduh data…</string>
+    <string name="status_sync_failed">Gagal Sinkronisasi</string>
+    
+    <string name="toast_backup_success">Backup Selesai!</string>
+    <string name="toast_backup_fail">Gagal Backup ke Cloud</string>
+    <string name="toast_restore_success">Restore Sukses!</string>
+    <string name="toast_restore_corrupt">Data Backup Rusak!</string>
+    <string name="toast_download_fail">Gagal Mengunduh dari Cloud</string>
+
+    <string name="dialog_cloud_found_title">☁️ Backup Ditemukan</string>
+    <string name="dialog_cloud_found_desc">Ditemukan data backup di Google Drive Anda. Apakah Anda ingin mengunduh dan menimpa data lokal saat ini?</string>
+    <string name="action_yes_restore">Ya, Restore</string>
+    <string name="action_ignore_overwrite">Abaikan (Timpa Cloud)</string>
+    
 </resources>
