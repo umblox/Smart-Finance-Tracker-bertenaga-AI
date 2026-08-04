@@ -2,20 +2,20 @@ package com.smartfinance.tracker.ui.transaction
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
-import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.local.DatabaseProvider
 import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
 class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment() {
@@ -55,12 +54,16 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) openContactPicker()
-        else Toast.makeText(context, "Akses kontak ditolak.", Toast.LENGTH_SHORT).show()
+        else Toast.makeText(context, getString(R.string.toast_permission_denied), Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionManualPremiumBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+        
+        // 🔥 FIX: Upgrade UI Dialog
+        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+            .setView(binding.root)
+            .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         viewModel = ViewModelProvider(this)[TransactionViewModel::class.java]
@@ -75,6 +78,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             try {
                 allCategoriesCloud = viewModel.getCategoriesForDropdown()
             } catch (e: Exception) {
+                // Fallback aman untuk kategori awal
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
                     mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
@@ -90,7 +94,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val contactVal = binding.etManualPremiumContact.text.toString().trim()
 
             if (selectedCategoryMap == null) {
-                Toast.makeText(context, "Harap pilih Kategori terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.tx_toast_select_category), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -101,7 +105,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val isDebtTransaction = typeRaw == "DEBT" || typeRaw == "RECEIVABLE" || catId == 101L || catId == 102L || catId == 103L || catId == 104L
 
             if (isDebtTransaction && contactVal.isEmpty()) {
-                Toast.makeText(context, "Nama kontak wajib diisi untuk transaksi Utang-Piutang!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.tx_toast_contact_required), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -144,7 +148,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         debtMap["amount"] = amountVal
                         debtMap["remainingAmount"] = amountVal
                         debtMap["type"] = selectedDebtType
-                        debtMap["note"] = "Input Manual Form DB"
+                        debtMap["note"] = "Input Manual"
                         debtMap["timestamp"] = targetTime
                         debtMap["isPaid"] = false
                         
@@ -152,23 +156,21 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     }
 
                     if (finalType == "EXPENSE") {
-                        // 🔥 Fix Warning: Menghapus argumen newAmount yang tidak dipakai
                         checkAndTriggerBudgetAlert(catId, catName)
                     }
 
-                    Toast.makeText(context, "Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.success_saved), Toast.LENGTH_SHORT).show()
                     onSaved()
                     dialog.dismiss()
                 }
             } else {
-                Toast.makeText(context, "Mohon lengkapi nominal dan nama transaksi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.tx_toast_incomplete), Toast.LENGTH_SHORT).show()
             }
         }
 
         return dialog
     }
 
-    // 🔥 Fix Warning: Menghapus parameter newAmount yang tidak terpakai
     private suspend fun checkAndTriggerBudgetAlert(categoryId: Long, categoryName: String) = withContext(Dispatchers.IO) {
         val db = DatabaseProvider.db
         try {
