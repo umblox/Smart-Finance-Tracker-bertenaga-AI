@@ -225,5 +225,11 @@
     <string name="history_today">Hari ini</string>
     <string name="history_yesterday">Kemarin</string>
     <string name="history_no_note">Tanpa catatan</string>
+
+    <!-- ===== Menu Chat AI ===== -->
+    <string name="chat_clear">Bersihkan</string>
+    <string name="chat_clear_title">🗑️ Bersihkan Riwayat Chat?</string>
+    <string name="chat_clear_message">Apakah Anda yakin ingin menghapus seluruh riwayat percakapan secara permanen dari Cloud?</string>
+    <string name="chat_clear_confirm">Ya, Hapus Semua</string>
     
 </resources>
