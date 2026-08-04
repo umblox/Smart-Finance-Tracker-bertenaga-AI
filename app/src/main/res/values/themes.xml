@@ -1,57 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ===== Tema Asli (JANGAN DIHAPUS) ===== -->
-    <style name="Theme.SmartFinance" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- ===== Tema Asli (Disetel Aman untuk Material 2) ===== -->
+    <style name="Theme.SmartFinance" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
         <item name="android:colorBackground">@color/background_color</item>
         <item name="colorOnSurface">@color/text_primary</item>
-        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
         <item name="cardViewStyle">@style/Widget.SmartFinance.CardView</item>
     </style>
 
-    <style name="Widget.SmartFinance.CardView" parent="Widget.Material3.CardView.Elevated">
+    <style name="Widget.SmartFinance.CardView" parent="Widget.MaterialComponents.CardView">
         <item name="cardElevation">2dp</item>
         <item name="cardCornerRadius">16dp</item>
         <item name="cardBackgroundColor">@color/surface_white</item>
     </style>
 
-    <!-- ===== ✨ TAMBAHAN BARU: Style Keren (tidak mengubah yang lama) ===== -->
+    <!-- ===== ✨ ADAPTASI BARU (100% Aman untuk Material 2) ===== -->
 
     <!-- Card dengan sudut lebih membulat & bayangan lembut -->
-    <style name="Widget.SmartFinance.CardView.Rounded" parent="Widget.Material3.CardView.Elevated">
+    <style name="Widget.SmartFinance.CardView.Rounded" parent="Widget.MaterialComponents.CardView">
         <item name="cardElevation">4dp</item>
         <item name="cardCornerRadius">20dp</item>
         <item name="cardBackgroundColor">@color/surface_white</item>
     </style>
 
     <!-- Tombol utama bergradasi feel -->
-    <style name="Widget.SmartFinance.Button.Primary" parent="Widget.Material3.Button">
-        <item name="android:backgroundTint">@color/primary</item>
+    <style name="Widget.SmartFinance.Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/primary</item>
         <item name="cornerRadius">14dp</item>
         <item name="android:textColor">@android:color/white</item>
     </style>
 
-    <!-- Tombol tonal (lembut) -->
-    <style name="Widget.SmartFinance.Button.Tonal" parent="Widget.Material3.Button.TonalButton">
+    <!-- Tombol tonal (lembut) disesuaikan ke UnelevatedButton -->
+    <style name="Widget.SmartFinance.Button.Tonal" parent="Widget.MaterialComponents.Button.UnelevatedButton">
         <item name="cornerRadius">14dp</item>
     </style>
 
-    <!-- Chip kategori -->
-    <style name="Widget.SmartFinance.Chip" parent="Widget.Material3.Chip.Action">
+    <!-- Chip kategori (Akar masalah Error sebelumnya) -->
+    <style name="Widget.SmartFinance.Chip" parent="Widget.MaterialComponents.Chip.Action">
         <item name="chipCornerRadius">12dp</item>
     </style>
 
     <!-- Text field modern -->
-    <style name="Widget.SmartFinance.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+    <style name="Widget.SmartFinance.TextField" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
         <item name="boxCornerRadiusTopStart">14dp</item>
         <item name="boxCornerRadiusTopEnd">14dp</item>
         <item name="boxCornerRadiusBottomStart">14dp</item>
         <item name="boxCornerRadiusBottomEnd">14dp</item>
     </style>
     
-    <!-- Tombol Navigasi -->
-    <style name="Widget.SmartFinance.NavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-    <item name="android:color">@color/primary_container</item>
+    <!-- Style Dummy untuk NavIndicator agar tidak error jika dipanggil -->
+    <style name="Widget.SmartFinance.NavIndicator">
+        <item name="android:color">@color/primary_container</item>
     </style>
 </resources>
