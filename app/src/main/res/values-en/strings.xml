@@ -11,6 +11,7 @@
     <string name="nav_settings">Settings</string>
 
     <!-- ===== Settings: System ===== -->
+    <string name="settings_title">Settings</string>
     <string name="settings_system">System Settings</string>
     <string name="settings_theme">App Theme</string>
     <string name="settings_language">Language (Bahasa)</string>
@@ -19,23 +20,23 @@
     <string name="theme_dark">Dark Mode</string>
 
     <!-- ===== Settings: AI ===== -->
-    <string name="settings_ai_section">Artificial Intelligence (AI)</string>
+    <string name="settings_ai_group">Artificial Intelligence (AI)</string>
     <string name="settings_ai_config">⚙️ AI Engine Configuration</string>
     <string name="settings_ai_config_desc">Select model and set API Key</string>
     <string name="settings_expert_mode">🧠 Expert Mode (Prompt)</string>
     <string name="settings_expert_mode_desc">Modify AI behavior and rules</string>
 
     <!-- ===== Settings: Data & Cloud ===== -->
-    <string name="settings_data_section">Data &amp; Cloud Management</string>
+    <string name="settings_data_group">Data &amp; Cloud Management</string>
     <string name="settings_upload_db">☁️ Upload Database (JSON)</string>
     <string name="settings_upload_db_desc">Connect to your Firestore server</string>
     <string name="settings_manage_category">🗂️ Manage Categories</string>
-    <string name="settings_recurring">⏳ Recurring Transactions</string>
+    <string name="settings_recurring_tx">⏳ Recurring Transactions</string>
     <string name="settings_export_csv">📄 Export CSV Report</string>
     <string name="settings_export_pdf">🖨️ Export PDF Report (Print)</string>
 
     <!-- ===== Settings: Security ===== -->
-    <string name="settings_security_section">Security</string>
+    <string name="settings_security_group">Security</string>
     <string name="settings_biometric">🔒 Biometric Lock</string>
     <string name="settings_biometric_desc">Use fingerprint to unlock app</string>
 
