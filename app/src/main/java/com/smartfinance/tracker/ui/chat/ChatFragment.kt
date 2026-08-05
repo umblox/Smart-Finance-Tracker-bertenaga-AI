@@ -1,6 +1,5 @@
 package com.smartfinance.tracker.ui.chat
 
-import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,6 +8,8 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.FragmentChatBinding
 import kotlinx.coroutines.launch
 
@@ -46,13 +47,14 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnClearChat.setOnClickListener {
-            AlertDialog.Builder(requireContext()).apply {
-                setTitle("🗑️ Bersihkan Riwayat Chat?")
-                setMessage("Apakah Anda yakin ingin menghapus seluruh riwayat percakapan secara permanen dari Cloud?")
-                setPositiveButton("Ya, Hapus Semua") { _, _ ->
+            // 🔥 FIX: Menggunakan MaterialAlertDialogBuilder untuk UI modern dan ramah Dark Mode
+            MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance).apply {
+                setTitle(getString(R.string.chat_clear_title))
+                setMessage(getString(R.string.chat_clear_message))
+                setPositiveButton(getString(R.string.chat_clear_confirm)) { _, _ ->
                     viewModel.clearChat()
                 }
-                setNegativeButton("Batal", null)
+                setNegativeButton(getString(R.string.action_cancel), null)
                 show()
             }
         }
