@@ -54,8 +54,8 @@ class TransactionEditorDialog(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
         
-        // 🔥 FIX: Upgrade UI Dialog
-        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+        // 🔥 FIX: Hapus paksaan tema
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root)
             .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
