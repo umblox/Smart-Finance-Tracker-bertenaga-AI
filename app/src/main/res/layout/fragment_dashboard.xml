@@ -2,6 +2,7 @@
 <androidx.core.widget.NestedScrollView 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color"
@@ -12,7 +13,6 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
-        <!-- JUDUL APLIKASI -->
         <TextView
             android:id="@+id/tvAppTitle"
             android:layout_width="wrap_content"
@@ -25,7 +25,6 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="@+id/btnAiNotification"/>
 
-        <!-- 🔥 FITUR BARU: TOMBOL NOTIFIKASI AI DENGAN TITIK MERAH -->
         <FrameLayout
             android:id="@+id/btnAiNotification"
             android:layout_width="44dp"
@@ -36,7 +35,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- Ikon AI / Lonceng -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -44,7 +42,6 @@
                 android:text="🤖"
                 android:textSize="22sp" />
 
-            <!-- Titik Merah (Sembunyi secara default) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/redDotBadge"
                 android:layout_width="12dp"
@@ -77,7 +74,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="TOTAL SALDO BERSIH"
+                    android:text="@string/dashboard_total_balance_title"
                     android:textColor="#CCFBF1"
                     android:textSize="11sp"
                     android:textStyle="bold"
@@ -88,7 +85,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Rp 0"
+                    tools:text="Rp 5.000.000"
                     android:textColor="@android:color/white"
                     android:textSize="30sp"
                     android:textStyle="bold" />
@@ -122,7 +119,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="🟢 Pemasukan"
+                        android:text="@string/dashboard_income_label"
                         android:textColor="@color/text_secondary"
                         android:textSize="12sp" />
                     <TextView
@@ -130,7 +127,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Rp 0"
+                        tools:text="Rp 2.000.000"
                         android:textColor="@color/income_green"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -154,7 +151,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="🔴 Pengeluaran"
+                        android:text="@string/dashboard_expense_label"
                         android:textColor="@color/text_secondary"
                         android:textSize="12sp" />
                     <TextView
@@ -162,7 +159,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Rp 0"
+                        tools:text="Rp 500.000"
                         android:textColor="@color/expense_red"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -181,7 +178,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Grafik Laporan Keuangan"
+                android:text="@string/dashboard_chart_title"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_secondary" />
@@ -189,7 +186,7 @@
                 android:id="@+id/btnDetailLaporan"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Detail Laporan"
+                android:text="@string/dashboard_report_detail"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary" />
@@ -213,7 +210,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Pengeluaran Teratas"
+                android:text="@string/dashboard_top_expense"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_secondary" />
@@ -221,7 +218,7 @@
                 android:id="@+id/btnLihatAnalisis"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Lihat Analisis"
+                android:text="@string/dashboard_view_analysis"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary" />
@@ -260,7 +257,7 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:gravity="center"
-                        android:text="Minggu"
+                        android:text="@string/dashboard_tab_week"
                         android:textSize="12.5sp" />
 
                     <TextView
@@ -269,7 +266,7 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:gravity="center"
-                        android:text="Bulan"
+                        android:text="@string/dashboard_tab_month"
                         android:textSize="12.5sp" />
                 </LinearLayout>
 
@@ -292,7 +289,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Transaksi Terkini"
+                android:text="@string/dashboard_recent_tx"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_secondary" />
@@ -300,7 +297,7 @@
                 android:id="@+id/btnLihatSemua"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Lihat Semua"
+                android:text="@string/dashboard_view_all"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary" />
