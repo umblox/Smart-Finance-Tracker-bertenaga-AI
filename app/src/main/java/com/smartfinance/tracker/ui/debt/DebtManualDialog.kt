@@ -54,8 +54,8 @@ class DebtManualDialog(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
         
-        // 🔥 FIX: Pakai MaterialAlertDialogBuilder agar UI rapi & mengikuti tema
-        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+        // 🔥 FIX: Hapus paksaan tema
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root).create()
             
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
