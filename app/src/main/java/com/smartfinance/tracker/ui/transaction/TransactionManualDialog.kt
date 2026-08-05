@@ -60,8 +60,8 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionManualPremiumBinding.inflate(layoutInflater)
         
-        // 🔥 FIX: Upgrade UI Dialog
-        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+        // 🔥 FIX: Hapus paksaan tema
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root)
             .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
@@ -78,7 +78,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             try {
                 allCategoriesCloud = viewModel.getCategoriesForDropdown()
             } catch (e: Exception) {
-                // Fallback aman untuk kategori awal
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
                     mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
