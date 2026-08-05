@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.smartfinance.tracker.MainActivity
 import com.smartfinance.tracker.R
+import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.databinding.FragmentDashboardBinding
 import com.smartfinance.tracker.ui.report.CategoryTrendReportFragment
 import com.smartfinance.tracker.ui.report.QuadVerticalBarChartView
@@ -127,7 +128,6 @@ class DashboardFragment : Fragment() {
         val incDiffPercent = if (state.incomeLastMonth > 0) ((state.incomeThisMonth - state.incomeLastMonth) / state.incomeLastMonth * 100).toInt() else 0
         val expDiffPercent = if (state.expenseLastMonth > 0) ((state.expenseThisMonth - state.expenseLastMonth) / state.expenseLastMonth * 100).toInt() else 0
 
-        // 🔥 FIX: Translasi dinamis untuk teks Chart Summary
         val filterLabelStr = if (state.activeTimeLabel == "PERMINGGU") getString(R.string.dashboard_filter_week) else getString(R.string.dashboard_filter_month)
         val incTextStr = if (incDiffPercent >= 0) getString(R.string.dashboard_trend_up, incDiffPercent) else getString(R.string.dashboard_trend_down, Math.abs(incDiffPercent))
         val expTextStr = if (expDiffPercent >= 0) getString(R.string.dashboard_trend_up, expDiffPercent) else getString(R.string.dashboard_trend_down, Math.abs(expDiffPercent))
@@ -148,11 +148,13 @@ class DashboardFragment : Fragment() {
         binding.cardTopExpense.setOnClickListener(null)
         
         if (state.topExpenses.isEmpty()) {
-            for (i in 1..3) binding.topExpenseContainer.addView(createPlaceholderRow(
-                getString(R.string.dashboard_empty_category_title, i), 
-                getString(R.string.dashboard_empty_category_desc), 
-                density
-            ))
+            for (i in 1..3) {
+                binding.topExpenseContainer.addView(createPlaceholderRow(
+                    getString(R.string.dashboard_empty_category_title, i), 
+                    getString(R.string.dashboard_empty_category_desc), 
+                    density
+                ))
+            }
         } else {
             state.topExpenses.forEach { (categoryName, totalAmount) ->
                 val percentage = if (state.topExpensesTotal > 0) ((totalAmount / state.topExpensesTotal) * 100).toInt() else 0
@@ -203,11 +205,13 @@ class DashboardFragment : Fragment() {
 
         binding.recentTxContainer.removeAllViews()
         if (state.recentTransactions.isEmpty()) {
-            for (i in 1..3) binding.recentTxContainer.addView(createPlaceholderRow(
-                getString(R.string.dashboard_empty_tx_title, i), 
-                getString(R.string.dashboard_empty_tx_desc), 
-                density
-            ))
+            for (i in 1..3) {
+                binding.recentTxContainer.addView(createPlaceholderRow(
+                    getString(R.string.dashboard_empty_tx_title, i), 
+                    getString(R.string.dashboard_empty_tx_desc), 
+                    density
+                ))
+            }
         } else {
             state.recentTransactions.forEach { tx ->
                 val mutasiCard = MaterialCardView(requireContext()).apply {
@@ -267,7 +271,6 @@ class DashboardFragment : Fragment() {
         centerInfo.addView(TextView(requireContext()).apply { text = subTitle; textSize = 11f; setTextColor(getThemeColor(R.color.divider_color)) })
         layout.addView(centerInfo)
         
-        // 🔥 Angka placeholder kita tetap buat 0 agar terlihat konsisten
         layout.addView(TextView(requireContext()).apply { text = "Rp 0"; setTextColor(getThemeColor(R.color.divider_color)); textSize = 14f })
         return layout
     }
