@@ -34,7 +34,7 @@ class ChatFragment : Fragment() {
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]
 
         val layoutManager = LinearLayoutManager(requireContext()).apply {
-            stackFromEnd = true // Memastikan chat selalu muncul dari bawah
+            stackFromEnd = true 
         }
         binding.rvChatHistory.layoutManager = layoutManager
 
@@ -47,8 +47,8 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnClearChat.setOnClickListener {
-            // 🔥 FIX: Menggunakan MaterialAlertDialogBuilder untuk UI modern dan ramah Dark Mode
-            MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance).apply {
+            // 🔥 FIX: Dihapus paksaan temanya agar menjadi Pop-up cantik yang proporsional
+            MaterialAlertDialogBuilder(requireContext()).apply {
                 setTitle(getString(R.string.chat_clear_title))
                 setMessage(getString(R.string.chat_clear_message))
                 setPositiveButton(getString(R.string.chat_clear_confirm)) { _, _ ->
@@ -59,10 +59,8 @@ class ChatFragment : Fragment() {
             }
         }
 
-        // Memantau aliran data (state) dari ViewModel
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state ->
-                // Menginisialisasi ulang adapter dengan data terbaru
                 chatAdapter = ChatAdapter(state.messages)
                 binding.rvChatHistory.adapter = chatAdapter
                 
@@ -70,7 +68,6 @@ class ChatFragment : Fragment() {
                     binding.rvChatHistory.scrollToPosition(state.messages.size - 1)
                 }
 
-                // Mengunci tombol saat AI sedang berpikir
                 binding.btnSend.isEnabled = !state.isTyping
                 binding.btnSend.alpha = if (state.isTyping) 0.5f else 1.0f
             }
