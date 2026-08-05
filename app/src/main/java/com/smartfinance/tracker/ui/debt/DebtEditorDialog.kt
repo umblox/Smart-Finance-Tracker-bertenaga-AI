@@ -34,8 +34,8 @@ class DebtEditorDialog(
             getString(R.string.debt_action_delete)
         )
         
-        // 🔥 FIX: Menggunakan MaterialAlertDialogBuilder agar UI melengkung, elegan, & ramah Dark Mode
-        return MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance)
+        // 🔥 FIX: Hapus paksaan tema
+        return MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.debt_action_title, contactName))
             .setItems(options) { _, which ->
                 if (which == 0) {
@@ -47,7 +47,7 @@ class DebtEditorDialog(
                     val localBinding = DialogTransactionPremiumBinding.inflate(layoutInflater)
                     val activityContext = requireActivity()
                     
-                    val payDialog = MaterialAlertDialogBuilder(activityContext, R.style.Theme_SmartFinance)
+                    val payDialog = MaterialAlertDialogBuilder(activityContext)
                         .setView(localBinding.root)
                         .create()
                         
@@ -122,7 +122,8 @@ class DebtEditorDialog(
                     payDialog.show()
                     
                 } else if (which == 1) {
-                    MaterialAlertDialogBuilder(requireContext(), R.style.Theme_SmartFinance).apply {
+                    // 🔥 FIX: Hapus paksaan tema
+                    MaterialAlertDialogBuilder(requireContext()).apply {
                         setTitle(getString(R.string.debt_delete_title))
                         setMessage(getString(R.string.debt_delete_message, contactName))
                         setPositiveButton(getString(R.string.action_delete)) { _, _ ->
