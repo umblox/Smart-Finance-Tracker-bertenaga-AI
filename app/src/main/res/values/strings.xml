@@ -231,5 +231,34 @@
     <string name="chat_clear_title">🗑️ Bersihkan Riwayat Chat?</string>
     <string name="chat_clear_message">Apakah Anda yakin ingin menghapus seluruh riwayat percakapan secara permanen dari Cloud?</string>
     <string name="chat_clear_confirm">Ya, Hapus Semua</string>
+
+    <!-- ===== Dashboard ===== -->
+    <!-- (Beberapa string mungkin sudah ada, tambahkan yang belum) -->
+    <string name="dashboard_total_balance_title">TOTAL SALDO BERSIH</string>
+    <string name="dashboard_income_label">🟢 Pemasukan</string>
+    <string name="dashboard_expense_label">🔴 Pengeluaran</string>
+    
+    <string name="dashboard_chart_title">Grafik Laporan Keuangan</string>
+    <string name="dashboard_report_detail">Detail Laporan</string>
+    
+    <string name="dashboard_top_expense">Pengeluaran Teratas</string>
+    <string name="dashboard_view_analysis">Lihat Analisis</string>
+    <string name="dashboard_tab_week">Minggu</string>
+    <string name="dashboard_tab_month">Bulan</string>
+    
+    <string name="dashboard_recent_tx">Transaksi Terkini</string>
+    <string name="dashboard_view_all">Lihat Semua</string>
+
+    <string name="dashboard_summary_title">🔹 Ringkasan Kas %1$s Terpusat</string>
+    <string name="dashboard_filter_week">Mingguan</string>
+    <string name="dashboard_filter_month">Bulanan</string>
+    <string name="dashboard_trend_up"> naik %1$d%%</string>
+    <string name="dashboard_trend_down"> turun %1$d%%</string>
+    <string name="dashboard_summary_performance">📈 Performa: Pemasukan%1$s • Pengeluaran%2$s (vs Bulan Lalu)</string>
+    
+    <string name="dashboard_empty_category_title">Kategori Kosong %1$d</string>
+    <string name="dashboard_empty_category_desc">Belum ada alokasi dana.</string>
+    <string name="dashboard_empty_tx_title">Mutasi Kosong %1$d</string>
+    <string name="dashboard_empty_tx_desc">Menunggu transaksi dicatat.</string>
     
 </resources>
