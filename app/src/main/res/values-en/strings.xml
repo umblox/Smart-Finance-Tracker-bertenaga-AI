@@ -231,5 +231,33 @@
     <string name="chat_clear_title">🗑️ Clear Chat History?</string>
     <string name="chat_clear_message">Are you sure you want to permanently delete all conversation history from the Cloud?</string>
     <string name="chat_clear_confirm">Yes, Clear All</string>
+
+    <!-- ===== Dashboard ===== -->
+    <string name="dashboard_total_balance_title">TOTAL NET BALANCE</string>
+    <string name="dashboard_income_label">🟢 Income</string>
+    <string name="dashboard_expense_label">🔴 Expense</string>
+    
+    <string name="dashboard_chart_title">Financial Chart</string>
+    <string name="dashboard_report_detail">Report Detail</string>
+    
+    <string name="dashboard_top_expense">Top Expenses</string>
+    <string name="dashboard_view_analysis">View Analysis</string>
+    <string name="dashboard_tab_week">Week</string>
+    <string name="dashboard_tab_month">Month</string>
+    
+    <string name="dashboard_recent_tx">Recent Transactions</string>
+    <string name="dashboard_view_all">View All</string>
+
+    <string name="dashboard_summary_title">🔹 Centralized %1$s Cash Summary</string>
+    <string name="dashboard_filter_week">Weekly</string>
+    <string name="dashboard_filter_month">Monthly</string>
+    <string name="dashboard_trend_up"> up %1$d%%</string>
+    <string name="dashboard_trend_down"> down %1$d%%</string>
+    <string name="dashboard_summary_performance">📈 Performance: Income%1$s • Expense%2$s (vs Last Month)</string>
+    
+    <string name="dashboard_empty_category_title">Empty Category %1$d</string>
+    <string name="dashboard_empty_category_desc">No funds allocated yet.</string>
+    <string name="dashboard_empty_tx_title">Empty Record %1$d</string>
+    <string name="dashboard_empty_tx_desc">Waiting for recorded transaction.</string>
     
 </resources>
