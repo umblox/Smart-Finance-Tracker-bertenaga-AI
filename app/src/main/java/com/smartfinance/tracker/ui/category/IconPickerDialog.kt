@@ -35,7 +35,9 @@ class IconPickerDialog : BottomSheetDialogFragment() {
     private lateinit var tabLayoutGroups: TabLayout
     private lateinit var iconAdapter: IconAdapter
 
-    private val allGroups = IconProvider.getAllIconGroups()
+    // 🔥 FIX: Dideklarasikan sebagai lateinit agar aman dari Lifecycle Crash
+    private lateinit var allGroups: List<Pair<String, List<FinanceIcon>>>
+    
     private var currentIconName = "ic_custom"
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -44,6 +46,9 @@ class IconPickerDialog : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // 🔥 FIX: Mengambil data Ikon dwibahasa HANYA SETELAH view tercipta dan Context sudah siap!
+        allGroups = IconProvider.getAllIconGroups(requireContext())
         
         currentIconName = arguments?.getString("CURRENT_ICON") ?: "ic_custom"
 
@@ -71,7 +76,6 @@ class IconPickerDialog : BottomSheetDialogFragment() {
     private fun setupRecyclerView() {
         rvIcons.layoutManager = GridLayoutManager(requireContext(), 5)
         iconAdapter = IconAdapter { selectedIcon ->
-            // 🔥 FIX CRASH: Validasi state sebelum dismiss agar aman dari double-click
             if (isAdded && !isStateSaved) {
                 parentFragmentManager.setFragmentResult("icon_request", Bundle().apply {
                     putString("selected_icon", selectedIcon.iconName)
@@ -113,7 +117,6 @@ class IconPickerDialog : BottomSheetDialogFragment() {
             val imageView = AppCompatImageView(parent.context).apply {
                 layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (38 * density).toInt())
                 setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
-                // 🔥 FIX COMPILE ERROR: Menggunakan namespace bawaan android.widget.ImageView
                 scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             }
             layout.addView(imageView)
@@ -129,7 +132,6 @@ class IconPickerDialog : BottomSheetDialogFragment() {
 
             val isSelected = icon.iconName == selectedIconName
 
-            // 🔥 Pewarnaan Kontras Ekstrem
             if (isSelected) {
                 holder.imageView.setBackgroundResource(R.drawable.bg_circle_icon)
                 holder.imageView.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.primary))
