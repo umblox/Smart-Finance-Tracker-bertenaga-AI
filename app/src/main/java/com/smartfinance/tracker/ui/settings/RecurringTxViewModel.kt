@@ -1,6 +1,8 @@
 package com.smartfinance.tracker.ui.settings
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.model.RecurringTransaction
 import com.smartfinance.tracker.data.repository.CategoryRepository
@@ -8,7 +10,8 @@ import com.smartfinance.tracker.data.repository.RecurringTxRepository
 import kotlinx.coroutines.flow.StateFlow
 import java.util.HashMap
 
-class RecurringTxViewModel : ViewModel() {
+// 🔥 FIX: Mengubah ViewModel menjadi AndroidViewModel agar bisa mengakses getString() dengan aman
+class RecurringTxViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = RecurringTxRepository()
     private val categoryRepository = CategoryRepository()
 
@@ -20,7 +23,6 @@ class RecurringTxViewModel : ViewModel() {
         categoryRepository.startListening()
     }
 
-    // 🔥 LOGIKA BISNIS PINDAH KE SINI: Validasi dan Pembuatan Data
     suspend fun validateAndSaveSchedule(
         docId: String?,
         note: String,
@@ -32,11 +34,12 @@ class RecurringTxViewModel : ViewModel() {
         hasEndDate: Boolean,
         endDate: Long?
     ) {
-        if (category == null) throw Exception("Harap pilih Kategori terlebih dahulu!")
-        if (note.isBlank() || amountStr.isBlank()) throw Exception("Harap isi Catatan dan Nominal!")
+        // 🔥 FIX: Error ditangkap menggunakan String Resources yang mendukung Dwibahasa
+        if (category == null) throw Exception(getApplication<Application>().getString(R.string.recurring_err_category))
+        if (note.isBlank() || amountStr.isBlank()) throw Exception(getApplication<Application>().getString(R.string.recurring_err_empty))
         
         val amount = amountStr.toDoubleOrNull() ?: 0.0
-        if (amount <= 0) throw Exception("Nominal tidak valid!")
+        if (amount <= 0) throw Exception(getApplication<Application>().getString(R.string.recurring_err_amount))
 
         val data = HashMap<String, Any?>().apply {
             put("note", note)
