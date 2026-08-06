@@ -1,14 +1,17 @@
 package com.smartfinance.tracker.ui.report
 
+import android.app.Application
 import android.graphics.Color
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.util.Locale
 
 // Enum tetap dipertahankan agar tidak bentrok dengan file lain
 enum class TimeFilter { DAILY, WEEKLY, MONTHLY }
@@ -29,12 +32,12 @@ data class ReportUiState(
     val totalPiutang: Double = 0.0,   
     val totalLainnya: Double = 0.0,
 
-    // 🔥 Komponen Wajib untuk Lorong Waktu
     val timeNavItems: List<TimeNavItemReport> = emptyList(),
     val selectedTimeMillis: Long = 0L
 )
 
-class ReportViewModel : ViewModel() {
+// 🔥 FIX: Upgrade menjadi AndroidViewModel untuk mengakses dwibahasa dengan aman
+class ReportViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = TransactionRepository()
 
     private val _uiState = MutableStateFlow(ReportUiState())
@@ -57,7 +60,6 @@ class ReportViewModel : ViewModel() {
         }
     }
 
-    // 🔥 Fungsi pemanggil utama waktu yang dipilih
     fun setTimeMillis(activeTimePrefs: Long) {
         baseTimeMillis = activeTimePrefs
         recalculateData(repository.transactions.value)
@@ -74,7 +76,6 @@ class ReportViewModel : ViewModel() {
         val incCategories = HashMap<String, Double>()
         val expCategories = HashMap<String, Double>()
 
-        // 1. Ambil transaksi yang benar-benar cocok dengan bulan/tahun yang dipilih
         val currentMonthTx = allTx.filter { tx ->
             val txCal = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
             txCal.get(Calendar.MONTH) == targetMonth && txCal.get(Calendar.YEAR) == targetYear
@@ -116,7 +117,6 @@ class ReportViewModel : ViewModel() {
         )
     }
 
-    // 🔥 Mesin Lorong Waktu Anti-Infinity 
     private fun generateTimeNav(selectedTimeMillis: Long): List<TimeNavItemReport> {
         val list = mutableListOf<TimeNavItemReport>()
         val realNow = Calendar.getInstance()
@@ -140,10 +140,11 @@ class ReportViewModel : ViewModel() {
             val m = iterCal.get(Calendar.MONTH)
             val y = iterCal.get(Calendar.YEAR)
             
+            // 🔥 FIX: Tarik string "BULAN INI" / "BULAN LALU" dari Resource XML dwibahasa
             val label = when {
-                m == realMonth && y == realYear -> "BULAN INI"
-                m == (realMonth - 1 + 12) % 12 && (if(realMonth==0) y==realYear-1 else y==realYear) -> "BULAN LALU"
-                else -> "${String.format("%02d", m + 1)}/$y"
+                m == realMonth && y == realYear -> getApplication<Application>().getString(R.string.report_this_month)
+                m == (realMonth - 1 + 12) % 12 && (if(realMonth==0) y==realYear-1 else y==realYear) -> getApplication<Application>().getString(R.string.report_last_month)
+                else -> "${String.format(Locale.getDefault(), "%02d", m + 1)}/$y"
             }
             
             val isSelected = (m == selMonth && y == selYear)
