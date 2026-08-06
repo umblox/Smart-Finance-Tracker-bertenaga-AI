@@ -466,5 +466,8 @@
 
     <!-- ===== Chat AI ===== -->
     <string name="chat_ai_typing">AI sedang berpikir…</string>
+
+    <!-- ===== Validasi Kategori ===== -->
+    <string name="category_err_empty_name">Nama kategori tidak boleh kosong!</string>
     
 </resources>
