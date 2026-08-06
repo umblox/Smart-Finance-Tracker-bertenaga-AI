@@ -302,5 +302,14 @@
     <!-- ===== Detail Pemasukan & Kategori ===== -->
     <string name="detail_summary_title">Ringkasan</string>
     <string name="detail_net_income_label">Pemasukan Bersih</string>
+
+    <!-- ===== Konfigurasi AI ===== -->
+    <string name="api_config_title">⚙️ Konfigurasi Mesin AI</string>
+    <string name="api_config_nickname_label">Panggilan Anda (Untuk AI):</string>
+    <string name="api_config_nickname_hint">Contoh: Ikromul Umam (Mam)</string>
+    <string name="api_config_engine_label">Pilih Mesin AI Server:</string>
+    <string name="api_config_key_label">Kunci API (API Key):</string>
+    <string name="api_config_key_hint">Masukkan API Key…</string>
+    <string name="api_config_saved_toast">Konfigurasi AI Berhasil Disimpan!</string>
     
 </resources>
