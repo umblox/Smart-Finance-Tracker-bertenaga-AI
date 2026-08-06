@@ -458,5 +458,9 @@
     <string name="analytics_today">Today</string>
     <string name="analytics_this_week">This Week</string>
     <string name="analytics_this_month">This Month</string>
+
+    <!-- ===== Dashboard Filter ===== -->
+    <string name="dashboard_filter_this_month">THIS MONTH</string>
+    <string name="dashboard_filter_weekly">WEEKLY</string>
     
 </resources>
