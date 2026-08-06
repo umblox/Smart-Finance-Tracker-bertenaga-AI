@@ -1,7 +1,9 @@
 package com.smartfinance.tracker.ui.dashboard
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.CategoryRepository
@@ -22,18 +24,20 @@ data class DashboardUiState(
     val topExpenses: List<Pair<String, Double>> = emptyList(),
     val topExpensesTotal: Double = 0.0,
     val recentTransactions: List<Transaction> = emptyList(),
-    val categoryIconMap: Map<String, String> = emptyMap(), // 🔥 MAP IKON
+    val categoryIconMap: Map<String, String> = emptyMap(), 
     val activeTimeLabel: String = ""
 )
 
-class DashboardViewModel : ViewModel() {
+// 🔥 FIX: Upgrade ke AndroidViewModel agar bisa mengakses strings.xml dengan aman
+class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = TransactionRepository()
-    private val catRepo = CategoryRepository() // 🔥 Tambahkan Repo Kategori
+    private val catRepo = CategoryRepository() 
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState
 
-    private var currentTopFilter = "BULAN INI"
+    // 🔥 FIX: Ambil default filter dari string resources
+    private var currentTopFilter = application.getString(R.string.dashboard_filter_this_month)
     private var activeTimePrefs = System.currentTimeMillis()
     private var latestCategories = emptyList<Category>()
 
@@ -41,7 +45,6 @@ class DashboardViewModel : ViewModel() {
         repository.startListening()
         catRepo.startListening()
         
-        // 🔥 GABUNGKAN KEDUA DATA (Combine Flow)
         viewModelScope.launch {
             combine(repository.transactions, catRepo.categories) { txs, cats ->
                 Pair(txs, cats)
@@ -84,9 +87,12 @@ class DashboardViewModel : ViewModel() {
         }
 
         val nowTime = System.currentTimeMillis()
+        val strWeekly = getApplication<Application>().getString(R.string.dashboard_filter_weekly)
+
         val filteredExpenses = allTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
             .filter { tx ->
-                if (currentTopFilter == "PERMINGGU") {
+                // 🔥 FIX: Menggunakan string dinamis untuk filter perminggu
+                if (currentTopFilter == strWeekly) {
                     (nowTime - tx.timestamp) <= (7L * 24 * 60 * 60 * 1000)
                 } else {
                     val t = Calendar.getInstance().apply { timeInMillis = tx.timestamp }
@@ -100,7 +106,9 @@ class DashboardViewModel : ViewModel() {
             .toList().sortedByDescending { it.second }.take(3)
 
         val recentTxList = allTx.sortedByDescending { it.timestamp }.take(4)
-        val sdfMonthLabel = java.text.SimpleDateFormat("MMMM", Locale("id", "ID"))
+        
+        // 🔥 FIX: Menggunakan Locale.getDefault() agar bulan beradaptasi otomatis
+        val sdfMonthLabel = java.text.SimpleDateFormat("MMMM", Locale.getDefault())
         val iconMap = latestCategories.associate { it.name to it.iconName }
 
         _uiState.value = DashboardUiState(
