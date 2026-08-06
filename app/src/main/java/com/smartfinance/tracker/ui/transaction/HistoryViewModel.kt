@@ -30,8 +30,10 @@ class HistoryViewModel : ViewModel() {
     val uiState: StateFlow<HistoryUiState> = _uiState
 
     private var currentCalendar = Calendar.getInstance()
-    private val sdfLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
-    private val sdfDay = SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID"))
+    
+    // 🔥 FIX: Locale diubah ke getDefault() agar hari dan bulan otomatis beradaptasi (Inggris/Indonesia dll)
+    private val sdfLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+    private val sdfDay = SimpleDateFormat("EEEE, dd MMM yyyy", Locale.getDefault())
     
     private var latestCategories = emptyList<Category>()
 
@@ -75,14 +77,14 @@ class HistoryViewModel : ViewModel() {
         
         val iconMap = latestCategories.associate { it.name to it.iconName }
 
-        // 🔥 Fix Warning: Mengonversi MutableList ke List secara eksplisit tanpa Unchecked Cast
         val resultGroupMap = LinkedHashMap<String, List<Transaction>>()
         groupMap.forEach { (key, list) ->
             resultGroupMap[key] = list
         }
 
         _uiState.value = HistoryUiState(
-            currentMonthLabel = sdfLabel.format(currentCalendar.time).uppercase(Locale.ROOT),
+            // 🔥 FIX: Uppercase juga diselaraskan dengan Locale sistem
+            currentMonthLabel = sdfLabel.format(currentCalendar.time).uppercase(Locale.getDefault()),
             groupedTransactions = resultGroupMap,
             categoryIconMap = iconMap,
             isEmpty = monthlyList.isEmpty()
