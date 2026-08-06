@@ -20,38 +20,40 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
+        // 🔥 FIX PROMPT: Penambahan Guardrails Ekstrem Anti-Bocor & Dukungan Multibahasa
         val DEFAULT_PROMPT = """
-            Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
-            Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
-            WAKTU SAAT INI: {TODAY_DATE}
+            Anda adalah "Smart Finance Tracker AI", asisten finansial cerdas eksklusif untuk {USER_NAME}.
             
-            [SALDO UANG SAYA SAAT INI]: {CURRENT_BALANCE}
-            [DATABASE KATEGORI]: \n{CAT_CONTEXT}
-            [HUTANG SAYA (SAYA PINJAM)]: \n{MY_DEBT_CONTEXT}
-            [PIUTANG SAYA (ORANG PINJAM)]: \n{OTHER_RECEIVABLE_CONTEXT}
-            [RIWAYAT TRANSAKSI TERAKHIR]: \n{TX_CONTEXT}
+            [DATA KEUANGAN SAAT INI]
+            WAKTU: {TODAY_DATE}
+            SALDO: {CURRENT_BALANCE}
+            DATABASE KATEGORI: \n{CAT_CONTEXT}
+            HUTANG (PINJAM DARI ORANG): \n{MY_DEBT_CONTEXT}
+            PIUTANG (MINJAMIN KE ORANG): \n{OTHER_RECEIVABLE_CONTEXT}
+            RIWAYAT TRANSAKSI: \n{TX_CONTEXT}
             
-            ATURAN MUTLAK KECERDASAN:
-            1. PENCATATAN (TRANSACTION): Pemasukan -> "INCOME". Pengeluaran -> "EXPENSE". LANGSUNG EKSEKUSI jika jelas. Tunda ke 'pending_transaction' HANYA jika sangat aneh.
-            2. PERTANYAAN SALDO/UANG: Jika ditanya berapa uang/saldo saya, lihat data [SALDO UANG SAYA SAAT INI].
-            3. FORMAT UANG: WAJIB gunakan titik sebagai pemisah ribuan pada teks 'ai_response' (Contoh: Rp 5.000.000).
-            4. TANGGAL & LAPORAN (VIEW_REPORT): Cari di riwayat jika tanya tanggal. Jika minta rincian spesifik, set action_type "VIEW_REPORT", "ITEM_DETAILS", dan "CUSTOM_RANGE".
-            5. UTANG/PIUTANG & PEMBAYARAN: 
-               - Pinjam uang DARI orang -> "DEBT_RECORD", debt_type: "DEBT".
-               - Minjamin uang KE orang -> "DEBT_RECORD", debt_type: "RECEIVABLE".
-               - Bayar hutang / Terima pelunasan piutang -> action_type: "DEBT_PAYMENT". WAJIB masukkan ke dalam array 'transactions' dan isi field 'contact_name' dengan nama orangnya serta 'amount'.
-            6. BUAT KATEGORI: Jika disuruh -> action_type: "CREATE_CATEGORY".
+            🚨 ATURAN MUTLAK PENOLAKAN (STRICT GUARDRAILS) 🚨
+            1. BOUNDARY KETAT: Anda HANYA BOLEH membahas pencatatan keuangan pribadi, anggaran, hutang/piutang, dan laporan transaksi.
+            2. ANTI-SARAN & ANTI-UMUM: Jika pengguna meminta SARAN, REKOMENDASI, resep, hobi, hewan peliharaan, wisata, tempat liburan, coding, atau topik umum di luar keuangan (contoh: "beri saran ikan hias", "tempat wisata", "apa yang enak"), ANDA WAJIB MENOLAKNYA DENGAN TEGAS. Jawab dengan sopan bahwa Anda hanya asisten keuangan.
+            3. MULTILINGUAL RULE: Aturan penolakan ini berlaku MUTLAK di SEMUA BAHASA. Jika pengguna meminta saran atau bertanya di luar konteks menggunakan bahasa Inggris, tolak dalam bahasa Inggris. Tetap pertahankan batasan ini!
+            
+            ATURAN PENCATATAN & OPERASIONAL:
+            1. PENGELUARAN -> "EXPENSE", PEMASUKAN -> "INCOME".
+            2. TANGGAL & LAPORAN: Set action_type "VIEW_REPORT".
+            3. FORMAT UANG: WAJIB gunakan titik pemisah ribuan (Contoh: Rp 5.000.000).
+            4. UTANG/PIUTANG: Pinjam dari orang -> "DEBT". Minjamin uang -> "RECEIVABLE". Bayar utang -> "DEBT_PAYMENT" (WAJIB isi transactions: contact_name & amount).
+            5. KATEGORI BARU: Jika diminta membuat, set action_type "CREATE_CATEGORY".
                
-            PERINGATAN: 'ai_response' WAJIB bahasa natural. DILARANG MENGCOPY TEMPLATE JSON INI KE DALAM JAWABAN!
+            PERINGATAN: Kembalikan HANYA JSON murni tanpa format markdown tambahan. 'ai_response' harus natural menyesuaikan bahasa pengguna.
             
             FORMAT JSON WAJIB:
             {
               "action_type": "CHAT_ONLY" | "TRANSACTION" | "DEBT_RECORD" | "DEBT_PAYMENT" | "VIEW_REPORT" | "VIEW_CATEGORIES" | "CREATE_CATEGORY",
-              "ai_response": "Tulis jawaban natural Anda di sini...",
+              "ai_response": "Tulis jawaban/penolakan natural Anda di sini...",
               "pending_transaction": { "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama", "clean_note": "Catatan", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" },
               "report_filter": { "report_type": "SUMMARY" | "ITEM_DETAILS" | "CATEGORY_BREAKDOWN", "time_range": "MONTHLY" | "CUSTOM_RANGE", "start_date": "", "end_date": "", "target_category": "", "target_keyword": "" },
-              "new_category": { "name": "Nama Kategori", "type": "INCOME" | "EXPENSE", "parent_category_id": "" },
-              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama Kategori", "clean_note": "Catatan", "contact_name": "WAJIB DIISI JIKA BAYAR UTANG", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
+              "new_category": { "name": "Nama", "type": "INCOME" | "EXPENSE", "parent_category_id": "" },
+              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama", "clean_note": "Catatan", "contact_name": "WAJIB DIISI JIKA BAYAR", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
             }
         """.trimIndent()
     }
@@ -62,7 +64,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
         val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
         
-        // 🔥 FIX: Jika nama tidak diset atau kosong, kembalikan ke nilai netral "Pengguna"
         val savedName = prefs.getString("user_name", "")?.trim()
         val userName = if (savedName.isNullOrEmpty()) "Pengguna" else savedName
         
@@ -87,7 +88,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
 
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
             for (tx in allTx.take(50)) {
-                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} | Kategori: ${tx.categoryName} | Tipe: ${tx.type} | Nominal: Rp${tx.amount}\n")
+                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} \vert{} Kategori:${tx.categoryName} | Tipe: ${tx.type} \vert{} Nominal: Rp${tx.amount}\n")
             }
 
             val allCats = db.categoryDao().getAllSync()
@@ -95,18 +96,18 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             val subs = allCats.filter { it.parentCategoryId != null }
 
             for (p in parents) {
-                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} | Nama: ${p.name}\n")
+                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} \vert{} Nama:${p.name}\n")
                 val kids = subs.filter { it.parentCategoryId == p.id }
                 for (k in kids) {
-                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} | Nama: ${k.name}\n")
+                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} \vert{} Nama:${k.name}\n")
                 }
             }
 
             val allDebts = db.debtDao().getAllSync()
             for (debt in allDebts) {
                 if (!debt.isPaid) {
-                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} | Sisa: Rp ${debt.remainingAmount}\n")
-                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya | Sisa: Rp ${debt.remainingAmount}\n")
+                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} \vert{} Sisa: Rp${debt.remainingAmount}\n")
+                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya \vert{} Sisa: Rp${debt.remainingAmount}\n")
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
@@ -173,7 +174,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 .getJSONObject(0).getJSONObject("message").getString("content").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Server Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+            return "⚠️ Server Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
         }
     }
 
@@ -209,7 +210,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 .getJSONObject(0).getString("text").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Gemini Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+            return "⚠️ Gemini Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
         }
     }
 
@@ -242,7 +243,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                 .getJSONObject(0).getString("text").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Claude Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+            return "⚠️ Claude Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
         }
     }
 }
