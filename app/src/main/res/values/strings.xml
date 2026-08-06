@@ -386,5 +386,42 @@
     <string name="recurring_delete_message">Anda yakin ingin menghentikan &amp; menghapus jadwal transaksi otomatis ini?</string>
     <string name="recurring_toast_deleted">🗑️ Jadwal Dihapus!</string>
     <string name="recurring_toast_delete_fail">❌ Gagal menghapus jadwal</string>
+
+    <!-- ===== Cetak PDF (Export) ===== -->
+    <string name="export_setup_title">🖨️ Pengaturan Cetak PDF</string>
+    <string name="export_preview_title">📄 Pratinjau Dokumen</string>
+    <string name="export_type_label">Jenis Transaksi:</string>
+    <string name="export_category_label">Kategori (Opsional):</string>
+    <string name="export_time_label">Rentang Waktu:</string>
+    
+    <string name="export_btn_start_date">Mulai</string>
+    <string name="export_btn_end_date">Akhir</string>
+    <string name="export_btn_generate">TAMPILKAN PREVIEW</string>
+    <string name="export_btn_back_setup">⬅ Kembali Edit Filter</string>
+    <string name="export_btn_save_pdf">SIMPAN SEBAGAI PDF</string>
+    
+    <string name="export_empty_data">Tidak ada data</string>
+    <string name="export_toast_empty">Tidak ada data pada rentang dan kategori ini!</string>
+    <string name="export_toast_fail_render">Gagal merender PDF</string>
+    <string name="export_toast_fail_save">❌ Gagal menyimpan PDF</string>
+    <string name="export_toast_success">✅ PDF berhasil disimpan!</string>
+    
+    <string-array name="export_time_options">
+        <item>Bulan Ini</item>
+        <item>Minggu Ini</item>
+        <item>Hari Ini</item>
+        <item>Semua Waktu</item>
+        <item>Pilih Tanggal Kustom</item>
+    </string-array>
+    
+    <string-array name="export_type_options">
+        <item>Semua Transaksi</item>
+        <item>Pemasukan Saja</item>
+        <item>Pengeluaran Saja</item>
+        <item>Hutang &amp; Piutang Saja</item>
+    </string-array>
+    
+    <string name="export_category_all">Semua Kategori</string>
+    <string name="export_doc_title_prefix">Laporan Transaksi - %1$s</string>
     
 </resources>
