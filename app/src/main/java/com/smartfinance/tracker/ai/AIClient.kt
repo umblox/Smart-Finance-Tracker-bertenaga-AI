@@ -20,7 +20,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
-        // 🔥 FIX PROMPT: Penegasan EKSTREM untuk action_type DEBT_RECORD agar AI tidak mencatatnya sebagai transaksi biasa!
+        // 🔥 FIX PROMPT ULTIMATE: Tambahan anti-kategori hutang & adaptasi multi-bahasa otomatis!
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
@@ -44,12 +44,12 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
                - PEMBAYARAN / PELUNASAN -> action_type: "DEBT_PAYMENT".
                - WAJIB masukkan ke dalam array 'transactions' dan isi 'contact_name'.
             6. KATEGORI (LIHAT & BUAT): 
-               - Jika diminta melihat kategori spesifik (contoh: sub kategori belanja, pemasukan), gunakan action_type: "CHAT_ONLY". Tampilkan HANYA namanya secara rapi menggunakan emoji (📁 untuk Induk, └── 💰 untuk Sub). JANGAN tampilkan kata ID, angka ID, atau teks "[INDUK/SUB]".
-               - Gunakan action_type: "VIEW_CATEGORIES" HANYA jika diminta melihat SEMUA kategori sekaligus.
-               - Jika membuat baru -> action_type: "CREATE_CATEGORY". Tipe WAJIB "INCOME" atau "EXPENSE".
+               - JIKA DIMINTA KATEGORI SPESIFIK (Contoh: "kategori pengeluaran", "kategori pemasukan", "sub kategori"): WAJIB gunakan action_type: "CHAT_ONLY". Tulis manual daftarnya di 'ai_response' dengan rapi (📁 untuk Induk, └── 💰 untuk Sub). DILARANG KERAS menggunakan "VIEW_CATEGORIES"!
+               - Gunakan action_type: "VIEW_CATEGORIES" HANYA JIKA diminta melihat "SEMUA" daftar kategori sekaligus.
+               - Jika membuat baru -> action_type: "CREATE_CATEGORY". Tipe WAJIB "INCOME" atau "EXPENSE". DILARANG KERAS membuat kategori untuk hutang/piutang!
             7. PENOLAKAN KETAT: TOLAK permintaan saran (wisata, resep, hobi, dll) dan pertanyaan umum di luar keuangan. Aturan ini BERLAKU MUTLAK di SEMUA BAHASA.
                
-            PERINGATAN: 'ai_response' WAJIB bahasa natural. DILARANG MENGCOPY TEMPLATE JSON INI KE DALAM JAWABAN!
+            PERINGATAN: 'ai_response' WAJIB bahasa natural DAN WAJIB MENYESUAIKAN BAHASA PENGGUNA (Jika input bahasa Inggris, balas dengan bahasa Inggris). DILARANG MENGCOPY TEMPLATE JSON INI KE DALAM JAWABAN!
             
             FORMAT JSON WAJIB:
             {
