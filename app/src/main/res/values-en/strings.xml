@@ -437,5 +437,10 @@
     <string name="chart_no_data">No data for last &amp; this month</string>
     <string name="chart_income">Income</string>
     <string name="chart_expense">Expense</string>
+
+    <!-- ===== Recurring Transaction Validation ===== -->
+    <string name="recurring_err_category">Please select a Category first!</string>
+    <string name="recurring_err_empty">Please fill in the Note and Amount!</string>
+    <string name="recurring_err_amount">Invalid amount!</string>
     
 </resources>
