@@ -438,5 +438,10 @@
     <string name="chart_no_data">Belum ada data bulan lalu &amp; ini</string>
     <string name="chart_income">Pemasukan</string>
     <string name="chart_expense">Pengeluaran</string>
+
+    <!-- ===== Validasi Transaksi Berkala ===== -->
+    <string name="recurring_err_category">Harap pilih Kategori terlebih dahulu!</string>
+    <string name="recurring_err_empty">Harap isi Catatan dan Nominal!</string>
+    <string name="recurring_err_amount">Nominal tidak valid!</string>
     
 </resources>
