@@ -385,5 +385,42 @@
     <string name="recurring_delete_message">Are you sure you want to stop &amp; delete this automated transaction schedule?</string>
     <string name="recurring_toast_deleted">🗑️ Schedule Deleted!</string>
     <string name="recurring_toast_delete_fail">❌ Failed to delete schedule</string>
+
+    <!-- ===== Export PDF ===== -->
+    <string name="export_setup_title">🖨️ Print PDF Settings</string>
+    <string name="export_preview_title">📄 Document Preview</string>
+    <string name="export_type_label">Transaction Type:</string>
+    <string name="export_category_label">Category (Optional):</string>
+    <string name="export_time_label">Time Range:</string>
+    
+    <string name="export_btn_start_date">Start</string>
+    <string name="export_btn_end_date">End</string>
+    <string name="export_btn_generate">SHOW PREVIEW</string>
+    <string name="export_btn_back_setup">⬅ Back to Edit Filter</string>
+    <string name="export_btn_save_pdf">SAVE AS PDF</string>
+    
+    <string name="export_empty_data">No data available</string>
+    <string name="export_toast_empty">No data available for this range and category!</string>
+    <string name="export_toast_fail_render">Failed to render PDF</string>
+    <string name="export_toast_fail_save">❌ Failed to save PDF</string>
+    <string name="export_toast_success">✅ PDF saved successfully!</string>
+    
+    <string-array name="export_time_options">
+        <item>This Month</item>
+        <item>This Week</item>
+        <item>Today</item>
+        <item>All Time</item>
+        <item>Select Custom Date</item>
+    </string-array>
+    
+    <string-array name="export_type_options">
+        <item>All Transactions</item>
+        <item>Income Only</item>
+        <item>Expense Only</item>
+        <item>Debt &amp; Receivables Only</item>
+    </string-array>
+    
+    <string name="export_category_all">All Categories</string>
+    <string name="export_doc_title_prefix">Transaction Report - %1$s</string>
     
 </resources>
