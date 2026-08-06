@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.utils.BackupEngine
 import com.smartfinance.tracker.utils.GoogleDriveManager
 import java.text.SimpleDateFormat
@@ -22,9 +23,14 @@ class CloudSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
             if (success) {
                 // 🔥 REKAM JEJAK: AUTO SYNC BERHASIL
                 val prefs = applicationContext.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
-                val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+                
+                // 🔥 FIX: Menggunakan Locale.getDefault() agar bulan dinamis (Agt/Aug)
+                val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
                 val timeStr = sdf.format(Date())
-                prefs.edit().putString("last_sync_time", "Auto-Sync: $timeStr").apply()
+                
+                // 🔥 FIX: Menyematkan string dinamis dwibahasa
+                val syncLabel = applicationContext.getString(R.string.sync_auto_label, timeStr)
+                prefs.edit().putString("last_sync_time", syncLabel).apply()
                 
                 Result.success()
             } else {
