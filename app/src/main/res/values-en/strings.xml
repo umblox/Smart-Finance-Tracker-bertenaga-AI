@@ -271,5 +271,24 @@
     <string name="report_debt">Debt</string>
     <string name="report_receivable">Receivable</string>
     <string name="report_others">Others</string>
+
+    <!-- ===== Analytics & Category Trend ===== -->
+    <string name="analytics_title">Transaction List</string>
+    <string name="analytics_result_count">%1$d results</string>
+    <string name="analytics_income">Income</string>
+    <string name="analytics_expense">Expense</string>
+    <string name="analytics_empty_tx">No transactions found.</string>
+    <string name="analytics_no_note">No note</string>
+
+    <string name="trend_header_detail">Cost Details</string>
+    <string name="trend_header_category">Category Report</string>
+    <string name="trend_total">Total</string>
+    <string name="trend_daily_avg">Daily average</string>
+    <string name="trend_compare_avg">Compared to 3-Month Avg</string>
+    <string name="trend_show_avg">👁 Show</string>
+    <string name="trend_hide_avg">👁 Hide</string>
+    <string name="trend_tab_breakdown">Breakdown</string>
+    <string name="trend_tab_trend">Trend</string>
+    <string name="trend_no_other_category">No other categories available.</string>
     
 </resources>
