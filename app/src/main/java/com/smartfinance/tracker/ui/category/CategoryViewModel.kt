@@ -1,7 +1,9 @@
 package com.smartfinance.tracker.ui.category
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.repository.CategoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +17,8 @@ data class CategoryUiState(
     val allCategoriesForEditor: List<Category> = emptyList()
 )
 
-class CategoryViewModel : ViewModel() {
+// 🔥 FIX: Upgrade ke AndroidViewModel agar aman mengakses String Resources
+class CategoryViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = CategoryRepository()
 
     private val _uiState = MutableStateFlow(CategoryUiState())
@@ -47,12 +50,12 @@ class CategoryViewModel : ViewModel() {
         )
     }
 
-    // 🔥 LOGIKA BISNIS: Validasi Kategori
     suspend fun validateAndSaveCategory(
         docId: String?, currentNumericId: Long?, name: String, type: String, 
         iconName: String, isLocked: Boolean, parentId: Long?
     ) {
-        if (name.isBlank()) throw Exception("Nama kategori tidak boleh kosong!")
+        // 🔥 FIX: Menggunakan string dinamis yang mendukung dwibahasa
+        if (name.isBlank()) throw Exception(getApplication<Application>().getString(R.string.category_err_empty_name))
         
         val targetDocId = if (docId.isNullOrEmpty()) "cat_${System.currentTimeMillis()}" else docId
         val targetNumericId = currentNumericId ?: System.currentTimeMillis()
