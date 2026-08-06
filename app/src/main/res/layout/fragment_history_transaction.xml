@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -28,7 +29,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:background="@null"
-                android:hint="Cari catatan, kategori, nominal..."
+                android:hint="@string/history_search_hint"
                 android:textColorHint="@color/text_secondary"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
@@ -61,7 +62,7 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="JULI 2026"
+                tools:text="JULI 2026"
                 android:textAlignment="center"
                 android:textColor="@color/text_primary"
                 android:textStyle="bold"
@@ -79,7 +80,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Saldo Total Periode Ini"
+            android:text="@string/history_total_balance"
             android:textAlignment="center"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
@@ -88,7 +89,7 @@
             android:id="@+id/tvTotalBalance"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Rp 0"
+            tools:text="Rp 0"
             android:textAlignment="center"
             android:textColor="@color/text_primary"
             android:textSize="26sp"
@@ -105,15 +106,15 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="Pemasukan"
+                android:text="@string/history_income"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp"/>
             <TextView
                 android:id="@+id/tvTotalIncome"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="+Rp 0"
-                android:textColor="#4CAF50"
+                tools:text="+Rp 0"
+                android:textColor="@color/income_green"
                 android:textStyle="bold"/>
         </LinearLayout>
 
@@ -126,15 +127,15 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="Pengeluaran"
+                android:text="@string/history_expense"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp"/>
             <TextView
                 android:id="@+id/tvTotalExpense"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="-Rp 0"
-                android:textColor="#E53935"
+                tools:text="-Rp 0"
+                android:textColor="@color/expense_red"
                 android:textStyle="bold"/>
         </LinearLayout>
 
@@ -148,11 +149,11 @@
             android:id="@+id/btnViewReport"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Lihat Laporan Periode Ini"
+            android:text="@string/history_view_report"
             app:cornerRadius="20dp"
-            android:textColor="#4CAF50"
+            android:textColor="@color/income_green"
             android:backgroundTint="#1E2E20"
-            app:strokeColor="#4CAF50"
+            app:strokeColor="@color/income_green"
             app:strokeWidth="1dp"
             android:insetTop="0dp"
             android:insetBottom="0dp"/>
