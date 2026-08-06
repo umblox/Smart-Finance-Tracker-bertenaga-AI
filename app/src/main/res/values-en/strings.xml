@@ -473,5 +473,12 @@
     <string name="budget_err_category">Please select a category first!</string>
     <string name="budget_err_empty_limit">Please fill in the budget limit amount!</string>
     <string name="budget_err_invalid_amount">Invalid amount!</string>
+
+    <!-- ===== Export PDF Utility ===== -->
+    <string name="export_printed_at">Printed at: %1$s | Total Data: %2$d</string>
+    <string name="export_header_date">Date</string>
+    <string name="export_header_category">Category</string>
+    <string name="export_header_note">Note</string>
+    <string name="export_header_amount">Amount</string>
     
 </resources>
