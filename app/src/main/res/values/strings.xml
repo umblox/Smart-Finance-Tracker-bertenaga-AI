@@ -337,5 +337,25 @@
     <string name="budget_delete_message">Yakin ingin menghapus batas anggaran ini?</string>
     <string name="budget_toast_deleted">🗑️ Anggaran dihapus!</string>
     <string name="budget_toast_delete_fail">❌ Gagal menghapus anggaran</string>
+
+    <!-- ===== Kategori (Editor, Manager & Picker) ===== -->
+    <string name="category_editor_title_new">Tambah Kategori Baru</string>
+    <string name="category_editor_title_edit">Ubah Detail Kategori</string>
+    <string name="category_editor_name_label">Nama Kategori Resmi</string>
+    <string name="category_editor_name_hint">Masukkan nama kategori</string>
+    <string name="category_editor_parent_label">Kelompok Rumpun Induk (Kosongkan jika utama)</string>
+    <string name="category_editor_no_parent">[Tanpa Induk / Kategori Utama]</string>
+    
+    <string name="category_manager_title">Manajemen Kategori</string>
+    <string name="category_picker_title">Pilih Kategori</string>
+    <string name="category_tab_expense">PENGELUARAN</string>
+    <string name="category_tab_income">PEMASUKAN</string>
+    <string name="category_tab_debt">HUTANG/PIUTANG</string>
+    
+    <string name="category_btn_add_text">KATEGORI BARU</string>
+    <string name="category_toast_icon_error">Peringatan: File Ikon Rusak!</string>
+    <string name="category_toast_deleted">Kategori sukses dilenyapkan!</string>
+    <string name="category_toast_delete_fail">Gagal menghapus!</string>
+    <string name="category_toast_saved">Kategori sukses disimpan!</string>
     
 </resources>
