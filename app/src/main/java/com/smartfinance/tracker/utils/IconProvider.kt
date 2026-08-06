@@ -1,5 +1,6 @@
 package com.smartfinance.tracker.utils
 
+import android.content.Context
 import com.smartfinance.tracker.R
 
 data class FinanceIcon(val iconName: String, val resId: Int)
@@ -65,7 +66,7 @@ object IconProvider {
     )
 
     // ========================================================
-    // KELOMPOK PENGELUARAN (EXPENSE) - Tidak Diubah Sesuai Instruksi
+    // KELOMPOK PENGELUARAN (EXPENSE)
     // ========================================================
     private val foodIcons = listOf(
         FinanceIcon("ic_food", R.drawable.ic_food),
@@ -147,25 +148,23 @@ object IconProvider {
         FinanceIcon("ic_income", R.drawable.ic_income)
     )
 
-    fun getAllIconGroups(): List<Pair<String, List<FinanceIcon>>> {
+    // 🔥 FIX: Menyuntikkan Context agar bisa membaca string dwibahasa
+    fun getAllIconGroups(context: Context): List<Pair<String, List<FinanceIcon>>> {
         return listOf(
-            // Kelompok Pemasukan di Atas
-            Pair("Gaji & Tunjangan", incomeSalaryIcons),
-            Pair("Usaha & Jasa", incomeBusinessIcons),
-            Pair("Investasi", incomeInvestmentIcons),
-            Pair("Hadiah & Warisan", incomeGiftIcons),
-            Pair("Klaim & Refund", incomeRefundIcons),
-            Pair("Simpanan", incomeAssetIcons),
-            
-            // Kelompok Pengeluaran (Terjaga)
-            Pair("Traveling", travelIcons),
-            Pair("Makanan", foodIcons),
-            Pair("Kendaraan", transportIcons),
-            Pair("Rumah", homeIcons),
-            Pair("Belanja", shoppingIcons),
-            Pair("Gaya Hidup", lifestyleIcons),
-            Pair("Acara", eventIcons),
-            Pair("Kesehatan", healthEduIcons)
+            Pair(context.getString(R.string.icon_group_salary), incomeSalaryIcons),
+            Pair(context.getString(R.string.icon_group_business), incomeBusinessIcons),
+            Pair(context.getString(R.string.icon_group_investment), incomeInvestmentIcons),
+            Pair(context.getString(R.string.icon_group_gift), incomeGiftIcons),
+            Pair(context.getString(R.string.icon_group_refund), incomeRefundIcons),
+            Pair(context.getString(R.string.icon_group_savings), incomeAssetIcons),
+            Pair(context.getString(R.string.icon_group_travel), travelIcons),
+            Pair(context.getString(R.string.icon_group_food), foodIcons),
+            Pair(context.getString(R.string.icon_group_transport), transportIcons),
+            Pair(context.getString(R.string.icon_group_home), homeIcons),
+            Pair(context.getString(R.string.icon_group_shopping), shoppingIcons),
+            Pair(context.getString(R.string.icon_group_lifestyle), lifestyleIcons),
+            Pair(context.getString(R.string.icon_group_event), eventIcons),
+            Pair(context.getString(R.string.icon_group_health), healthEduIcons)
         )
     }
 
