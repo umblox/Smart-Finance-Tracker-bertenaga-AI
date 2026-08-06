@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color"
     android:orientation="vertical">
 
-    <!-- ============================================== -->
-    <!-- HEADER 1: GAYA DASHBOARD (Rincian Biaya)       -->
-    <!-- ============================================== -->
     <LinearLayout
         android:id="@+id/headerModeGlobal"
         android:layout_width="match_parent"
@@ -44,7 +42,7 @@
                 android:id="@+id/tvHeaderTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Rincian Biaya"
+                android:text="@string/trend_header_detail"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -61,9 +59,6 @@
         <View android:layout_width="32dp" android:layout_height="32dp" />
     </LinearLayout>
 
-    <!-- ============================================== -->
-    <!-- HEADER 2: GAYA MENU REPORT (Laporan Kategori)  -->
-    <!-- ============================================== -->
     <LinearLayout
         android:id="@+id/headerModeCategoryReport"
         android:layout_width="match_parent"
@@ -96,13 +91,12 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="16dp"
-                android:text="Laporan kategori"
+                android:text="@string/trend_header_category"
                 android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Kotak Pill Dropdown Kategori -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnDropdownCategoryReport"
             android:layout_width="wrap_content"
@@ -128,7 +122,7 @@
                     android:id="@+id/tvCategoryReportPillName"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Perawatan Motor"
+                    tools:text="Perawatan Motor"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
@@ -142,9 +136,6 @@
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 
-    <!-- ============================================== -->
-    <!-- KONTEN BAWAH (Navigasi Waktu, Chart, List)     -->
-    <!-- ============================================== -->
     <HorizontalScrollView
         android:id="@+id/scrollTimeNav"
         android:layout_width="match_parent"
@@ -190,14 +181,14 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Total"
+                        android:text="@string/trend_total"
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp" />
                     <TextView
                         android:id="@+id/tvTotalAmount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="-Rp 0"
+                        tools:text="-Rp 0"
                         android:textColor="@color/expense_red"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -212,14 +203,14 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Rata-rata harian"
+                        android:text="@string/trend_daily_avg"
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp" />
                     <TextView
                         android:id="@+id/tvDailyAvg"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="-Rp 0"
+                        tools:text="-Rp 0"
                         android:textColor="@color/expense_red"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -251,7 +242,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Compared to 3-Month Avg"
+                            android:text="@string/trend_compare_avg"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -259,7 +250,7 @@
                             android:id="@+id/btnToggleAvgVisibility"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="👁 Show"
+                            tools:text="👁 Show"
                             android:textColor="@color/income_green"
                             android:textSize="13sp"
                             android:textStyle="bold"
@@ -273,7 +264,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="******"
+                        tools:text="******"
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp" />
                 </LinearLayout>
@@ -303,7 +294,7 @@
                         android:layout_weight="1"
                         android:background="@drawable/bg_pill_active"
                         android:gravity="center"
-                        android:text="Breakdown"
+                        android:text="@string/trend_tab_breakdown"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -315,7 +306,7 @@
                         android:layout_weight="1"
                         android:background="@android:color/transparent"
                         android:gravity="center"
-                        android:text="Trend"
+                        android:text="@string/trend_tab_trend"
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
