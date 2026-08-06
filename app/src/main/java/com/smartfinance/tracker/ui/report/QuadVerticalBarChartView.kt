@@ -19,12 +19,16 @@ class QuadVerticalBarChartView(
     
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { 
-        // Menggunakan warna tema dinamis untuk teks
         color = ContextCompat.getColor(ctx, R.color.text_secondary)
         textSize = 24f
         textAlign = Paint.Align.CENTER
     }
     private val rectF = RectF()
+
+    // 🔥 FIX: Tarik string dwibahasa di luar onDraw() untuk menjaga performa rendering tetap 60fps
+    private val textNoData = context.getString(R.string.chart_no_data)
+    private val textIncome = context.getString(R.string.chart_income)
+    private val textExpense = context.getString(R.string.chart_expense)
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -38,10 +42,9 @@ class QuadVerticalBarChartView(
         val spacing = barWidth / 2.5f
 
         if (maxVal == 0f) {
-            // Garis pembatas dinamis
             paint.color = ContextCompat.getColor(context, R.color.divider_color)
             canvas.drawLine(0f, usableHeight, canvasWidth, usableHeight, paint)
-            canvas.drawText("Belum ada data bulan lalu & ini", canvasWidth / 2, usableHeight / 2, textPaint)
+            canvas.drawText(textNoData, canvasWidth / 2, usableHeight / 2, textPaint)
             return
         }
 
@@ -49,30 +52,30 @@ class QuadVerticalBarChartView(
 
         val xIncLast = spacing
         val hIncLast = (incLast / maxVal) * usableHeight
-        paint.color = Color.parseColor("#38BDF8") // Tetap biru terang
+        paint.color = Color.parseColor("#38BDF8") 
         rectF.set(xIncLast, usableHeight - hIncLast, xIncLast + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
 
         val xIncThis = xIncLast + barWidth + (spacing / 2)
         val hIncThis = (incThis / maxVal) * usableHeight
-        paint.color = Color.parseColor("#0284C7") // Tetap biru gelap
+        paint.color = Color.parseColor("#0284C7") 
         rectF.set(xIncThis, usableHeight - hIncThis, xIncThis + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
         
-        canvas.drawText("Pemasukan", (xIncLast + xIncThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
+        canvas.drawText(textIncome, (xIncLast + xIncThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
 
         val xExpLast = xIncThis + barWidth + (spacing * 2.2f)
         val hExpLast = (expLast / maxVal) * usableHeight
-        paint.color = Color.parseColor("#FDA4AF") // Tetap pink
+        paint.color = Color.parseColor("#FDA4AF") 
         rectF.set(xExpLast, usableHeight - hExpLast, xExpLast + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
 
         val xExpThis = xExpLast + barWidth + (spacing / 2)
         val hExpThis = (expThis / maxVal) * usableHeight
-        paint.color = Color.parseColor("#F43F5E") // Tetap merah
+        paint.color = Color.parseColor("#F43F5E") 
         rectF.set(xExpThis, usableHeight - hExpThis, xExpThis + barWidth, usableHeight)
         canvas.drawRoundRect(rectF, r, r, paint)
 
-        canvas.drawText("Pengeluaran", (xExpLast + xExpThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
+        canvas.drawText(textExpense, (xExpLast + xExpThis + barWidth) / 2f, canvasHeight - 10f, textPaint)
     }
 }
