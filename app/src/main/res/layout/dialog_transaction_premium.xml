@@ -138,17 +138,19 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:orientation="vertical">
+                
+                <!-- 🔥 FIX: Teks diluruskan langsung di XML sesuai Akuntansi -->
                 <RadioButton
                     android:id="@+id/rbPremiumTxExpense"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/tx_type_expense_debt"
+                    android:text="Pengeluaran / Piutang"
                     android:textColor="@color/text_primary" />
                 <RadioButton
                     android:id="@+id/rbPremiumTxIncome"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/tx_type_income_receivable"
+                    android:text="Pemasukan / Utang Saya"
                     android:textColor="@color/text_primary" />
             </RadioGroup>
 
