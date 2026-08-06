@@ -3,6 +3,7 @@ package com.smartfinance.tracker.ui.chat
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.ai.AIClient
 import com.smartfinance.tracker.ai.FinancialAssistant
 import com.smartfinance.tracker.data.model.ChatMessage
@@ -42,9 +43,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val currentMessages = _uiState.value.messages.toMutableList()
         currentMessages.add(ChatMessage(text, true))
         
-        // 2. Tambahkan indikator AI sedang mengetik
+        // 2. Tambahkan indikator AI sedang mengetik (🔥 FIX: Dwibahasa)
         val typingMessages = currentMessages.toMutableList()
-        typingMessages.add(ChatMessage("AI sedang berpikir...", false))
+        val typingText = getApplication<Application>().getString(R.string.chat_ai_typing)
+        typingMessages.add(ChatMessage(typingText, false))
         
         _uiState.value = ChatUiState(messages = typingMessages, isTyping = true)
 
