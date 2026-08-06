@@ -1,19 +1,23 @@
 package com.smartfinance.tracker.ui.settings
 
-import android.app.AlertDialog
 import android.content.Context
 import android.content.SharedPreferences
 import android.view.LayoutInflater
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.databinding.DialogApiConfigBinding
 
 object AiSettingsDialog {
 
     fun showApiConfig(context: Context, inflater: LayoutInflater, prefs: SharedPreferences, viewToSnackbar: android.view.View) {
         val dialogBinding = DialogApiConfigBinding.inflate(inflater)
-        val dialog = AlertDialog.Builder(context).setView(dialogBinding.root).create()
+        
+        // 🔥 FIX: Menggunakan MaterialAlertDialogBuilder agar pop-up melengkung elegan dan sesuai dark mode
+        val dialog = MaterialAlertDialogBuilder(context).setView(dialogBinding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
+        // Catatan: Nama-nama model AI ini adalah "Proper Nouns" (Merek), jadi tidak perlu diterjemahkan.
         val aiModelsDisplay = listOf("Groq: llama-3.3-70b", "OpenAI: gpt-4o", "Google: gemini-3.1-pro", "Anthropic: claude-3-opus")
         val aiModelsValue = listOf("llama-3.3-70b-versatile", "gpt-4o", "gemini-3.1-pro-preview", "claude-3-opus-20240229")
 
@@ -25,7 +29,6 @@ object AiSettingsDialog {
         
         dialogBinding.etApiKey.setText(prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")))
         
-        // 🔥 FIX: Tarik data nama dari preferences (default kosong agar hint "Contoh: Ikromul Umam" muncul)
         dialogBinding.etUserName.setText(prefs.getString("user_name", ""))
 
         dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
@@ -36,7 +39,6 @@ object AiSettingsDialog {
             editor.putString("ai_model", aiModelsValue[dialogBinding.spinnerAiModel.selectedItemPosition])
             editor.putString("ai_api_key", dialogBinding.etApiKey.text.toString().trim())
             
-            // 🔥 FIX: Simpan nama jika diisi, HAPUS jika dikosongkan (agar kembali ke default "Pengguna")
             if (inputName.isEmpty()) {
                 editor.remove("user_name")
             } else {
@@ -45,7 +47,8 @@ object AiSettingsDialog {
             
             editor.apply()
                 
-            Snackbar.make(viewToSnackbar, "AI Config Saved!", Snackbar.LENGTH_SHORT).show()
+            // 🔥 FIX: Translasi dinamis untuk notifikasi berhasil disimpan
+            Snackbar.make(viewToSnackbar, context.getString(R.string.api_config_saved_toast), Snackbar.LENGTH_SHORT).show()
             dialog.dismiss()
         }
         dialog.show()
