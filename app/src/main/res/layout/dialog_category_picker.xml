@@ -5,7 +5,6 @@
     android:background="@color/surface_white"
     android:orientation="vertical">
 
-    <!-- Header (Mirip Money Lover) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -27,12 +26,11 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Pilih Kategori"
+            android:text="@string/category_picker_title"
             android:textColor="@color/text_primary"
             android:textSize="20sp" />
     </LinearLayout>
 
-    <!-- Tab Datar ala Money Lover -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
@@ -55,7 +53,7 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="PENGELUARAN"
+                android:text="@string/category_tab_expense"
                 android:textColor="@color/primary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -82,7 +80,7 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="PEMASUKAN"
+                android:text="@string/category_tab_income"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
             <View
@@ -108,7 +106,7 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="HUTANG/PIUTANG"
+                android:text="@string/category_tab_debt"
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
             <View
