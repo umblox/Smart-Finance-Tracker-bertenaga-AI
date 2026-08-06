@@ -423,5 +423,15 @@
     
     <string name="export_category_all">Semua Kategori</string>
     <string name="export_doc_title_prefix">Laporan Transaksi - %1$s</string>
+
+    <!-- ===== Kotak Masuk Notifikasi AI ===== -->
+    <string name="ai_inbox_title">🤖 Asisten Keuangan AI</string>
+    <string name="ai_inbox_empty_title">Belum ada pesan baru</string>
+    <string name="ai_inbox_empty_desc">AI akan memberitahu Anda jika ada anomali anggaran atau ringkasan mingguan.</string>
+    <string name="ai_inbox_mark_read">Tandai Semua Sudah Dibaca</string>
+    <string name="ai_inbox_type_budget">🚨 ANGGARAN</string>
+    <string name="ai_inbox_type_recurring">📅 RUTIN</string>
+    <string name="ai_inbox_type_weekly">📊 MINGGUAN</string>
+    <string name="ai_inbox_type_insight">💡 WAWASAN</string>
     
 </resources>
