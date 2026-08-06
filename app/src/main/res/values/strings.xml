@@ -497,5 +497,13 @@
     <string name="icon_group_lifestyle">Gaya Hidup</string>
     <string name="icon_group_event">Acara</string>
     <string name="icon_group_health">Kesehatan</string>
+
+    <!-- Backup & Restore -->
+    <string name="backup_export_success">✅ Export Sukses! File berhasil disimpan.</string>
+    <string name="backup_export_failed">❌ Export Gagal: %1$s</string>
+    <string name="backup_import_loading">⏳ Sedang memulihkan data...</string>
+    <string name="backup_import_success">✅ Import Sukses! Aplikasi akan dimuat ulang.</string>
+    <string name="backup_import_empty">❌ Import Gagal: File kosong atau tidak dapat dibaca.</string>
+    <string name="backup_import_error">❌ Import Error: %1$s</string>
     
 </resources>
