@@ -31,10 +31,11 @@ class CategoryAnalyticsFragment : Fragment() {
 
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
     
+    // 🔥 FIX: Menggunakan Locale.getDefault() agar Hari & Bulan bisa bahasa Inggris / Indonesia
     private val formatGroup = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private val formatDayNum = SimpleDateFormat("dd", Locale.getDefault())
-    private val formatDayName = SimpleDateFormat("EEEE", Locale("id", "ID"))
-    private val formatMonthYear = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
+    private val formatDayName = SimpleDateFormat("EEEE", Locale.getDefault())
+    private val formatMonthYear = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentCategoryAnalyticsBinding.inflate(inflater, container, false)
@@ -57,8 +58,7 @@ class CategoryAnalyticsFragment : Fragment() {
 
         binding.btnBack.setOnClickListener { requireActivity().supportFragmentManager.popBackStack() }
 
-        // 🔥 FIX 1: Memastikan judul selalu "Daftar Transaksi" sesuai desain
-        binding.tvCategoryTitle.text = "Daftar transaksi"
+        binding.tvCategoryTitle.text = getString(R.string.analytics_title)
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state -> renderUi(state) }
@@ -66,7 +66,7 @@ class CategoryAnalyticsFragment : Fragment() {
     }
 
     private fun renderUi(state: CategoryAnalyticsUiState) {
-        binding.tvResultCount.text = "${state.transactions.size} hasil"
+        binding.tvResultCount.text = getString(R.string.analytics_result_count, state.transactions.size)
         binding.tvTotalIncome.text = (if (state.totalIncome > 0) "+" else "") + formatRupiah.format(state.totalIncome)
         binding.tvTotalExpense.text = (if (state.totalExpense > 0) "-" else "") + formatRupiah.format(state.totalExpense)
 
@@ -75,7 +75,7 @@ class CategoryAnalyticsFragment : Fragment() {
 
         if (state.isEmpty) {
             val emptyText = TextView(requireContext()).apply {
-                text = "Tidak ada transaksi."; gravity = Gravity.CENTER
+                text = getString(R.string.analytics_empty_tx); gravity = Gravity.CENTER
                 setPadding(0, (50 * density).toInt(), 0, 0)
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
             }
@@ -141,7 +141,6 @@ class CategoryAnalyticsFragment : Fragment() {
 
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
 
-                // 🔥 INJEKSI IKON VEKTOR DINAMIS ANALYTICS
                 val iconCircle = FrameLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                     background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(ContextCompat.getColor(requireContext(), R.color.background_color)) }
@@ -162,7 +161,7 @@ class CategoryAnalyticsFragment : Fragment() {
                     text = tx.categoryName; textSize = 14f; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                 })
                 infoBox.addView(TextView(requireContext()).apply {
-                    text = tx.note.ifBlank { "Tanpa Catatan" }; textSize = 12f; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+                    text = tx.note.ifBlank { getString(R.string.analytics_no_note) }; textSize = 12f; setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
                 })
                 rowLayout.addView(infoBox)
 
