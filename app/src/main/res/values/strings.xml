@@ -260,5 +260,17 @@
     <string name="dashboard_empty_category_desc">Belum ada alokasi dana.</string>
     <string name="dashboard_empty_tx_title">Mutasi Kosong %1$d</string>
     <string name="dashboard_empty_tx_desc">Menunggu transaksi dicatat.</string>
+
+    <!-- ===== Menu Laporan ===== -->
+    <string name="report_summary_title">Ringkasan Laporan</string>
+    <string name="report_net_income">Pemasukan Bersih</string>
+    <string name="report_view_detail">Lihat detailnya</string>
+    <string name="report_category_title">Laporan kategori</string>
+    <string name="report_income">Pemasukan</string>
+    <string name="report_expense">Pengeluaran</string>
+    <string name="report_view_by_category">📁 Lihat laporan berdasarkan kategori</string>
+    <string name="report_debt">Hutang</string>
+    <string name="report_receivable">Piutang</string>
+    <string name="report_others">Lainnya</string>
     
 </resources>
