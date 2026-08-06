@@ -19,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="⏳ Transaksi Berkala"
+            android:text="@string/recurring_title"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -41,7 +41,7 @@
             android:layout_width="match_parent"
             android:layout_height="54dp"
             android:layout_marginTop="16dp"
-            android:text="+ BUAT JADWAL BARU"
+            android:text="@string/recurring_btn_add_new"
             android:textColor="@color/surface_white"
             android:textStyle="bold"
             app:backgroundTint="@color/primary"
