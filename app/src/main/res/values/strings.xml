@@ -226,6 +226,13 @@
     <string name="history_yesterday">Kemarin</string>
     <string name="history_no_note">Tanpa catatan</string>
 
+    <!-- ===== Riwayat Transaksi (Lanjutan) ===== -->
+    <string name="history_search_hint">Cari catatan, kategori, nominal…</string>
+    <string name="history_total_balance">Saldo Total Periode Ini</string>
+    <string name="history_income">Pemasukan</string>
+    <string name="history_expense">Pengeluaran</string>
+    <string name="history_view_report">Lihat Laporan Periode Ini</string>
+    
     <!-- ===== Menu Chat AI ===== -->
     <string name="chat_clear">Bersihkan</string>
     <string name="chat_clear_title">🗑️ Bersihkan Riwayat Chat?</string>
