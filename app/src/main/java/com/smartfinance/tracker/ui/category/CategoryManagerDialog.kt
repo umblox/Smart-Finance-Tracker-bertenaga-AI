@@ -81,7 +81,6 @@ class CategoryManagerDialog : DialogFragment() {
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
         val safeRippleId = typedValue.resourceId
 
-        // TOMBOL "+ KATEGORI BARU"
         val btnAddNew = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -100,7 +99,7 @@ class CategoryManagerDialog : DialogFragment() {
             setPadding(0, 0, (16f * density).toInt(), 0)
         })
         btnAddNew.addView(TextView(requireContext()).apply { 
-            text = "KATEGORI BARU"
+            text = getString(R.string.category_btn_add_text)
             textSize = 14f
             setTypeface(null, Typeface.BOLD)
             setTextColor(getThemeColor(R.color.primary))
@@ -108,7 +107,6 @@ class CategoryManagerDialog : DialogFragment() {
         binding.containerList.addView(btnAddNew)
         binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
 
-        // RENDER DAFTAR HIERARKI
         state.parentCategories.forEach { parent ->
             val parentRow = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -120,7 +118,6 @@ class CategoryManagerDialog : DialogFragment() {
                 setOnClickListener { CategoryEditorDialog.newInstance(parent, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog") }
             }
             
-            // 🔥 INJEKSI IKON INDUK DINAMIS
             parentRow.addView(android.widget.ImageView(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams((28 * density).toInt(), (28 * density).toInt()).apply { rightMargin = (16 * density).toInt() }
                 setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(parent.iconName))
@@ -153,7 +150,6 @@ class CategoryManagerDialog : DialogFragment() {
                 }
                 childRow.addView(treeLine)
                 
-                // 🔥 INJEKSI IKON SUB-KATEGORI DINAMIS
                 childRow.addView(android.widget.ImageView(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams((24 * density).toInt(), (24 * density).toInt()).apply { rightMargin = (12 * density).toInt() }
                     setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(child.iconName))
