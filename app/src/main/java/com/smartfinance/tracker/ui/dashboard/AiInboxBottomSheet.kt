@@ -28,9 +28,10 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
     private var _binding: DialogAiInboxBinding? = null
     private val binding get() = _binding!!
 
-    // Mengambil ViewModel milik Activity agar sinkron dengan Dashboard
     private lateinit var viewModel: AiNotificationViewModel
-    private val sdf = SimpleDateFormat("dd MMM • HH:mm", Locale("id", "ID"))
+    
+    // 🔥 FIX: Locale default agar bulan dinamis (Agt/Aug)
+    private val sdf = SimpleDateFormat("dd MMM • HH:mm", Locale.getDefault())
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = DialogAiInboxBinding.inflate(inflater, container, false)
@@ -72,7 +73,6 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 radius = 12f * density
                 cardElevation = 0f
                 strokeWidth = (1f * density).toInt()
-                // Garis tebal warna Primer jika BELUM dibaca, Abu-abu jika SUDAH dibaca
                 strokeColor = ContextCompat.getColor(requireContext(), if (notif.isRead) R.color.divider_color else R.color.primary)
                 setCardBackgroundColor(ContextCompat.getColor(requireContext(), if (notif.isRead) R.color.background_color else R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -86,29 +86,27 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 setPadding(p, p, p, p)
             }
 
-            // Header Row (Icon + Tipe + Waktu + Tombol Hapus)
             val headerRow = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
 
-            val iconStr = when (notif.type) {
-                "BUDGET" -> "🚨"
-                "RECURRING" -> "📅"
-                "WEEKLY_REPORT" -> "📊"
-                else -> "💡"
+            // 🔥 FIX: Tarik kategori/label dari string resources agar dwibahasa
+            val typeLabelStr = when (notif.type) {
+                "BUDGET" -> getString(R.string.ai_inbox_type_budget)
+                "RECURRING" -> getString(R.string.ai_inbox_type_recurring)
+                "WEEKLY_REPORT" -> getString(R.string.ai_inbox_type_weekly)
+                else -> getString(R.string.ai_inbox_type_insight)
             }
 
-            // Tipe
             headerRow.addView(TextView(requireContext()).apply {
-                text = "$iconStr  ${notif.type.replace("_", " ")}"
+                text = typeLabelStr
                 textSize = 11f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
             })
 
-            // Waktu (Mengisi ruang kosong / Weight 1)
             headerRow.addView(TextView(requireContext()).apply {
                 text = " • ${sdf.format(Date(notif.timestamp))}"
                 textSize = 10f
@@ -116,7 +114,6 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
 
-            // 🔥 TOMBOL HAPUS SATUAN
             headerRow.addView(TextView(requireContext()).apply {
                 text = "❌"
                 textSize = 14f
@@ -126,7 +123,6 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
 
             layout.addView(headerRow)
 
-            // Judul
             layout.addView(TextView(requireContext()).apply {
                 text = notif.title
                 textSize = 14f
@@ -135,7 +131,6 @@ class AiInboxBottomSheet : BottomSheetDialogFragment() {
                 setPadding(0, (8f * density).toInt(), 0, (4f * density).toInt())
             })
 
-            // Isi Nasihat AI
             layout.addView(TextView(requireContext()).apply {
                 text = notif.message
                 textSize = 13f
