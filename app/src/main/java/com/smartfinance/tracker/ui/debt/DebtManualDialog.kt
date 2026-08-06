@@ -54,7 +54,6 @@ class DebtManualDialog(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
         
-        // 🔥 FIX: Hapus paksaan tema
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root).create()
             
@@ -64,10 +63,17 @@ class DebtManualDialog(
 
         binding.tvDialogTitle.text = getString(R.string.debt_add_title)
         
+        // 🔥 FIX UI: Sembunyikan Kategori (karena ini khusus utang)
         binding.btnCategoryPicker.visibility = View.GONE
         binding.tvCategoryLabel.visibility = View.GONE
+        
+        // 🔥 FIX UI: Munculkan Kontak
         binding.tvContactLabel.visibility = View.VISIBLE
         binding.layoutContact.visibility = View.VISIBLE
+
+        // 🎯 THE ULTIMATE FIX: Hanya musnahkan Radio Ketiga di Buku Utang!
+        // Label teks dibiarkan muncul karena Komandan sudah memperbaikinya di XML.
+        binding.rbPremiumTxDebt.visibility = View.GONE 
 
         binding.rbPremiumTxExpense.text = getString(R.string.debt_rb_expense)
         binding.rbPremiumTxIncome.text = getString(R.string.debt_rb_income)
