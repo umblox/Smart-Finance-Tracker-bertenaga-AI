@@ -432,5 +432,10 @@
     <string name="ai_inbox_type_recurring">📅 RECURRING</string>
     <string name="ai_inbox_type_weekly">📊 WEEKLY</string>
     <string name="ai_inbox_type_insight">💡 INSIGHT</string>
+
+    <!-- ===== Custom Chart Views ===== -->
+    <string name="chart_no_data">No data for last &amp; this month</string>
+    <string name="chart_income">Income</string>
+    <string name="chart_expense">Expense</string>
     
 </resources>
