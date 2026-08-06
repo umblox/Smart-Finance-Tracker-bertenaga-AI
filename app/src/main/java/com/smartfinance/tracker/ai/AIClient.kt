@@ -20,7 +20,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
-        // 🔥 FIX PROMPT: Penegasan Ekstrem untuk Piutang (RECEIVABLE) dan Format Kategori
+        // 🔥 FIX PROMPT: Penegasan EKSTREM untuk action_type DEBT_RECORD agar AI tidak mencatatnya sebagai transaksi biasa!
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
@@ -33,14 +33,16 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             [RIWAYAT TRANSAKSI TERAKHIR]: \n{TX_CONTEXT}
             
             ATURAN MUTLAK KECERDASAN:
-            1. PENCATATAN (TRANSACTION): Pemasukan -> "INCOME". Pengeluaran -> "EXPENSE". LANGSUNG EKSEKUSI jika jelas. Tunda ke 'pending_transaction' HANYA jika sangat aneh.
-            2. PERTANYAAN SALDO/UANG: Jika ditanya berapa uang/saldo saya, lihat data [SALDO UANG SAYA SAAT INI].
+            1. PENCATATAN TRANSAKSI BIASA: action_type -> "TRANSACTION". Pemasukan -> "INCOME". Pengeluaran -> "EXPENSE".
+            2. PERTANYAAN SALDO/UANG: Jika ditanya berapa uang/saldo saya, lihat data [SALDO UANG SAYA SAAT INI]. action_type -> "CHAT_ONLY".
             3. FORMAT UANG: WAJIB gunakan titik sebagai pemisah ribuan pada teks 'ai_response' (Contoh: Rp 5.000.000).
-            4. TANGGAL & LAPORAN: Cari di riwayat jika tanya tanggal. Jika minta rincian spesifik, set action_type "VIEW_REPORT", "ITEM_DETAILS", dan "CUSTOM_RANGE".
-            5. LOGIKA UTANG/PIUTANG (WAJIB dicatat di dalam array 'transactions'): 
-               - JIKA SAYA PINJAM UANG: debt_type: "DEBT".
-               - JIKA ORANG LAIN PINJAM UANG (Contoh: "[Nama] pinjam uang", "[Nama] meminjam 40000"): Ini artinya orang itu berhutang kepada saya. WAJIB catat sebagai debt_type: "RECEIVABLE". JANGAN TERBALIK!
-               - BAYAR / TERIMA CICILAN -> action_type: "DEBT_PAYMENT".
+            4. TANGGAL & LAPORAN: Cari di riwayat jika tanya tanggal. Jika minta rincian spesifik, set action_type "VIEW_REPORT".
+            5. TRANSAKSI UTANG / PIUTANG (JIKA ADA KATA PINJAM / HUTANG):
+               - WAJIB SET action_type: "DEBT_RECORD" (DILARANG KERAS MENGGUNAKAN "TRANSACTION"!).
+               - JIKA SAYA MEMINJAM UANG DARI ORANG: debt_type: "DEBT".
+               - JIKA ORANG LAIN MEMINJAM UANG DARI SAYA: debt_type: "RECEIVABLE" (Contoh: "Afnan pinjam uang", "Bayu meminjam 40000"). JANGAN TERBALIK!
+               - PEMBAYARAN / PELUNASAN -> action_type: "DEBT_PAYMENT".
+               - WAJIB masukkan ke dalam array 'transactions' dan isi 'contact_name'.
             6. KATEGORI (LIHAT & BUAT): 
                - Jika diminta melihat kategori spesifik (contoh: sub kategori belanja, pemasukan), gunakan action_type: "CHAT_ONLY". Tampilkan HANYA namanya secara rapi menggunakan emoji (📁 untuk Induk, └── 💰 untuk Sub). JANGAN tampilkan kata ID, angka ID, atau teks "[INDUK/SUB]".
                - Gunakan action_type: "VIEW_CATEGORIES" HANYA jika diminta melihat SEMUA kategori sekaligus.
@@ -56,7 +58,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
               "pending_transaction": { "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama", "clean_note": "Catatan", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" },
               "report_filter": { "report_type": "SUMMARY" | "ITEM_DETAILS" | "CATEGORY_BREAKDOWN", "time_range": "MONTHLY" | "CUSTOM_RANGE", "start_date": "", "end_date": "", "target_category": "", "target_keyword": "" },
               "new_category": { "name": "Nama Kategori", "type": "INCOME" | "EXPENSE", "parent_category_id": "" },
-              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama Kategori", "clean_note": "Catatan", "contact_name": "WAJIB DIISI JIKA BAYAR UTANG", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
+              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama Kategori", "clean_note": "Catatan", "contact_name": "WAJIB DIISI JIKA CATAT/BAYAR UTANG", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
             }
         """.trimIndent()
     }
