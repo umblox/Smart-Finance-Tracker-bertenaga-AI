@@ -20,7 +20,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🤖 Asisten Keuangan AI"
+            android:text="@string/ai_inbox_title"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -73,14 +73,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Belum ada pesan baru"
+                    android:text="@string/ai_inbox_empty_title"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
                 <TextView
                     android:layout_width="250dp"
                     android:layout_height="wrap_content"
-                    android:text="AI akan memberitahu Anda jika ada anomali anggaran atau ringkasan mingguan."
+                    android:text="@string/ai_inbox_empty_desc"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:textAlignment="center"
@@ -109,10 +109,9 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:text="Tandai Semua Sudah Dibaca"
+            android:text="@string/ai_inbox_mark_read"
             android:textColor="@color/primary"
             android:textStyle="bold" />
     </LinearLayout>
 
 </LinearLayout>
-
