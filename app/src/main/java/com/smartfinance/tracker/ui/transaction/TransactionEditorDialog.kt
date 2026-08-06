@@ -79,20 +79,16 @@ class TransactionEditorDialog(
         if (isDebtTransaction) {
             binding.tvContactLabel.visibility = View.VISIBLE
             binding.layoutContact.visibility = View.VISIBLE
-            
-            // 🔥 FIX: Jangan sembunyikan Category Picker untuk hutang piutang!
             binding.btnCategoryPicker.visibility = View.VISIBLE
             binding.tvCategoryLabel.visibility = View.VISIBLE
             
-            // 🔥 FIX: Matikan klik pada RadioButton agar flow kas murni dikunci oleh pilihan Kategori
+            // 🔥 Kunci RadioButton. Flow kas ditentukan oleh Kategori (Tidak bisa diklik manual)
             binding.rbPremiumTxIncome.isEnabled = false
             binding.rbPremiumTxExpense.isEnabled = false
             
-            // 🔥 FIX: Logika Arus Kas (Cash Flow) yang benar:
-            // 101 (Hutang diterima) = INCOME
-            // 103 (Terima Cicilan Piutang) = INCOME
-            // 104 (Memberikan Piutang) = EXPENSE
-            // 102 (Membayar Hutang) = EXPENSE
+            // 🔥 Akuntansi yang benar: 
+            // 101L (Utang Saya) & 103L (Terima Cicilan) = Pemasukan (INCOME)
+            // 104L (Piutang) & 102L (Bayar Utang) = Pengeluaran (EXPENSE)
             val isIncomeFlow = currentCategoryId == 101L || currentCategoryId == 103L
             if (isIncomeFlow) binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
             currentType = if (isIncomeFlow) "INCOME" else "EXPENSE"
@@ -144,7 +140,6 @@ class TransactionEditorDialog(
                 )
             }
             
-            // 🔥 FIX: Cukup cari berdasarkan ID kategori saat ini
             val dbCategory = allCategoriesCloud.find { (it["id"] as? Number)?.toLong() == currentCategoryId }
             if (dbCategory != null) {
                 selectedCategoryMap = dbCategory
@@ -197,7 +192,6 @@ class TransactionEditorDialog(
                 val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
 
                 lifecycleScope.launch {
-                    // 🔥 FIX: Logika finalTxType dikunci otomatis berdasarkan Kategori untuk hutang/piutang
                     val finalTxType = if (isDebtTransaction) {
                         if (catId == 101L || catId == 103L) "INCOME" else "EXPENSE"
                     } else {
@@ -258,7 +252,7 @@ class TransactionEditorDialog(
             selectedCategoryMap = mappedCat
             binding.btnCategoryPicker.text = selectedCat.name
             
-            // 🔥 FIX: Perbarui RadioButton otomatis saat pengguna mengganti kategori hutang/piutang
+            // 🔥 Sinkronisasi Radio Otomatis saat memilih kategori
             if (isDebtTransaction) {
                 val isIncomeFlow = selectedCat.id == 101L || selectedCat.id == 103L
                 if (isIncomeFlow) binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
