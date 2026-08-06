@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color"
@@ -31,7 +32,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_weight="1"
-            android:text="Daftar transaksi"
+            android:text="@string/analytics_title"
             android:textColor="@color/text_primary"
             android:textSize="20sp" />
     </LinearLayout>
@@ -49,7 +50,7 @@
             android:id="@+id/tvResultCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0 hasil"
+            tools:text="10 hasil"
             android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textStyle="bold" />
@@ -63,14 +64,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Pemasukan"
+                android:text="@string/analytics_income"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/tvTotalIncome"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Rp 0,00"
+                tools:text="+Rp 0"
                 android:textColor="@color/income_green"
                 android:textSize="14sp"
                 android:textStyle="bold" />
@@ -85,14 +86,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Pengeluaran"
+                android:text="@string/analytics_expense"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/tvTotalExpense"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="-Rp 0,00"
+                tools:text="-Rp 0"
                 android:textColor="@color/expense_red"
                 android:textSize="14sp"
                 android:textStyle="bold" />
