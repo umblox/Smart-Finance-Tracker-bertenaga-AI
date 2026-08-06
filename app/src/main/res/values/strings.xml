@@ -459,5 +459,9 @@
     <string name="analytics_today">Hari Ini</string>
     <string name="analytics_this_week">Minggu Ini</string>
     <string name="analytics_this_month">Bulan Ini</string>
+
+    <!-- ===== Filter Dashboard ===== -->
+    <string name="dashboard_filter_this_month">BULAN INI</string>
+    <string name="dashboard_filter_weekly">PERMINGGU</string>
     
 </resources>
