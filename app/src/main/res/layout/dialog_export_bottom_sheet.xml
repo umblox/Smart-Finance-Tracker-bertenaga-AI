@@ -21,7 +21,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🖨️ Pengaturan Cetak PDF"
+            android:text="@string/export_setup_title"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -62,7 +62,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Jenis Transaksi:"
+                    android:text="@string/export_type_label"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold"
@@ -77,7 +77,6 @@
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="16dp">
                     
-                    <!-- 🔥 FIX: popupBackground agar menu tidak putih di Dark Mode -->
                     <Spinner
                         android:id="@+id/spinnerType"
                         android:layout_width="match_parent"
@@ -91,7 +90,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Kategori (Opsional):"
+                    android:text="@string/export_category_label"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold"
@@ -106,7 +105,6 @@
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="16dp">
                     
-                    <!-- 🔥 FIX: popupBackground -->
                     <Spinner
                         android:id="@+id/spinnerCategory"
                         android:layout_width="match_parent"
@@ -120,7 +118,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Rentang Waktu:"
+                    android:text="@string/export_time_label"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold"
@@ -135,7 +133,6 @@
                     app:strokeWidth="1dp"
                     android:layout_marginBottom="12dp">
                     
-                    <!-- 🔥 FIX: popupBackground -->
                     <Spinner
                         android:id="@+id/spinnerTime"
                         android:layout_width="match_parent"
@@ -160,7 +157,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginEnd="4dp"
-                        android:text="Mulai"
+                        android:text="@string/export_btn_start_date"
                         android:textColor="@color/text_primary"
                         app:strokeColor="@color/divider_color"/>
                     <com.google.android.material.button.MaterialButton
@@ -170,7 +167,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="4dp"
-                        android:text="Akhir"
+                        android:text="@string/export_btn_end_date"
                         android:textColor="@color/text_primary"
                         app:strokeColor="@color/divider_color"/>
                 </LinearLayout>
@@ -180,7 +177,7 @@
                     android:id="@+id/btnGeneratePreview"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
-                    android:text="TAMPILKAN PREVIEW"
+                    android:text="@string/export_btn_generate"
                     android:textColor="@color/surface_white"
                     android:textStyle="bold"
                     app:backgroundTint="@color/primary"
@@ -204,7 +201,7 @@
                     android:id="@+id/btnBackToSetup"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⬅ Kembali Edit Filter"
+                    android:text="@string/export_btn_back_setup"
                     android:textColor="@color/primary"
                     android:textSize="14sp"
                     android:textStyle="bold"
@@ -220,7 +217,6 @@
                     android:background="@color/divider_color"
                     android:layout_marginBottom="24dp">
                     
-                    <!-- Khusus untuk PDF Preview wajib dibiarkan putih agar file PDF terbaca -->
                     <ImageView
                         android:id="@+id/ivPdfPreview"
                         android:layout_width="match_parent"
@@ -242,7 +238,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:text="Tidak ada data"
+                        android:text="@string/export_empty_data"
                         android:textColor="@color/text_secondary"
                         android:visibility="gone"/>
                 </FrameLayout>
@@ -252,7 +248,7 @@
                     android:id="@+id/btnSavePdf"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
-                    android:text="SIMPAN SEBAGAI PDF"
+                    android:text="@string/export_btn_save_pdf"
                     android:textColor="@color/surface_white"
                     android:textStyle="bold"
                     app:backgroundTint="@color/primary"
