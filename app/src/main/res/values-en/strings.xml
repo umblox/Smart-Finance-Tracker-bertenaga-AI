@@ -480,5 +480,21 @@
     <string name="export_header_category">Category</string>
     <string name="export_header_note">Note</string>
     <string name="export_header_amount">Amount</string>
+
+    <!-- ===== Category Icon Groups ===== -->
+    <string name="icon_group_salary">Salary &amp; Allowances</string>
+    <string name="icon_group_business">Business &amp; Services</string>
+    <string name="icon_group_investment">Investment</string>
+    <string name="icon_group_gift">Gifts &amp; Inheritance</string>
+    <string name="icon_group_refund">Claims &amp; Refunds</string>
+    <string name="icon_group_savings">Savings</string>
+    <string name="icon_group_travel">Traveling</string>
+    <string name="icon_group_food">Food &amp; Dining</string>
+    <string name="icon_group_transport">Transport</string>
+    <string name="icon_group_home">Home &amp; Utilities</string>
+    <string name="icon_group_shopping">Shopping</string>
+    <string name="icon_group_lifestyle">Lifestyle</string>
+    <string name="icon_group_event">Events</string>
+    <string name="icon_group_health">Health &amp; Education</string>
     
 </resources>
