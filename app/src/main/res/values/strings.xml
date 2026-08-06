@@ -311,5 +311,8 @@
     <string name="api_config_key_label">Kunci API (API Key):</string>
     <string name="api_config_key_hint">Masukkan API Key…</string>
     <string name="api_config_saved_toast">Konfigurasi AI Berhasil Disimpan!</string>
+
+    <!-- ===== Worker / Background Sync ===== -->
+    <string name="sync_auto_label">Sinkronisasi Otomatis: %1$s</string>
     
 </resources>
