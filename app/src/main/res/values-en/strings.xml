@@ -356,5 +356,34 @@
     <string name="category_toast_deleted">Category successfully deleted!</string>
     <string name="category_toast_delete_fail">Failed to delete!</string>
     <string name="category_toast_saved">Category successfully saved!</string>
+
+    <!-- ===== Recurring Transactions ===== -->
+    <string name="recurring_title">⏳ Recurring Transactions</string>
+    <string name="recurring_btn_add_new">+ CREATE NEW SCHEDULE</string>
+    <string name="recurring_empty_state">No scheduled transactions yet.\nClick the button below to create a new one.</string>
+
+    <string name="recurring_form_title_new">Create New Schedule</string>
+    <string name="recurring_form_title_edit">Edit Schedule</string>
+    <string name="recurring_note_hint">Note (e.g., WiFi Subscription)</string>
+    <string name="recurring_amount_hint">Amount (Rp)</string>
+    <string name="recurring_category_label">Category:</string>
+    <string name="recurring_contact_hint">Related Contact (Optional)</string>
+    <string name="recurring_interval_label">Repeat Every:</string>
+    <string name="recurring_start_date_btn">Start: %1$s</string>
+    <string name="recurring_end_switch">Set End Date Limit</string>
+    <string name="recurring_end_date_btn">Stop On: %1$s</string>
+    <string name="recurring_btn_delete">DELETE THIS SCHEDULE</string>
+    <string name="recurring_btn_save">SAVE SCHEDULE</string>
+
+    <string name="recurring_interval_daily">Daily</string>
+    <string name="recurring_interval_weekly">Weekly</string>
+    <string name="recurring_interval_monthly">Monthly</string>
+    <string name="recurring_interval_yearly">Yearly</string>
+    <string name="recurring_toast_contact_fail">Failed to get contact</string>
+    <string name="recurring_toast_saved">✅ Schedule Saved!</string>
+    <string name="recurring_delete_title">Delete Schedule</string>
+    <string name="recurring_delete_message">Are you sure you want to stop &amp; delete this automated transaction schedule?</string>
+    <string name="recurring_toast_deleted">🗑️ Schedule Deleted!</string>
+    <string name="recurring_toast_delete_fail">❌ Failed to delete schedule</string>
     
 </resources>
