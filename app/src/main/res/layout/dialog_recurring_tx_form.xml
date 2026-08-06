@@ -20,7 +20,6 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- Header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -33,7 +32,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Buat Jadwal Baru"
+                    android:text="@string/recurring_form_title_new"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:textStyle="bold" />
@@ -54,7 +53,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:hint="Catatan (cth: Langganan WiFi)"
+                android:hint="@string/recurring_note_hint"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
@@ -73,7 +72,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:hint="Nominal (Rp)"
+                android:hint="@string/recurring_amount_hint"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
@@ -90,7 +89,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Kategori:"
+                android:text="@string/recurring_category_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:layout_marginBottom="4dp"/>
@@ -102,7 +101,7 @@
                 android:layout_height="54dp"
                 android:layout_marginBottom="16dp"
                 android:gravity="start|center_vertical"
-                android:text="PILIH KATEGORI"
+                android:text="@string/tx_choose_category"
                 android:textColor="@color/text_primary"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
@@ -120,7 +119,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
-                    android:hint="Kontak Terkait (Bisa Kosong)"
+                    android:hint="@string/recurring_contact_hint"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
@@ -134,7 +133,6 @@
                         android:textColor="@color/text_primary" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- 🔥 FIX: Mengubah Gaya Tombol Kontak agar serasi (Outlined) -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPickContact"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -152,7 +150,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Diulang Setiap:"
+                android:text="@string/recurring_interval_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:layout_marginBottom="4dp"/>
@@ -167,7 +165,6 @@
                 app:strokeColor="@color/divider_color"
                 app:strokeWidth="1dp">
                 
-                <!-- 🔥 FIX: Tambahkan popupBackground untuk Dark Mode -->
                 <Spinner
                     android:id="@+id/spinnerInterval"
                     android:layout_width="match_parent"
@@ -183,7 +180,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:gravity="start|center_vertical"
-                android:text="Mulai: "
+                android:text="@string/recurring_start_date_btn"
                 android:textColor="@color/text_primary"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
@@ -193,7 +190,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Berikan Batas Waktu Akhir"
+                android:text="@string/recurring_end_switch"
                 android:textColor="@color/text_primary" />
 
             <com.google.android.material.button.MaterialButton
@@ -203,7 +200,7 @@
                 android:layout_height="54dp"
                 android:visibility="gone"
                 android:gravity="start|center_vertical"
-                android:text="Berhenti Pada: "
+                android:text="@string/recurring_end_date_btn"
                 android:textColor="@color/text_primary"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
@@ -213,7 +210,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="12dp"
-                android:text="HAPUS JADWAL INI"
+                android:text="@string/recurring_btn_delete"
                 android:textColor="@color/surface_white"
                 android:visibility="gone"
                 app:backgroundTint="@color/expense_red"
@@ -224,7 +221,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="8dp"
-                android:text="SIMPAN JADWAL"
+                android:text="@string/recurring_btn_save"
                 android:textColor="@color/surface_white"
                 app:backgroundTint="@color/primary"
                 app:cornerRadius="12dp" />
