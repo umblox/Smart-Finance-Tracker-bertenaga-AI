@@ -446,5 +446,17 @@
     <!-- ===== Report Time Navigation ===== -->
     <string name="report_this_month">THIS MONTH</string>
     <string name="report_last_month">LAST MONTH</string>
+
+    <!-- ===== Category Trend & Analytics ===== -->
+    <string name="trend_expense_details">Expense Details</string>
+    <string name="trend_income_details">Income Details</string>
+    <string name="trend_no_category">No Category Yet</string>
+    <string name="trend_no_note">No Note</string>
+    <string name="trend_this_month">THIS MONTH</string>
+    <string name="trend_last_month">LAST MONTH</string>
+    
+    <string name="analytics_today">Today</string>
+    <string name="analytics_this_week">This Week</string>
+    <string name="analytics_this_month">This Month</string>
     
 </resources>
