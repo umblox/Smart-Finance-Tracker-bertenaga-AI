@@ -39,27 +39,26 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
     private lateinit var viewModel: ExportViewModel
 
-    private val sdfDisplayDate = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
+    // 🔥 FIX: Locale default agar format bulan mengikuti sistem
+    private val sdfDisplayDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
-    private val timeOptions = listOf("Bulan Ini", "Minggu Ini", "Hari Ini", "Semua Waktu", "Pilih Tanggal Kustom")
+    private lateinit var timeOptions: Array<String>
     private val timeEnums = listOf(ExportTimeRange.MONTHLY, ExportTimeRange.WEEKLY, ExportTimeRange.DAILY, ExportTimeRange.ALL, ExportTimeRange.CUSTOM)
-    private val typeOptions = listOf("Semua Transaksi", "Pemasukan Saja", "Pengeluaran Saja", "Hutang & Piutang Saja")
+    private lateinit var typeOptions: Array<String>
     private val typeEnums = listOf(ExportType.ALL, ExportType.INCOME_ONLY, ExportType.EXPENSE_ONLY, ExportType.DEBT_ONLY)
 
-    // Menyimpan referensi file PDF cache yang sedang di-preview
     private var currentTempPdf: File? = null
 
-    // Launcher Simpan PDF (Dialog bawaan Android)
     private val exportPdfLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         uri?.let { targetUri ->
             currentTempPdf?.let { tempFile ->
                 lifecycleScope.launch {
                     try {
                         ExportUtils.copyFileToUri(requireContext(), tempFile, targetUri)
-                        Toast.makeText(requireContext(), "✅ PDF berhasil disimpan!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(requireContext(), getString(R.string.export_toast_success), Toast.LENGTH_LONG).show()
                         dismiss()
                     } catch (e: Exception) {
-                        Toast.makeText(requireContext(), "❌ Gagal menyimpan PDF", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.export_toast_fail_save), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -74,25 +73,24 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Memaksa BottomSheet Expand agar layar preview punya ruang
         (dialog as? BottomSheetDialog)?.behavior?.state = BottomSheetBehavior.STATE_EXPANDED
 
         viewModel = ViewModelProvider(this)[ExportViewModel::class.java]
+        
+        // Mengisi array dari String Resources
+        timeOptions = resources.getStringArray(R.string.export_time_options)
+        typeOptions = resources.getStringArray(R.string.export_type_options)
+
         setupUI()
     }
 
-    // 🔥 FIX: Fungsi Cerdas untuk Mewarnai Teks Dropdown secara Dinamis (Day/Night)
     private fun createThemedAdapter(items: List<String>): ArrayAdapter<String> {
         return object : ArrayAdapter<String>(requireContext(), android.R.layout.simple_spinner_dropdown_item, items) {
-            
-            // 1. Mewarnai Teks yang sedang dipilih/tampil di kotak (Header Spinner)
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getView(position, convertView, parent) as TextView
                 view.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                 return view
             }
-
-            // 2. Mewarnai Teks yang melayang di dalam daftar Dropdown
             override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getDropDownView(position, convertView, parent) as TextView
                 view.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
@@ -104,17 +102,14 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
     private fun setupUI() {
         binding.btnClose.setOnClickListener { dismiss() }
 
-        // 🔥 FIX: Setup Spinner menggunakan adapter kustom
-        binding.spinnerTime.adapter = createThemedAdapter(timeOptions)
-        binding.spinnerType.adapter = createThemedAdapter(typeOptions)
+        binding.spinnerTime.adapter = createThemedAdapter(timeOptions.toList())
+        binding.spinnerType.adapter = createThemedAdapter(typeOptions.toList())
         
-        // 🔥 FITUR BARU: Setup Spinner Kategori secara dinamis
-        val categoryOptions = mutableListOf("Semua Kategori")
+        val categoryOptions = mutableListOf(getString(R.string.export_category_all))
         categoryOptions.addAll(viewModel.getAvailableCategories())
         val categoryAdapter = createThemedAdapter(categoryOptions)
         binding.spinnerCategory.adapter = categoryAdapter
         
-        // Jaring pengaman (Safety Net) jika data dari Cloud sedikit butuh waktu untuk termuat
         viewLifecycleOwner.lifecycleScope.launch {
             kotlinx.coroutines.delay(600)
             val newCats = viewModel.getAvailableCategories()
@@ -132,7 +127,6 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Setup Custom Date
         val cal = Calendar.getInstance()
         binding.btnStartDate.text = sdfDisplayDate.format(cal.time)
         binding.btnEndDate.text = sdfDisplayDate.format(cal.time)
@@ -153,66 +147,58 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
         
-        // 1. KLIK "TAMPILKAN PREVIEW"
         binding.btnGeneratePreview.setOnClickListener {
             val selectedTime = timeEnums[binding.spinnerTime.selectedItemPosition]
             val selectedType = typeEnums[binding.spinnerType.selectedItemPosition]
-            
-            // 🔥 FITUR BARU: Ambil Kategori yang dipilih
             val selectedCategory = binding.spinnerCategory.selectedItem.toString()
             
-            // Validasi data kosong (Filter baru sudah diterapkan)
             val data = viewModel.getFilteredTransactions(selectedTime, selectedType, selectedCategory)
             if (data.isEmpty()) {
-                Toast.makeText(requireContext(), "Tidak ada data pada rentang dan kategori ini!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.export_toast_empty), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Ganti Tampilan
             binding.layoutSetup.visibility = View.GONE
             binding.layoutPreview.visibility = View.VISIBLE
-            binding.tvHeaderTitle.text = "📄 Pratinjau Dokumen"
+            binding.tvHeaderTitle.text = getString(R.string.export_preview_title)
             
             generatePreviewDataAndRender(data)
         }
 
-        // 2. KLIK "KEMBALI EDIT FILTER"
         binding.btnBackToSetup.setOnClickListener {
             binding.layoutPreview.visibility = View.GONE
             binding.layoutSetup.visibility = View.VISIBLE
-            binding.tvHeaderTitle.text = "🖨️ Pengaturan Cetak PDF"
+            binding.tvHeaderTitle.text = getString(R.string.export_setup_title)
             
-            // Bersihkan memori cache gambar
             binding.ivPdfPreview.setImageBitmap(null)
             currentTempPdf?.delete()
             currentTempPdf = null
         }
 
-        // 3. KLIK "SIMPAN SEBAGAI PDF"
         binding.btnSavePdf.setOnClickListener {
             if (currentTempPdf != null) {
-                val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale("id", "ID"))
+                // Jangan gunakan locale default untuk nama file teknis agar seragam di semua sistem file
+                val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US)
                 exportPdfLauncher.launch("Laporan_Keuangan_${sdf.format(Date())}.pdf")
             }
         }
     }
 
-    // Fungsi Render PDF
     private fun generatePreviewDataAndRender(data: List<com.smartfinance.tracker.data.model.Transaction>) {
         binding.progressBarPreview.visibility = View.VISIBLE
         binding.ivPdfPreview.visibility = View.INVISIBLE
         binding.btnSavePdf.isEnabled = false
 
         val selectedTime = timeEnums[binding.spinnerTime.selectedItemPosition]
+        // Jika kustom, kita tetap tampilkan pilihan tanggalnya (akan lebih aman dan spesifik).
+        // Tapi sementara kita pakai string default yang telah disiapkan di String XML "Laporan Transaksi - %s"
         val timeLabel = if (selectedTime == ExportTimeRange.CUSTOM) "Tanggal Kustom" else timeOptions[binding.spinnerTime.selectedItemPosition]
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 1. Tulis PDF ke file cache
-                val file = ExportUtils.generatePdfToTempFile(requireContext(), data, "Laporan Transaksi - $timeLabel")
+                val file = ExportUtils.generatePdfToTempFile(requireContext(), data, getString(R.string.export_doc_title_prefix, timeLabel))
                 currentTempPdf = file
 
-                // 2. Render halaman pertama menjadi Gambar (Bitmap)
                 val bitmap = renderPdfPageToBitmap(file)
                 
                 withContext(Dispatchers.Main) {
@@ -226,7 +212,7 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.progressBarPreview.visibility = View.GONE
-                    Toast.makeText(requireContext(), "Gagal merender PDF", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.export_toast_fail_render), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -239,7 +225,6 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
                 val renderer = PdfRenderer(fd)
                 val page = renderer.openPage(0) 
 
-                // Resolusi render yang jernih
                 val bitmap = Bitmap.createBitmap(page.width * 2, page.height * 2, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bitmap)
                 canvas.drawColor(Color.WHITE)
@@ -258,7 +243,7 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        currentTempPdf?.delete() // Hapus cache saat ditutup
+        currentTempPdf?.delete() 
         _binding = null
     }
 }
