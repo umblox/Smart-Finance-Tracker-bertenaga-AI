@@ -465,5 +465,8 @@
 
     <!-- ===== Chat AI ===== -->
     <string name="chat_ai_typing">AI is thinking…</string>
+
+    <!-- ===== Category Validation ===== -->
+    <string name="category_err_empty_name">Category name cannot be empty!</string>
     
 </resources>
