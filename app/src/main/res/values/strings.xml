@@ -433,5 +433,10 @@
     <string name="ai_inbox_type_recurring">📅 RUTIN</string>
     <string name="ai_inbox_type_weekly">📊 MINGGUAN</string>
     <string name="ai_inbox_type_insight">💡 WAWASAN</string>
+
+    <!-- ===== Custom Chart Views ===== -->
+    <string name="chart_no_data">Belum ada data bulan lalu &amp; ini</string>
+    <string name="chart_income">Pemasukan</string>
+    <string name="chart_expense">Pengeluaran</string>
     
 </resources>
