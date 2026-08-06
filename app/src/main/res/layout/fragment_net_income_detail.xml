@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView 
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color"
@@ -32,7 +33,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Ringkasan"
+                android:text="@string/detail_summary_title"
                 android:textAlignment="center"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
@@ -52,7 +53,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Pemasukan Bersih"
+                android:text="@string/detail_net_income_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp" />
                 
@@ -60,7 +61,7 @@
                 android:id="@+id/tvNetIncomeTotal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Rp 0"
+                tools:text="Rp 2.500.000"
                 android:textColor="@color/text_primary"
                 android:textSize="24sp"
                 android:textStyle="bold" />
