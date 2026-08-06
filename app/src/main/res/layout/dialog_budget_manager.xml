@@ -19,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
-            android:text="🎯 Anggaran Bulanan"
+            android:text="@string/budget_manager_title"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -28,11 +28,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="Kendalikan pengeluaranmu bulan ini"
+            android:text="@string/budget_manager_subtitle"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
-        <!-- 🔥 FIX: ScrollView otomatis menyesuaikan isi layar -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -51,7 +50,7 @@
             android:layout_width="match_parent"
             android:layout_height="54dp"
             android:layout_marginTop="16dp"
-            android:text="+ BUAT ANGGARAN BARU"
+            android:text="@string/budget_btn_add_new"
             android:textColor="@android:color/white"
             android:textStyle="bold"
             app:backgroundTint="@color/primary"
