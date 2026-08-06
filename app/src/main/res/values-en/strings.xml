@@ -313,5 +313,28 @@
 
     <!-- ===== Worker / Background Sync ===== -->
     <string name="sync_auto_label">Auto-Sync: %1$s</string>
+
+    <!-- ===== Budget Management ===== -->
+    <string name="budget_form_title_new">New Budget</string>
+    <string name="budget_form_title_edit">Edit Budget</string>
+    <string name="budget_form_title_default">Set Budget</string>
+    <string name="budget_category_label">Expense Category:</string>
+    <string name="budget_limit_hint">Monthly Maximum Limit (Rp)</string>
+    <string name="budget_btn_delete">DELETE BUDGET</string>
+    <string name="budget_btn_save">SAVE BUDGET</string>
+    
+    <string name="budget_manager_title">🎯 Monthly Budget</string>
+    <string name="budget_manager_subtitle">Control your expenses this month</string>
+    <string name="budget_btn_add_new">+ CREATE NEW BUDGET</string>
+    <string name="budget_empty_state">No budget set yet.\nClick the button below to create a new one.</string>
+    <string name="budget_warning_over">⚠️ You have exceeded your budget limit!</string>
+    <string name="budget_remaining">Remaining: %1$s</string>
+    
+    <string name="budget_toast_expense_only">Budget can only be set for Expenses!</string>
+    <string name="budget_toast_saved">✅ Budget saved successfully!</string>
+    <string name="budget_delete_title">Delete Budget</string>
+    <string name="budget_delete_message">Are you sure you want to delete this budget limit?</string>
+    <string name="budget_toast_deleted">🗑️ Budget deleted!</string>
+    <string name="budget_toast_delete_fail">❌ Failed to delete budget</string>
     
 </resources>
