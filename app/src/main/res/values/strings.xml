@@ -443,5 +443,9 @@
     <string name="recurring_err_category">Harap pilih Kategori terlebih dahulu!</string>
     <string name="recurring_err_empty">Harap isi Catatan dan Nominal!</string>
     <string name="recurring_err_amount">Nominal tidak valid!</string>
+
+    <!-- ===== Navigasi Waktu Laporan ===== -->
+    <string name="report_this_month">BULAN INI</string>
+    <string name="report_last_month">BULAN LALU</string>
     
 </resources>
