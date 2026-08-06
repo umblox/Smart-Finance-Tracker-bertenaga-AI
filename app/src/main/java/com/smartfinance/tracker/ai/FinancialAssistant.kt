@@ -20,8 +20,7 @@ class FinancialAssistant(private val context: Context) {
     suspend fun parseAndExecuteRawAiResponse(rawText: String): String = withContext(Dispatchers.IO) {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
-        cleanJsonStr = cleanJsonStr.replace(Regex("""^
-```\s*"""), "")
+        cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""\s*```$"""), "")
         cleanJsonStr = cleanJsonStr.trim()
 
@@ -98,6 +97,7 @@ class FinancialAssistant(private val context: Context) {
                     val finalAmount = parseAmount(item)
                     if (finalAmount <= 0.0) continue
                     
+                    // 🔥 Ekstraksi Nama Kontak yang Jauh Lebih Cerdas
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
@@ -115,6 +115,11 @@ class FinancialAssistant(private val context: Context) {
                             if (i == txArray.length() - 1) return@withContext msg
                         }
                         else -> { 
+                            // Menyertakan contact_name ke dalam catatan transaksi biasa jika ditemukan nama orang
+                            if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
+                                val currentNote = item.optString("clean_note", "Transaksi AI")
+                                item.put("clean_note", "$currentNote (B/ $contactNameRaw)")
+                            }
                             executePureTransaction(item, finalAmount, targetTimestamp)
                             isSuccess = true
                         }
@@ -283,12 +288,10 @@ class FinancialAssistant(private val context: Context) {
         db.transactionDao().insert(tx)
 
         if (type == "EXPENSE") {
-            // 🔥 Perbaikan Warning 1: Menghapus Parameter Mubazir (newAmount)
             checkAndTriggerBudgetAlertFromAI(catId, catName)
         }
     }
 
-    // 🔥 Perbaikan Warning 1: Menghapus argumen unused
     private suspend fun checkAndTriggerBudgetAlertFromAI(categoryId: Long, categoryName: String) {
         try {
             val budgetDoc = db.budgetDao().getByCategoryId(categoryId)
@@ -367,7 +370,6 @@ class FinancialAssistant(private val context: Context) {
 
             val txCal = Calendar.getInstance().apply { timeInMillis = timestamp }
             
-            // 🔥 Perbaikan Warning 2: Mengubah Inisialisasi Redundan (Clean When Expression)
             val isTimeMatch = when (timeRange) {
                 "TODAY" -> txCal.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
                 "WEEKLY" -> txCal.get(Calendar.WEEK_OF_YEAR) == calToday.get(Calendar.WEEK_OF_YEAR) && txCal.get(Calendar.YEAR) == calToday.get(Calendar.YEAR)
@@ -498,11 +500,39 @@ class FinancialAssistant(private val context: Context) {
         } catch (e: Exception) { 0.0 }
     }
     
+    // 🔥 PENGUATAN: Regex Cerdas untuk menangkap nama (Anti AI Bodoh)
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH")
-        val textUpper = text.uppercase(Locale.ROOT)
         val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
-        for (name in databasePopulerNames) { if (textUpper.contains(name) || msgUpper.contains(name)) return name }
+        
+        // Coba tangkap dengan pola struktur kalimat (Regex)
+        val patterns = listOf(
+            Regex("BERSAMA\\s+([A-Z]+)"), // "beli rujak bersama fadilah"
+            Regex("SAMA\\s+([A-Z]+)"),    // "beli baju sama ryan"
+            Regex("KE\\s+([A-Z]+)"),      // "bayar utang ke budi"
+            Regex("DARI\\s+([A-Z]+)"),    // "terima cicilan dari joko"
+            Regex("([A-Z]+)\\s+PINJAM"),  // "albi pinjam uang"
+            Regex("([A-Z]+)\\s+NGUTANG")  // "albi ngutang"
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(msgUpper)
+            if (match != null && match.groupValues.size > 1) {
+                val extractedName = match.groupValues[1].trim()
+                // Abaikan jika yang tertangkap adalah kata hubung
+                val ignoredWords = listOf("UANG", "SEBESAR", "DI", "KE", "DARI", "SAMA", "BERSAMA", "ORANG", "TEMAN")
+                if (!ignoredWords.contains(extractedName)) {
+                    return extractedName
+                }
+            }
+        }
+
+        // Fallback jika tidak ada pola, cari di database nama populer
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH", "FADILAH", "ALBI", "RIAN", "AFNAN")
+        val textUpper = text.uppercase(Locale.ROOT)
+        for (name in databasePopulerNames) { 
+            if (textUpper.contains(name) || msgUpper.contains(name)) return name 
+        }
+        
         return "TEMAN"
     }
 }
