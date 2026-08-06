@@ -1,7 +1,9 @@
 package com.smartfinance.tracker.ui.report
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.CategoryRepository
@@ -18,11 +20,11 @@ data class CategoryAnalyticsUiState(
     val totalIncome: Double = 0.0,  
     val totalExpense: Double = 0.0, 
     val transactions: List<Transaction> = emptyList(),
-    val categoryIconMap: Map<String, String> = emptyMap(), // 🔥 MAP IKON
+    val categoryIconMap: Map<String, String> = emptyMap(), 
     val isEmpty: Boolean = true
 )
 
-class CategoryAnalyticsViewModel : ViewModel() {
+class CategoryAnalyticsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = TransactionRepository()
     private val catRepo = CategoryRepository()
     private val _uiState = MutableStateFlow(CategoryAnalyticsUiState())
@@ -38,6 +40,11 @@ class CategoryAnalyticsViewModel : ViewModel() {
             combine(repository.transactions, catRepo.categories) { allTx, cats ->
                 Pair(allTx, cats)
             }.collect { (allTx, cats) ->
+                val app = getApplication<Application>()
+                val strExpenseDetails = app.getString(R.string.trend_expense_details)
+                val strIncomeDetails = app.getString(R.string.trend_income_details)
+                val strNoNote = app.getString(R.string.trend_no_note)
+
                 val timeFilter = try { TimeFilter.valueOf(timeFilterString) } catch (e: Exception) { TimeFilter.MONTHLY }
                 val timeRange = getTimeRange(timeFilter, baseTimeMillis)
                 
@@ -59,16 +66,21 @@ class CategoryAnalyticsViewModel : ViewModel() {
 
                 filteredTx = when (categoryName) {
                     "ALL_NET_INCOME" -> filteredTx
-                    "Rincian Biaya" -> filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
-                    "Rincian Pendapatan" -> filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" }
-                    "FILTER_HUTANG" -> filteredTx.filter { it.type == "DEBT" || it.categoryName.equals("Hutang", true) || it.categoryName.equals("Utang", true) }
-                    "FILTER_PIUTANG" -> filteredTx.filter { it.type == "RECEIVABLE" || it.categoryName.equals("Piutang", true) }
-                    "FILTER_LAINNYA" -> filteredTx.filter { it.categoryName.equals("Penagihan Utang", true) || it.categoryName.equals("Pembayaran kembali", true) }
+                    // 🔥 FIX: Menggunakan string dinamis sebagai parameter logika antar layar
+                    strExpenseDetails -> filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" }
+                    strIncomeDetails -> filteredTx.filter { it.type == "INCOME" || it.type == "DEBT" }
+                    
+                    // 🔥 FIX: Memperlebar filter default database agar mendukung bahasa Inggris
+                    "FILTER_HUTANG" -> filteredTx.filter { it.type == "DEBT" || it.categoryName.equals("Hutang", true) || it.categoryName.equals("Utang", true) || it.categoryName.equals("Debt", true) }
+                    "FILTER_PIUTANG" -> filteredTx.filter { it.type == "RECEIVABLE" || it.categoryName.equals("Piutang", true) || it.categoryName.equals("Receivable", true) || it.categoryName.equals("Accounts Receivable", true) }
+                    "FILTER_LAINNYA" -> filteredTx.filter { it.categoryName.equals("Penagihan Utang", true) || it.categoryName.equals("Pembayaran kembali", true) || it.categoryName.equals("Debt Collection", true) || it.categoryName.equals("Repayment", true) }
+                    
                     else -> filteredTx.filter { it.categoryName == categoryName }
                 }
 
                 if (noteFilter != null) {
-                    filteredTx = filteredTx.filter { it.note.ifBlank { "Tanpa Catatan" } == noteFilter }
+                    // 🔥 FIX: Menyamakan pencarian string dinamis
+                    filteredTx = filteredTx.filter { it.note.ifBlank { strNoNote } == noteFilter }
                 }
                 
                 filteredTx = filteredTx.sortedByDescending { it.timestamp }
@@ -77,9 +89,9 @@ class CategoryAnalyticsViewModel : ViewModel() {
                 val expense = filteredTx.filter { it.type == "EXPENSE" || it.type == "RECEIVABLE" || it.amount < 0 }.sumOf { kotlin.math.abs(it.amount) }
                 
                 val label = dayRange ?: when (timeFilter) {
-                    TimeFilter.DAILY -> "Hari Ini"
-                    TimeFilter.WEEKLY -> "Minggu Ini"
-                    TimeFilter.MONTHLY -> "Bulan Ini"
+                    TimeFilter.DAILY -> app.getString(R.string.analytics_today)
+                    TimeFilter.WEEKLY -> app.getString(R.string.analytics_this_week)
+                    TimeFilter.MONTHLY -> app.getString(R.string.analytics_this_month)
                 }
 
                 val iconMap = cats.associate { it.name to it.iconName }
