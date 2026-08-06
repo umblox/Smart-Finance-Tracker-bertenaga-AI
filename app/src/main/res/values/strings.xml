@@ -272,5 +272,24 @@
     <string name="report_debt">Hutang</string>
     <string name="report_receivable">Piutang</string>
     <string name="report_others">Lainnya</string>
+
+    <!-- ===== Analisis & Tren Kategori ===== -->
+    <string name="analytics_title">Daftar transaksi</string>
+    <string name="analytics_result_count">%1$d hasil</string>
+    <string name="analytics_income">Pemasukan</string>
+    <string name="analytics_expense">Pengeluaran</string>
+    <string name="analytics_empty_tx">Tidak ada transaksi.</string>
+    <string name="analytics_no_note">Tanpa catatan</string>
+
+    <string name="trend_header_detail">Rincian Biaya</string>
+    <string name="trend_header_category">Laporan kategori</string>
+    <string name="trend_total">Total</string>
+    <string name="trend_daily_avg">Rata-rata harian</string>
+    <string name="trend_compare_avg">Dibandingkan Rata-rata 3 Bulan</string>
+    <string name="trend_show_avg">👁 Tampilkan</string>
+    <string name="trend_hide_avg">👁 Sembunyikan</string>
+    <string name="trend_tab_breakdown">Rincian</string>
+    <string name="trend_tab_trend">Tren</string>
+    <string name="trend_no_other_category">Tidak ada kategori lain.</string>
     
 </resources>
