@@ -259,5 +259,17 @@
     <string name="dashboard_empty_category_desc">No funds allocated yet.</string>
     <string name="dashboard_empty_tx_title">Empty Record %1$d</string>
     <string name="dashboard_empty_tx_desc">Waiting for recorded transaction.</string>
+
+    <!-- ===== Report Menu ===== -->
+    <string name="report_summary_title">Report Summary</string>
+    <string name="report_net_income">Net Income</string>
+    <string name="report_view_detail">View details</string>
+    <string name="report_category_title">Category Report</string>
+    <string name="report_income">Income</string>
+    <string name="report_expense">Expense</string>
+    <string name="report_view_by_category">📁 View report by category</string>
+    <string name="report_debt">Debt</string>
+    <string name="report_receivable">Receivable</string>
+    <string name="report_others">Others</string>
     
 </resources>
