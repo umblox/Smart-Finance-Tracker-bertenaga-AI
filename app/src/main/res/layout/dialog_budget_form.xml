@@ -32,7 +32,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Atur Anggaran"
+                    android:text="@string/budget_form_title_default"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:textStyle="bold" />
@@ -48,12 +48,11 @@
                     android:focusable="true"/>
             </LinearLayout>
 
-            <!-- 🔥 FIX: Menggunakan Button Category Picker ala Money Lover -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="6dp"
-                android:text="Kategori Pengeluaran:"
+                android:text="@string/budget_category_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="bold"/>
@@ -65,7 +64,7 @@
                 android:layout_height="54dp"
                 android:layout_marginBottom="16dp"
                 android:gravity="start|center_vertical"
-                android:text="Pilih Kategori"
+                android:text="@string/tx_choose_category"
                 android:textColor="@color/text_primary"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
@@ -75,7 +74,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
-                android:hint="Batas Maksimal Bulanan (Rp)"
+                android:hint="@string/budget_limit_hint"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
@@ -94,7 +93,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginBottom="8dp"
-                android:text="HAPUS ANGGARAN"
+                android:text="@string/budget_btn_delete"
                 android:textColor="@android:color/white"
                 android:visibility="gone"
                 app:backgroundTint="@color/expense_red"
@@ -104,7 +103,7 @@
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
-                android:text="SIMPAN ANGGARAN"
+                android:text="@string/budget_btn_save"
                 android:textColor="@android:color/white"
                 app:backgroundTint="@color/primary"
                 app:cornerRadius="12dp" />
