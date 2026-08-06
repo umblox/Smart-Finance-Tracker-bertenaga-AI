@@ -30,7 +30,9 @@ class DebtViewModel : ViewModel() {
 
     private var currentCalendar = Calendar.getInstance()
     private var activeTab = "DEBT"
-    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID"))
+    
+    // 🔥 FIX: Menggunakan Locale.getDefault() agar bulan beradaptasi dengan bahasa HP
+    private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
 
     init {
         repository.startListening()
@@ -79,7 +81,8 @@ class DebtViewModel : ViewModel() {
             .sortedByDescending { it.timestamp }
 
         _uiState.value = DebtUiState(
-            currentMonthLabel = sdfMonthLabel.format(currentCalendar.time).uppercase(Locale.ROOT),
+            // 🔥 FIX: Uppercase disesuaikan dengan Locale sistem
+            currentMonthLabel = sdfMonthLabel.format(currentCalendar.time).uppercase(Locale.getDefault()),
             totalActiveDebt = totalDebt,
             totalActiveReceivable = totalReceivable,
             displayedDebts = activeTabFiltered,
@@ -89,13 +92,11 @@ class DebtViewModel : ViewModel() {
 
     suspend fun saveNewDebtAndTransaction(debtId: String, debtMap: HashMap<String, Any>, txId: String, txMap: HashMap<String, Any>) {
         repository.saveDebt(debtId, debtMap)
-        // 🔥 FIX: Menggunakan Repositori Lokal (Room)
         txRepository.saveTransaction(txId, txMap) 
     }
 
     suspend fun processDebtInstallment(debtId: String, newRemaining: Double, isPaid: Boolean, txId: String, txMap: HashMap<String, Any>) {
         repository.updateDebtFields(debtId, mapOf("remainingAmount" to newRemaining, "isPaid" to isPaid))
-        // 🔥 FIX: Menggunakan Repositori Lokal (Room)
         txRepository.saveTransaction(txId, txMap)
     }
 
