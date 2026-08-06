@@ -496,5 +496,13 @@
     <string name="icon_group_lifestyle">Lifestyle</string>
     <string name="icon_group_event">Events</string>
     <string name="icon_group_health">Health &amp; Education</string>
+
+    <!-- Backup & Restore -->
+    <string name="backup_export_success">✅ Export Success! File saved successfully.</string>
+    <string name="backup_export_failed">❌ Export Failed: %1$s</string>
+    <string name="backup_import_loading">⏳ Restoring data...</string>
+    <string name="backup_import_success">✅ Import Success! The app will now restart.</string>
+    <string name="backup_import_empty">❌ Import Failed: File is empty or unreadable.</string>
+    <string name="backup_import_error">❌ Import Error: %1$s</string>
     
 </resources>
