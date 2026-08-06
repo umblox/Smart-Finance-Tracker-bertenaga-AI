@@ -290,5 +290,9 @@
     <string name="trend_tab_breakdown">Breakdown</string>
     <string name="trend_tab_trend">Trend</string>
     <string name="trend_no_other_category">No other categories available.</string>
+
+    <!-- ===== Income & Category Details ===== -->
+    <string name="detail_summary_title">Summary</string>
+    <string name="detail_net_income_label">Net Income</string>
     
 </resources>
