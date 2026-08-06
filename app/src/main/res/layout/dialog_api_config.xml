@@ -25,17 +25,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:text="⚙️ Konfigurasi Mesin AI"
+                android:text="@string/api_config_title"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <!-- 🔥 INPUT NAMA PANGGILAN -->
+            <!-- INPUT NAMA PANGGILAN -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="Panggilan Anda (Untuk AI):"
+                android:text="@string/api_config_nickname_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -54,7 +54,7 @@
                     android:id="@+id/etUserName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Contoh: Ikromul Umam (Mam)"
+                    android:hint="@string/api_config_nickname_hint"
                     android:inputType="textPersonName"
                     android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -64,7 +64,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="Pilih Mesin AI Server:"
+                android:text="@string/api_config_engine_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -91,7 +91,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="Kunci API (API Key):"
+                android:text="@string/api_config_key_label"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -110,7 +110,7 @@
                     android:id="@+id/etApiKey"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Masukkan API Key..."
+                    android:hint="@string/api_config_key_hint"
                     android:inputType="textVisiblePassword"
                     android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -127,7 +127,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
-                    android:text="Batal"
+                    android:text="@string/action_cancel"
                     android:textColor="@color/text_secondary"
                     app:backgroundTint="@color/divider_color"
                     app:cornerRadius="24dp" />
@@ -137,7 +137,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:text="Simpan"
+                    android:text="@string/action_save"
                     android:textColor="@color/surface_white"
                     app:backgroundTint="@color/primary"
                     app:cornerRadius="24dp" />
