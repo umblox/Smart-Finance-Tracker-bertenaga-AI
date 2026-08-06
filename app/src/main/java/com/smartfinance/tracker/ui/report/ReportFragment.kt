@@ -25,6 +25,7 @@ class ReportFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: ReportViewModel
+    // Uang tetap dikunci pada Format IDR agar muncul Rp
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     private fun getThemeColor(resId: Int): Int = ContextCompat.getColor(requireContext(), resId)
@@ -42,7 +43,6 @@ class ReportFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         val activeTimePrefs = prefs.getLong("active_report_time", System.currentTimeMillis())
 
-        // Memicu pencarian berdasarkan bulan yang tersimpan
         viewModel.setTimeMillis(activeTimePrefs)
         
         setupNavigationListeners()
@@ -55,7 +55,6 @@ class ReportFragment : Fragment() {
         }
     }
     
-    // 🔥 PENCETAK LORONG WAKTU ANTI-INFINITY
     private fun renderTimeNav(state: ReportUiState) {
         binding.layoutTimeNavigation.removeAllViews()
         val density = requireContext().resources.displayMetrics.density
@@ -146,7 +145,7 @@ class ReportFragment : Fragment() {
                 arguments = Bundle().apply {
                     putString("EXTRA_CATEGORY_NAME", "FILTER_HUTANG")
                     putLong("EXTRA_BASE_TIME", viewModel.getBaseTime())
-                    putString("EXTRA_TIME_FILTER", "MONTHLY") // Karena Lorong Waktu = Bulanan
+                    putString("EXTRA_TIME_FILTER", "MONTHLY") 
                 }
             }
             (activity as? com.smartfinance.tracker.MainActivity)?.navigateToSpecificFragment(fragment)
