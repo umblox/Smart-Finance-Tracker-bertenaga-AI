@@ -39,7 +39,6 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
     private lateinit var viewModel: ExportViewModel
 
-    // 🔥 FIX: Locale default agar format bulan mengikuti sistem
     private val sdfDisplayDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
     private lateinit var timeOptions: Array<String>
@@ -77,9 +76,9 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
 
         viewModel = ViewModelProvider(this)[ExportViewModel::class.java]
         
-        // Mengisi array dari String Resources
-        timeOptions = resources.getStringArray(R.string.export_time_options)
-        typeOptions = resources.getStringArray(R.string.export_type_options)
+        // 🔥 FIX: Memanggil String Array menggunakan R.array (bukan R.string)
+        timeOptions = resources.getStringArray(R.array.export_time_options)
+        typeOptions = resources.getStringArray(R.array.export_type_options)
 
         setupUI()
     }
@@ -177,7 +176,6 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnSavePdf.setOnClickListener {
             if (currentTempPdf != null) {
-                // Jangan gunakan locale default untuk nama file teknis agar seragam di semua sistem file
                 val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US)
                 exportPdfLauncher.launch("Laporan_Keuangan_${sdf.format(Date())}.pdf")
             }
@@ -190,8 +188,6 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
         binding.btnSavePdf.isEnabled = false
 
         val selectedTime = timeEnums[binding.spinnerTime.selectedItemPosition]
-        // Jika kustom, kita tetap tampilkan pilihan tanggalnya (akan lebih aman dan spesifik).
-        // Tapi sementara kita pakai string default yang telah disiapkan di String XML "Laporan Transaksi - %s"
         val timeLabel = if (selectedTime == ExportTimeRange.CUSTOM) "Tanggal Kustom" else timeOptions[binding.spinnerTime.selectedItemPosition]
 
         viewLifecycleOwner.lifecycleScope.launch {
