@@ -20,16 +20,30 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
+        // 🔥 FIX PROMPT: Logika asli Anda dikembalikan utuh + Disuntikkan Guardrails Ekstrem!
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
-            Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
-            WAKTU SAAT INI: {TODAY_DATE}
             
-            [SALDO UANG SAYA SAAT INI]: {CURRENT_BALANCE}
-            [DATABASE KATEGORI]: \n{CAT_CONTEXT}
-            [HUTANG SAYA (SAYA PINJAM)]: \n{MY_DEBT_CONTEXT}
-            [PIUTANG SAYA (ORANG PINJAM)]: \n{OTHER_RECEIVABLE_CONTEXT}
-            [RIWAYAT TRANSAKSI TERAKHIR]: \n{TX_CONTEXT}
+            [DATA KEUANGAN SAAT INI]
+            WAKTU SAAT INI: {TODAY_DATE}
+            SALDO UANG SAYA SAAT INI: {CURRENT_BALANCE}
+            
+            DATABASE KATEGORI:
+            {CAT_CONTEXT}
+            
+            HUTANG SAYA (SAYA PINJAM):
+            {MY_DEBT_CONTEXT}
+            
+            PIUTANG SAYA (ORANG PINJAM):
+            {OTHER_RECEIVABLE_CONTEXT}
+            
+            RIWAYAT TRANSAKSI TERAKHIR:
+            {TX_CONTEXT}
+            
+            🚨 ATURAN MUTLAK PENOLAKAN (STRICT GUARDRAILS) 🚨
+            1. FOKUS KEUANGAN: Anda HANYA BOLEH membahas pencatatan keuangan pribadi, anggaran, hutang, piutang, dan laporan transaksi.
+            2. ANTI-SARAN & TOPIK UMUM: Jika pengguna meminta SARAN, REKOMENDASI (seperti resep, wisata, hewan, hobi, dll), ATAU bertanya hal umum di luar aplikasi keuangan (contoh: "siapa presiden...", "ikan apa..."), ANDA WAJIB MENOLAKNYA. Jawab dengan sopan bahwa Anda adalah asisten finansial dan tidak bisa menjawab itu.
+            3. MULTILINGUAL RULE: Aturan penolakan ini berlaku di SEMUA BAHASA. Jika pengguna memancing menggunakan bahasa Inggris (contoh: "give me advice..."), tolak dalam bahasa tersebut. Tetap pertahankan batasan ini!
             
             ATURAN MUTLAK KECERDASAN:
             1. PENCATATAN (TRANSACTION): Pemasukan -> "INCOME". Pengeluaran -> "EXPENSE". LANGSUNG EKSEKUSI jika jelas. Tunda ke 'pending_transaction' HANYA jika sangat aneh.
@@ -62,7 +76,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
         val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
         
-        // 🔥 FIX: Jika nama tidak diset atau kosong, kembalikan ke nilai netral "Pengguna"
         val savedName = prefs.getString("user_name", "")?.trim()
         val userName = if (savedName.isNullOrEmpty()) "Pengguna" else savedName
         
@@ -87,7 +100,8 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
 
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
             for (tx in allTx.take(50)) {
-                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} | Kategori: ${tx.categoryName} | Tipe: ${tx.type} | Nominal: Rp${tx.amount}\n")
+                // 🔥 FIX CRASH: Menggunakan appendLine() alih-alih \n untuk menghindari error Illegal Escape \v
+                txContext.appendLine("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} | Kategori: ${tx.categoryName} | Tipe: ${tx.type} | Nominal: Rp${tx.amount}")
             }
 
             val allCats = db.categoryDao().getAllSync()
@@ -95,18 +109,25 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             val subs = allCats.filter { it.parentCategoryId != null }
 
             for (p in parents) {
-                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} | Nama: ${p.name}\n")
+                // 🔥 FIX CRASH: Menggunakan appendLine()
+                catContext.appendLine("📁 [INDUK - ${p.type}] ID: ${p.id} | Nama: ${p.name}")
                 val kids = subs.filter { it.parentCategoryId == p.id }
                 for (k in kids) {
-                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} | Nama: ${k.name}\n")
+                    // 🔥 FIX CRASH: Menggunakan appendLine()
+                    catContext.appendLine("   └── 💰 [SUB-KATEGORI] ID: ${k.id} | Nama: ${k.name}")
                 }
             }
 
             val allDebts = db.debtDao().getAllSync()
             for (debt in allDebts) {
                 if (!debt.isPaid) {
-                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} | Sisa: Rp ${debt.remainingAmount}\n")
-                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya | Sisa: Rp ${debt.remainingAmount}\n")
+                    if (debt.type == "DEBT") {
+                        // 🔥 FIX CRASH: Menggunakan appendLine()
+                        myDebtContext.appendLine("- Saya berhutang ke: ${debt.contactName} | Sisa: Rp ${debt.remainingAmount}")
+                    } else {
+                        // 🔥 FIX CRASH: Menggunakan appendLine()
+                        otherReceivableContext.appendLine("- ${debt.contactName} berhutang ke saya | Sisa: Rp ${debt.remainingAmount}")
+                    }
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
