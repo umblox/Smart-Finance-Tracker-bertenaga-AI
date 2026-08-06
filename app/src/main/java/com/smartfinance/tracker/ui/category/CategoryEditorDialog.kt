@@ -68,26 +68,23 @@ class CategoryEditorDialog : DialogFragment() {
         
         currentSelectedIcon = arguments?.getString("ICON") ?: "ic_custom"
 
-        binding.tvTitle.text = if (docId == null) "Tambah Kategori Baru" else "Ubah Detail Kategori"
+        binding.tvTitle.text = if (docId == null) getString(R.string.category_editor_title_new) else getString(R.string.category_editor_title_edit)
         binding.btnDelete.visibility = if (docId != null && !isLocked) View.VISIBLE else View.GONE
         binding.btnSave.visibility = if (docId != null && isLocked) View.GONE else View.VISIBLE
         
         binding.etName.setText(currentName)
         
-        // 🔥 TAMENG ANTI CRASH SAAT MENERIMA IKON BARU
         childFragmentManager.setFragmentResultListener("icon_request", viewLifecycleOwner) { _, bundle ->
             val newIcon = bundle.getString("selected_icon") ?: "ic_custom"
             currentSelectedIcon = newIcon
             try {
                 binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(newIcon))
             } catch (e: Exception) {
-                // Jika file XML korup, pasang fallback agar tidak Force Close
                 binding.ivCategoryIcon.setImageResource(R.drawable.ic_wallet) 
-                Toast.makeText(requireContext(), "Peringatan: File Ikon Rusak!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.category_toast_icon_error), Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 🔥 TAMENG ANTI CRASH SAAT LOAD AWAL
         try {
             binding.ivCategoryIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(currentSelectedIcon))
         } catch (e: Exception) {
@@ -119,7 +116,7 @@ class CategoryEditorDialog : DialogFragment() {
                 }
                 availableParents.addAll(typedParents)
 
-                val listNames = mutableListOf("[Tanpa Induk / Kategori Utama]")
+                val listNames = mutableListOf(getString(R.string.category_editor_no_parent))
                 availableParents.forEach { listNames.add(it.name) }
 
                 if (context != null) {
@@ -140,10 +137,10 @@ class CategoryEditorDialog : DialogFragment() {
                 lifecycleScope.launch {
                     try {
                         viewModel.deleteCategoryFromCloud(docId)
-                        Toast.makeText(context, "Kategori sukses dilenyapkan!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, getString(R.string.category_toast_deleted), Toast.LENGTH_SHORT).show()
                         dismiss()
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Gagal menghapus!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, getString(R.string.category_toast_delete_fail), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -161,7 +158,7 @@ class CategoryEditorDialog : DialogFragment() {
                         name = finalName, type = activeTypeFilter, 
                         iconName = currentSelectedIcon, isLocked = isLocked, parentId = finalParentId
                     )
-                    Toast.makeText(context, "Kategori sukses disimpan!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.category_toast_saved), Toast.LENGTH_SHORT).show()
                     dismiss()
                 } catch (e: Exception) {
                     Toast.makeText(context, "❌ ${e.message}", Toast.LENGTH_SHORT).show()
