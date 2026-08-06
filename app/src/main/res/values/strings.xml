@@ -469,5 +469,10 @@
 
     <!-- ===== Validasi Kategori ===== -->
     <string name="category_err_empty_name">Nama kategori tidak boleh kosong!</string>
+
+    <!-- ===== Validasi Anggaran (Budget) ===== -->
+    <string name="budget_err_category">Pilih kategori terlebih dahulu!</string>
+    <string name="budget_err_empty_limit">Mohon isi nominal batas anggaran!</string>
+    <string name="budget_err_invalid_amount">Nominal tidak valid!</string>
     
 </resources>
