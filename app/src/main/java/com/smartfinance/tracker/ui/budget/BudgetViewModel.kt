@@ -1,13 +1,16 @@
 package com.smartfinance.tracker.ui.budget
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.data.repository.BudgetRepository
 import com.smartfinance.tracker.data.repository.CategoryRepository
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import java.util.HashMap
 
-class BudgetViewModel : ViewModel() {
+// 🔥 FIX: Upgrade ke AndroidViewModel agar aman mengakses String Resources
+class BudgetViewModel(application: Application) : AndroidViewModel(application) {
     private val budgetRepo = BudgetRepository()
     private val txRepo = TransactionRepository()
     private val catRepo = CategoryRepository()
@@ -22,13 +25,15 @@ class BudgetViewModel : ViewModel() {
         catRepo.startListening()
     }
 
-    // 🔥 LOGIKA BISNIS: Validasi & Pembuatan Data
     suspend fun validateAndSaveBudget(docId: String?, limitAmountStr: String, category: Category?) {
-        if (category == null) throw Exception("Pilih kategori terlebih dahulu!")
-        if (limitAmountStr.isBlank()) throw Exception("Mohon isi nominal batas anggaran!")
+        val app = getApplication<Application>()
+        
+        // 🔥 FIX: Menggunakan string dinamis yang mendukung dwibahasa
+        if (category == null) throw Exception(app.getString(R.string.budget_err_category))
+        if (limitAmountStr.isBlank()) throw Exception(app.getString(R.string.budget_err_empty_limit))
         
         val limitAmount = limitAmountStr.toDoubleOrNull() ?: 0.0
-        if (limitAmount <= 0) throw Exception("Nominal tidak valid!")
+        if (limitAmount <= 0) throw Exception(app.getString(R.string.budget_err_invalid_amount))
 
         val data = HashMap<String, Any>().apply {
             put("categoryId", category.id)
