@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,9 +18,12 @@ import java.util.Date
 import java.util.Locale
 
 object ExportUtils {
+    // Mata uang tetap menggunakan standar Rupiah (IDR)
     private val formatRp = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-    private val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
-    private val sdfDateTime = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
+    
+    // 🔥 FIX: Menggunakan Locale.getDefault() agar format tanggal fleksibel
+    private val sdfDate = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+    private val sdfDateTime = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
 
     // 🔥 Fungsi membuat file PDF Cache sementara (untuk keperluan Preview)
     suspend fun generatePdfToTempFile(context: Context, transactions: List<Transaction>, title: String): File {
@@ -43,13 +47,18 @@ object ExportUtils {
             fun drawHeaders() {
                 canvas.drawText(title, 50f, startY, titlePaint)
                 startY += 20f
-                canvas.drawText("Dicetak pada: ${sdfDateTime.format(Date())} | Total Data: ${transactions.size}", 50f, startY, textPaint)
+                
+                // 🔥 FIX: Menggunakan string dinamis dari resources
+                val printedText = context.getString(R.string.export_printed_at, sdfDateTime.format(Date()), transactions.size)
+                canvas.drawText(printedText, 50f, startY, textPaint)
                 startY += 40f
 
-                canvas.drawText("Tanggal", 50f, startY, headerPaint)
-                canvas.drawText("Kategori", 140f, startY, headerPaint)
-                canvas.drawText("Catatan", 280f, startY, headerPaint)
-                canvas.drawText("Nominal", 460f, startY, headerPaint)
+                // 🔥 FIX: Header tabel menggunakan string dinamis dwibahasa
+                canvas.drawText(context.getString(R.string.export_header_date), 50f, startY, headerPaint)
+                canvas.drawText(context.getString(R.string.export_header_category), 140f, startY, headerPaint)
+                canvas.drawText(context.getString(R.string.export_header_note), 280f, startY, headerPaint)
+                canvas.drawText(context.getString(R.string.export_header_amount), 460f, startY, headerPaint)
+                
                 startY += 10f
                 canvas.drawLine(50f, startY, 545f, startY, linePaint)
                 startY += 20f
