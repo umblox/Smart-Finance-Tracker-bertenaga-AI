@@ -481,5 +481,21 @@
     <string name="export_header_category">Kategori</string>
     <string name="export_header_note">Catatan</string>
     <string name="export_header_amount">Nominal</string>
+
+    <!-- ===== Grup Ikon Kategori ===== -->
+    <string name="icon_group_salary">Gaji &amp; Tunjangan</string>
+    <string name="icon_group_business">Usaha &amp; Jasa</string>
+    <string name="icon_group_investment">Investasi</string>
+    <string name="icon_group_gift">Hadiah &amp; Warisan</string>
+    <string name="icon_group_refund">Klaim &amp; Refund</string>
+    <string name="icon_group_savings">Simpanan</string>
+    <string name="icon_group_travel">Traveling</string>
+    <string name="icon_group_food">Makanan</string>
+    <string name="icon_group_transport">Kendaraan</string>
+    <string name="icon_group_home">Rumah</string>
+    <string name="icon_group_shopping">Belanja</string>
+    <string name="icon_group_lifestyle">Gaya Hidup</string>
+    <string name="icon_group_event">Acara</string>
+    <string name="icon_group_health">Kesehatan</string>
     
 </resources>
