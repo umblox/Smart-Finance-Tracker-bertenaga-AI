@@ -442,5 +442,9 @@
     <string name="recurring_err_category">Please select a Category first!</string>
     <string name="recurring_err_empty">Please fill in the Note and Amount!</string>
     <string name="recurring_err_amount">Invalid amount!</string>
+
+    <!-- ===== Report Time Navigation ===== -->
+    <string name="report_this_month">THIS MONTH</string>
+    <string name="report_last_month">LAST MONTH</string>
     
 </resources>
