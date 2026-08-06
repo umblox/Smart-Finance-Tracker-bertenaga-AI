@@ -54,7 +54,6 @@ class TransactionEditorDialog(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionPremiumBinding.inflate(layoutInflater)
         
-        // 🔥 FIX: Hapus paksaan tema
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root)
             .create()
@@ -78,17 +77,25 @@ class TransactionEditorDialog(
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
 
         if (isDebtTransaction) {
-            binding.rbPremiumTxExpense.text = getString(R.string.debt_rb_expense)
-            binding.rbPremiumTxIncome.text = getString(R.string.debt_rb_income)
-            
             binding.tvContactLabel.visibility = View.VISIBLE
             binding.layoutContact.visibility = View.VISIBLE
-            binding.btnCategoryPicker.visibility = View.GONE
-            binding.tvCategoryLabel.visibility = View.GONE
             
-            val isReceivableInitial = currentCategoryId == 104L || currentNote.contains("PIUTANG")
-            if (isReceivableInitial) binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
-            currentType = "DEBT"
+            // 🔥 FIX: Jangan sembunyikan Category Picker untuk hutang piutang!
+            binding.btnCategoryPicker.visibility = View.VISIBLE
+            binding.tvCategoryLabel.visibility = View.VISIBLE
+            
+            // 🔥 FIX: Matikan klik pada RadioButton agar flow kas murni dikunci oleh pilihan Kategori
+            binding.rbPremiumTxIncome.isEnabled = false
+            binding.rbPremiumTxExpense.isEnabled = false
+            
+            // 🔥 FIX: Logika Arus Kas (Cash Flow) yang benar:
+            // 101 (Hutang diterima) = INCOME
+            // 103 (Terima Cicilan Piutang) = INCOME
+            // 104 (Memberikan Piutang) = EXPENSE
+            // 102 (Membayar Hutang) = EXPENSE
+            val isIncomeFlow = currentCategoryId == 101L || currentCategoryId == 103L
+            if (isIncomeFlow) binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
+            currentType = if (isIncomeFlow) "INCOME" else "EXPENSE"
 
             var extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
             if (extractedName.contains("-")) extractedName = extractedName.split("-")[0].trim()
@@ -113,15 +120,13 @@ class TransactionEditorDialog(
         }
 
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
-            if (!isInitialized) return@setOnCheckedChangeListener 
+            if (!isInitialized || isDebtTransaction) return@setOnCheckedChangeListener 
 
-            if (!isDebtTransaction) {
-                val newType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
-                if (currentType != newType) {
-                    currentType = newType
-                    selectedCategoryMap = null
-                    binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
-                }
+            val newType = if (checkedId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
+            if (currentType != newType) {
+                currentType = newType
+                selectedCategoryMap = null
+                binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
             }
         }
         
@@ -133,28 +138,25 @@ class TransactionEditorDialog(
             } catch (e: Exception) {
                 allCategoriesCloud = listOf(
                     mapOf("id" to 101L, "name" to "Hutang", "type" to "DEBT"),
-                    mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT")
+                    mapOf("id" to 104L, "name" to "Piutang", "type" to "DEBT"),
+                    mapOf("id" to 102L, "name" to "Pembayaran kembali", "type" to "DEBT"),
+                    mapOf("id" to 103L, "name" to "Penagihan Utang", "type" to "DEBT")
                 )
             }
             
-            val targetSearchId = if (isDebtTransaction) {
-                if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
-            } else {
-                currentCategoryId
-            }
-            
-            val dbCategory = allCategoriesCloud.find { (it["id"] as? Number)?.toLong() == targetSearchId }
+            // 🔥 FIX: Cukup cari berdasarkan ID kategori saat ini
+            val dbCategory = allCategoriesCloud.find { (it["id"] as? Number)?.toLong() == currentCategoryId }
             if (dbCategory != null) {
                 selectedCategoryMap = dbCategory
+            } else {
+                selectedCategoryMap = mapOf("id" to currentCategoryId, "name" to currentCategoryName, "type" to currentType)
             }
 
-            if (!isDebtTransaction) {
-                val nameToDisplay = selectedCategoryMap?.get("name") as? String ?: currentCategoryName
-                if (nameToDisplay.isNotBlank() && nameToDisplay != "null") {
-                    binding.btnCategoryPicker.text = nameToDisplay
-                } else {
-                    binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
-                }
+            val nameToDisplay = selectedCategoryMap?.get("name") as? String ?: currentCategoryName
+            if (nameToDisplay.isNotBlank() && nameToDisplay != "null") {
+                binding.btnCategoryPicker.text = nameToDisplay
+            } else {
+                binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
             }
         }
 
@@ -180,7 +182,7 @@ class TransactionEditorDialog(
 
             if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && docId.isNotEmpty()) {
                 
-                if (!isDebtTransaction && selectedCategoryMap == null) {
+                if (selectedCategoryMap == null) {
                     Toast.makeText(context, getString(R.string.tx_toast_select_category), Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
@@ -191,20 +193,17 @@ class TransactionEditorDialog(
                     else sdfPremium.parse(dateVal)?.time ?: currentTimestamp 
                 } catch (e: Exception) { currentTimestamp }
                 
-                val catId = if (isDebtTransaction) {
-                     if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) 104L else 101L
-                } else {
-                     (selectedCategoryMap!!["id"] as? Number)?.toLong() ?: 15L
-                }
-                
-                val catName = if (isDebtTransaction) {
-                     if (catId == 104L) "Piutang" else "Hutang"
-                } else {
-                     selectedCategoryMap!!["name"] as? String ?: "Umum"
-                }
+                val catId = (selectedCategoryMap!!["id"] as? Number)?.toLong() ?: 15L
+                val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
 
                 lifecycleScope.launch {
-                    var finalTxType = if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
+                    // 🔥 FIX: Logika finalTxType dikunci otomatis berdasarkan Kategori untuk hutang/piutang
+                    val finalTxType = if (isDebtTransaction) {
+                        if (catId == 101L || catId == 103L) "INCOME" else "EXPENSE"
+                    } else {
+                        if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
+                    }
+                    
                     var finalNote = noteRawVal.uppercase(Locale.ROOT)
 
                     if (isDebtTransaction) {
@@ -214,10 +213,7 @@ class TransactionEditorDialog(
                             return@launch
                         }
 
-                        val isReceivableSelected = binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id
-                        
-                        val selectedDebtType = if (isReceivableSelected) "RECEIVABLE" else "DEBT"
-                        finalTxType = if (isReceivableSelected) "EXPENSE" else "INCOME"
+                        val selectedDebtType = if (catId == 104L || catId == 103L) "RECEIVABLE" else "DEBT"
                         finalNote = "[$catName] $contactNameVal - $finalNote"
 
                         viewModel.updateDebtFields(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
@@ -261,6 +257,12 @@ class TransactionEditorDialog(
             
             selectedCategoryMap = mappedCat
             binding.btnCategoryPicker.text = selectedCat.name
+            
+            // 🔥 FIX: Perbarui RadioButton otomatis saat pengguna mengganti kategori hutang/piutang
+            if (isDebtTransaction) {
+                val isIncomeFlow = selectedCat.id == 101L || selectedCat.id == 103L
+                if (isIncomeFlow) binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
+            }
         }.show(parentFragmentManager, "CategoryPickerDialog")
     }
 
