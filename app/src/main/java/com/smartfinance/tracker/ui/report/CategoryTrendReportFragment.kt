@@ -82,7 +82,7 @@ class CategoryTrendReportFragment : Fragment() {
         val options = state.availableCategories.toTypedArray()
         
         if (options.isEmpty()) {
-            Toast.makeText(requireContext(), "Tidak ada kategori lain.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.trend_no_other_category), Toast.LENGTH_SHORT).show()
             return
         }
         android.app.AlertDialog.Builder(requireContext())
@@ -140,12 +140,12 @@ class CategoryTrendReportFragment : Fragment() {
         renderTimeNav(state)
 
         if (state.isAvgVisible) {
-            binding.btnToggleAvgVisibility.text = "👁 Hide"
+            binding.btnToggleAvgVisibility.text = getString(R.string.trend_hide_avg)
             val diffPrefix = if (state.diffFromAvg > 0) "+" else ""
             binding.tv3MonthAvgDiff.text = "$diffPrefix${formatRupiah.format(state.diffFromAvg)}"
             binding.tv3MonthAvgDiff.setTextColor(if (state.diffFromAvg > 0) ContextCompat.getColor(requireContext(), R.color.expense_red) else ContextCompat.getColor(requireContext(), R.color.income_green))
         } else {
-            binding.btnToggleAvgVisibility.text = "👁 Show"
+            binding.btnToggleAvgVisibility.text = getString(R.string.trend_show_avg)
             binding.tv3MonthAvgDiff.text = "******"
             binding.tv3MonthAvgDiff.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
         }
@@ -191,7 +191,6 @@ class CategoryTrendReportFragment : Fragment() {
     }
 
     private fun renderVisualMode() {
-        // 🔥 Perbaikan Warning 3: Menghilangkan "?: return" karena .value StateFlow murni Non-Nullable!
         val state = viewModel.uiState.value 
         
         if (state.targetType == "NOTE") {
