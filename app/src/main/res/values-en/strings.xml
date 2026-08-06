@@ -422,5 +422,15 @@
     
     <string name="export_category_all">All Categories</string>
     <string name="export_doc_title_prefix">Transaction Report - %1$s</string>
+
+    <!-- ===== AI Notification Inbox ===== -->
+    <string name="ai_inbox_title">🤖 AI Financial Assistant</string>
+    <string name="ai_inbox_empty_title">No new messages</string>
+    <string name="ai_inbox_empty_desc">AI will notify you if there are budget anomalies or weekly summaries.</string>
+    <string name="ai_inbox_mark_read">Mark All as Read</string>
+    <string name="ai_inbox_type_budget">🚨 BUDGET</string>
+    <string name="ai_inbox_type_recurring">📅 RECURRING</string>
+    <string name="ai_inbox_type_weekly">📊 WEEKLY</string>
+    <string name="ai_inbox_type_insight">💡 INSIGHT</string>
     
 </resources>
