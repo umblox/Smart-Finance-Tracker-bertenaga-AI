@@ -1,6 +1,5 @@
 package com.smartfinance.tracker.ui.budget
 
-import android.app.AlertDialog
 import android.app.Dialog
 import android.graphics.Typeface
 import android.os.Bundle
@@ -14,6 +13,7 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Budget
 import com.smartfinance.tracker.databinding.DialogBudgetManagerBinding
@@ -39,16 +39,15 @@ class BudgetManagerDialog : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogBudgetManagerBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+        // 🔥 FIX: Upgrade UI ke Material
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setView(binding.root).create()
 
-        // 🔥 KUNCI MVVM: Gunakan requireActivity() agar sinkron dengan Form
         viewModel = ViewModelProvider(requireActivity())[BudgetViewModel::class.java]
 
         binding.btnAddBudget.setOnClickListener {
             BudgetFormDialog.newInstance(null).show(parentFragmentManager, "BudgetForm")
         }
 
-        // Pantau Perubahan Data (Anggaran & Transaksi)
         lifecycleScope.launch {
             launch {
                 viewModel.budgets.collect { budgets -> renderBudgets(budgets) }
@@ -68,7 +67,7 @@ class BudgetManagerDialog : DialogFragment() {
 
         if (budgets.isEmpty()) {
             binding.listContainer.addView(TextView(requireContext()).apply { 
-                text = "Belum ada anggaran yang diatur.\nKlik tombol di bawah untuk membuat baru."
+                text = getString(R.string.budget_empty_state)
                 setTextColor(getThemeColor(R.color.text_secondary)); textSize = 13f
                 textAlignment = View.TEXT_ALIGNMENT_CENTER; setPadding(0, (40 * density).toInt(), 0, (40 * density).toInt()) 
             })
@@ -92,7 +91,6 @@ class BudgetManagerDialog : DialogFragment() {
                 radius = 12 * density; cardElevation = 1 * density; setCardBackgroundColor(getThemeColor(R.color.surface_white))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12 * density).toInt() }
                 
-                // 🔥 Buka Layout Edit Form saat di-klik
                 setOnClickListener { 
                     BudgetFormDialog.newInstance(budget.id).show(parentFragmentManager, "BudgetForm")
                 }
@@ -123,11 +121,11 @@ class BudgetManagerDialog : DialogFragment() {
             
             if (isOverBudget) {
                 row.addView(TextView(requireContext()).apply { 
-                    text = "⚠️ Kamu sudah melebihi batas anggaran!"; setTextColor(getThemeColor(R.color.expense_red)); textSize = 11f; setPadding(0, (4*density).toInt(), 0, 0)
+                    text = getString(R.string.budget_warning_over); setTextColor(getThemeColor(R.color.expense_red)); textSize = 11f; setPadding(0, (4*density).toInt(), 0, 0)
                 })
             } else {
                  row.addView(TextView(requireContext()).apply { 
-                    text = "Tersisa: ${formatRp.format(budget.limitAmount - spentAmount)}"; setTextColor(getThemeColor(R.color.income_green)); textSize = 11f; setPadding(0, (4*density).toInt(), 0, 0)
+                    text = getString(R.string.budget_remaining, formatRp.format(budget.limitAmount - spentAmount)); setTextColor(getThemeColor(R.color.income_green)); textSize = 11f; setPadding(0, (4*density).toInt(), 0, 0)
                 })
             }
 
