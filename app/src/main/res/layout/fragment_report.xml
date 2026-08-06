@@ -2,6 +2,7 @@
 <androidx.core.widget.NestedScrollView 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color"
@@ -17,13 +18,13 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ringkasan Laporan"
+            android:text="@string/report_summary_title"
             android:textAlignment="center"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
 
-        <!-- 🔥 FIX: Lorong Waktu Horizontal Pengganti Toggle Button -->
+        <!-- Lorong Waktu Horizontal -->
         <HorizontalScrollView
             android:id="@+id/scrollTimeNav"
             android:layout_width="match_parent"
@@ -66,7 +67,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_alignParentStart="true"
-                        android:text="Pemasukan Bersih"
+                        android:text="@string/report_net_income"
                         android:textColor="@color/text_primary"
                         android:textSize="16sp"
                         android:textStyle="bold" />
@@ -76,7 +77,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_alignParentEnd="true"
-                        android:text="Lihat detailnya"
+                        android:text="@string/report_view_detail"
                         android:textColor="@color/income_green"
                         android:textSize="13sp"
                         android:background="?attr/selectableItemBackground"
@@ -88,7 +89,7 @@
                     android:id="@+id/tvNetIncome"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="+ Rp 0"
+                    tools:text="+ Rp 0"
                     android:textColor="@color/income_green"
                     android:textSize="20sp"
                     android:textStyle="bold"
@@ -99,7 +100,7 @@
                     android:id="@+id/tvTotalIncomeBar"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="+Rp 0"
+                    tools:text="+Rp 0"
                     android:textColor="@color/primary"
                     android:textSize="12sp"
                     android:layout_marginBottom="4dp"/>
@@ -127,7 +128,7 @@
                     android:id="@+id/tvTotalExpenseBar"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="-Rp 0"
+                    tools:text="-Rp 0"
                     android:textColor="@color/expense_red"
                     android:textSize="12sp"
                     android:layout_marginBottom="4dp"/>
@@ -171,7 +172,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:padding="16dp"
-                    android:text="Laporan kategori"
+                    android:text="@string/report_category_title"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -198,7 +199,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Pemasukan"
+                            android:text="@string/report_income"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
                         
@@ -206,7 +207,7 @@
                             android:id="@+id/tvBoxIncomeVal"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="+Rp 0"
+                            tools:text="+Rp 0"
                             android:textColor="@color/primary"
                             android:textSize="14sp"
                             android:textStyle="bold"
@@ -226,7 +227,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Pengeluaran"
+                            android:text="@string/report_expense"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
@@ -234,7 +235,7 @@
                             android:id="@+id/tvBoxExpenseVal"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="-Rp 0"
+                            tools:text="-Rp 0"
                             android:textColor="@color/expense_red"
                             android:textSize="14sp"
                             android:textStyle="bold"
@@ -285,7 +286,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="📁 Lihat laporan berdasarkan kategori"
+                        android:text="@string/report_view_by_category"
                         android:textColor="@color/income_green"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -332,14 +333,14 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Hutang"
+                        android:text="@string/report_debt"
                         android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                     <TextView
                         android:id="@+id/tvHutangVal"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="+Rp 0"
+                        tools:text="+Rp 0"
                         android:textColor="@color/primary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -361,14 +362,14 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Piutang"
+                        android:text="@string/report_receivable"
                         android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                     <TextView
                         android:id="@+id/tvPiutangVal"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="-Rp 0"
+                        tools:text="-Rp 0"
                         android:textColor="@color/expense_red"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -390,14 +391,14 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Lainnya"
+                        android:text="@string/report_others"
                         android:textColor="@color/text_primary"
                         android:textSize="15sp" />
                     <TextView
                         android:id="@+id/tvLainnyaVal"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Rp 0"
+                        tools:text="Rp 0"
                         android:textColor="@color/text_secondary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
