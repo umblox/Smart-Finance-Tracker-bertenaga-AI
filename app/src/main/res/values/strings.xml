@@ -474,5 +474,12 @@
     <string name="budget_err_category">Pilih kategori terlebih dahulu!</string>
     <string name="budget_err_empty_limit">Mohon isi nominal batas anggaran!</string>
     <string name="budget_err_invalid_amount">Nominal tidak valid!</string>
+
+    <!-- ===== Export PDF Utility ===== -->
+    <string name="export_printed_at">Dicetak pada: %1$s | Total Data: %2$d</string>
+    <string name="export_header_date">Tanggal</string>
+    <string name="export_header_category">Kategori</string>
+    <string name="export_header_note">Catatan</string>
+    <string name="export_header_amount">Nominal</string>
     
 </resources>
