@@ -447,5 +447,17 @@
     <!-- ===== Navigasi Waktu Laporan ===== -->
     <string name="report_this_month">BULAN INI</string>
     <string name="report_last_month">BULAN LALU</string>
+
+    <!-- ===== Analitik & Tren Kategori ===== -->
+    <string name="trend_expense_details">Rincian Biaya</string>
+    <string name="trend_income_details">Rincian Pendapatan</string>
+    <string name="trend_no_category">Belum ada Kategori</string>
+    <string name="trend_no_note">Tanpa Catatan</string>
+    <string name="trend_this_month">BULAN INI</string>
+    <string name="trend_last_month">BULAN LALU</string>
+    
+    <string name="analytics_today">Hari Ini</string>
+    <string name="analytics_this_week">Minggu Ini</string>
+    <string name="analytics_this_month">Bulan Ini</string>
     
 </resources>
