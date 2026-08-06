@@ -226,6 +226,13 @@
     <string name="history_yesterday">Yesterday</string>
     <string name="history_no_note">No note</string>
 
+    <!-- ===== Transaction History (Continued) ===== -->
+    <string name="history_search_hint">Search notes, categories, amounts…</string>
+    <string name="history_total_balance">Total Balance This Period</string>
+    <string name="history_income">Income</string>
+    <string name="history_expense">Expense</string>
+    <string name="history_view_report">View Report for This Period</string>
+    
     <!-- ===== AI Chat Menu ===== -->
     <string name="chat_clear">Clear</string>
     <string name="chat_clear_title">🗑️ Clear Chat History?</string>
