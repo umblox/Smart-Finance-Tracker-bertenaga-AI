@@ -76,7 +76,6 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
 
         viewModel = ViewModelProvider(this)[ExportViewModel::class.java]
         
-        // 🔥 FIX: Memanggil String Array menggunakan R.array (bukan R.string)
         timeOptions = resources.getStringArray(R.array.export_time_options)
         typeOptions = resources.getStringArray(R.array.export_type_options)
 
@@ -131,27 +130,33 @@ class ExportBottomSheet : BottomSheetDialogFragment() {
         binding.btnEndDate.text = sdfDisplayDate.format(cal.time)
 
         binding.btnStartDate.setOnClickListener {
+            // 🔥 Perbaikan UX: Kalender mengingat tanggal yang sedang dipilih
+            val startCal = Calendar.getInstance().apply { timeInMillis = viewModel.customStartDate }
             DatePickerDialog(requireContext(), { _, y, m, d ->
-                val startCal = Calendar.getInstance().apply { set(y, m, d, 0, 0, 0) }
+                startCal.set(y, m, d, 0, 0, 0)
                 viewModel.customStartDate = startCal.timeInMillis
                 binding.btnStartDate.text = sdfDisplayDate.format(startCal.time)
-            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }, startCal.get(Calendar.YEAR), startCal.get(Calendar.MONTH), startCal.get(Calendar.DAY_OF_MONTH)).show()
         }
 
         binding.btnEndDate.setOnClickListener {
+            val endCal = Calendar.getInstance().apply { timeInMillis = viewModel.customEndDate }
             DatePickerDialog(requireContext(), { _, y, m, d ->
-                val endCal = Calendar.getInstance().apply { set(y, m, d, 23, 59, 59) }
+                endCal.set(y, m, d, 23, 59, 59)
                 viewModel.customEndDate = endCal.timeInMillis
                 binding.btnEndDate.text = sdfDisplayDate.format(endCal.time)
-            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }, endCal.get(Calendar.YEAR), endCal.get(Calendar.MONTH), endCal.get(Calendar.DAY_OF_MONTH)).show()
         }
         
         binding.btnGeneratePreview.setOnClickListener {
             val selectedTime = timeEnums[binding.spinnerTime.selectedItemPosition]
             val selectedType = typeEnums[binding.spinnerType.selectedItemPosition]
-            val selectedCategory = binding.spinnerCategory.selectedItem.toString()
+            val selectedCategoryRaw = binding.spinnerCategory.selectedItem.toString()
             
-            val data = viewModel.getFilteredTransactions(selectedTime, selectedType, selectedCategory)
+            // 🔥 FIX: Jika yang dipilih sama dengan String "All Categories / Semua Kategori", jadikan Null!
+            val categoryFilter = if (selectedCategoryRaw == getString(R.string.export_category_all)) null else selectedCategoryRaw
+            
+            val data = viewModel.getFilteredTransactions(selectedTime, selectedType, categoryFilter)
             if (data.isEmpty()) {
                 Toast.makeText(requireContext(), getString(R.string.export_toast_empty), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
