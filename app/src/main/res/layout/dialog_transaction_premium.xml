@@ -122,13 +122,13 @@
                     android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Tipe Transaksi -->
+            <!-- Tipe Transaksi / Filter Kategori -->
             <TextView
                 android:id="@+id/tvTypeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="6dp"
-                android:text="@string/tx_flow_type_label"
+                android:text="Pilih Jenis Transaksi"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -139,18 +139,24 @@
                 android:layout_marginBottom="12dp"
                 android:orientation="vertical">
                 
-                <!-- 🔥 FIX: Teks diluruskan langsung di XML sesuai Akuntansi -->
+                <!-- 🔥 FIX: Radio dibuat 3, persis seperti menu Tambah Manual -->
                 <RadioButton
                     android:id="@+id/rbPremiumTxExpense"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pengeluaran / Piutang"
+                    android:text="Pengeluaran"
                     android:textColor="@color/text_primary" />
                 <RadioButton
                     android:id="@+id/rbPremiumTxIncome"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pemasukan / Utang Saya"
+                    android:text="Pemasukan"
+                    android:textColor="@color/text_primary" />
+                <RadioButton
+                    android:id="@+id/rbPremiumTxDebt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Hutang / Piutang"
                     android:textColor="@color/text_primary" />
             </RadioGroup>
 
