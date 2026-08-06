@@ -463,5 +463,8 @@
     <!-- ===== Filter Dashboard ===== -->
     <string name="dashboard_filter_this_month">BULAN INI</string>
     <string name="dashboard_filter_weekly">PERMINGGU</string>
+
+    <!-- ===== Chat AI ===== -->
+    <string name="chat_ai_typing">AI sedang berpikir…</string>
     
 </resources>
