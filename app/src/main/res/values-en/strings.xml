@@ -301,5 +301,14 @@
     <!-- ===== Income & Category Details ===== -->
     <string name="detail_summary_title">Summary</string>
     <string name="detail_net_income_label">Net Income</string>
+
+    <!-- ===== AI Configuration ===== -->
+    <string name="api_config_title">⚙️ AI Engine Configuration</string>
+    <string name="api_config_nickname_label">Your Nickname (For AI):</string>
+    <string name="api_config_nickname_hint">Example: John Doe (John)</string>
+    <string name="api_config_engine_label">Select AI Server Engine:</string>
+    <string name="api_config_key_label">API Key:</string>
+    <string name="api_config_key_hint">Enter API Key…</string>
+    <string name="api_config_saved_toast">AI Config Saved Successfully!</string>
     
 </resources>
