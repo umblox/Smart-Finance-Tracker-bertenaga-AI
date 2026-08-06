@@ -86,31 +86,34 @@ class CategoryPickerDialog(
         requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
         val safeRippleId = typedValue.resourceId
 
-        val btnAddNew = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding((20f * density).toInt(), (16f * density).toInt(), (20f * density).toInt(), (16f * density).toInt())
-            setBackgroundResource(safeRippleId)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { 
-                CategoryEditorDialog.newInstance(null, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
+        // 🔥 PENGAMANAN: Tombol "+ KATEGORI BARU" dihilangkan jika berada di Tab DEBT
+        if (state.currentFilter != "DEBT") {
+            val btnAddNew = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((20f * density).toInt(), (16f * density).toInt(), (20f * density).toInt(), (16f * density).toInt())
+                setBackgroundResource(safeRippleId)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { 
+                    CategoryEditorDialog.newInstance(null, state.currentFilter).show(parentFragmentManager, "CategoryEditorDialog")
+                }
             }
+            btnAddNew.addView(TextView(requireContext()).apply { 
+                text = "＋"
+                textSize = 20f
+                setTextColor(getThemeColor(R.color.primary))
+                setPadding(0, 0, (16f * density).toInt(), 0)
+            })
+            btnAddNew.addView(TextView(requireContext()).apply { 
+                text = getString(R.string.category_btn_add_text)
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(getThemeColor(R.color.primary))
+            })
+            binding.containerList.addView(btnAddNew)
+            binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
         }
-        btnAddNew.addView(TextView(requireContext()).apply { 
-            text = "＋"
-            textSize = 20f
-            setTextColor(getThemeColor(R.color.primary))
-            setPadding(0, 0, (16f * density).toInt(), 0)
-        })
-        btnAddNew.addView(TextView(requireContext()).apply { 
-            text = getString(R.string.category_btn_add_text)
-            textSize = 14f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(getThemeColor(R.color.primary))
-        })
-        binding.containerList.addView(btnAddNew)
-        binding.containerList.addView(View(requireContext()).apply { setBackgroundColor(getThemeColor(R.color.divider_color)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1f * density).toInt()) })
 
         state.parentCategories.forEach { parent ->
             val parentRow = LinearLayout(requireContext()).apply {
