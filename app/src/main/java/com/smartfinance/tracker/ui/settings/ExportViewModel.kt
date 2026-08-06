@@ -5,14 +5,12 @@ import com.smartfinance.tracker.data.model.Transaction
 import com.smartfinance.tracker.data.repository.TransactionRepository
 import java.util.Calendar
 
-// 🔥 Opsi kustomisasi filter sudah lengkap
 enum class ExportTimeRange { ALL, DAILY, WEEKLY, MONTHLY, CUSTOM }
 enum class ExportType { ALL, INCOME_ONLY, EXPENSE_ONLY, DEBT_ONLY }
 
 class ExportViewModel : ViewModel() {
     private val repository = TransactionRepository()
 
-    // Variabel untuk menyimpan tanggal kustom
     var customStartDate: Long = System.currentTimeMillis()
     var customEndDate: Long = System.currentTimeMillis()
 
@@ -20,14 +18,13 @@ class ExportViewModel : ViewModel() {
         repository.startListening()
     }
 
-    // 🔥 FITUR BARU: Mengambil semua daftar kategori yang unik dari riwayat transaksi
     fun getAvailableCategories(): List<String> {
         val allTx = repository.transactions.value
         return allTx.map { it.categoryName }.distinct().sorted()
     }
 
-    // 🔥 FITUR BARU: Menambahkan parameter categoryName
-    fun getFilteredTransactions(timeRange: ExportTimeRange, txType: ExportType, categoryName: String): List<Transaction> {
+    // 🔥 FIX 1: categoryName diubah menjadi Nullable (String?). Jika null, artinya lewati filter kategori.
+    fun getFilteredTransactions(timeRange: ExportTimeRange, txType: ExportType, categoryName: String?): List<Transaction> {
         val allTx = repository.transactions.value
         if (allTx.isEmpty()) return emptyList()
 
@@ -58,20 +55,21 @@ class ExportViewModel : ViewModel() {
 
         // 2. Saring Berdasarkan Tipe Transaksi
         val typeFiltered = timeFiltered.filter { tx ->
-            val isIncome = tx.type == "INCOME"
-            val isExpense = tx.type == "EXPENSE"
-            val isDebt = tx.type == "DEBT" || tx.type == "RECEIVABLE"
+            // 🔥 FIX 2: Perketat logika identifikasi Hutang/Piutang vs Reguler
+            val isDebtTx = !tx.debtId.isNullOrEmpty() || tx.categoryId in 101L..104L || tx.type == "DEBT" || tx.type == "RECEIVABLE"
+            val isIncome = tx.type == "INCOME" && !isDebtTx
+            val isExpense = tx.type == "EXPENSE" && !isDebtTx
             
             when (txType) {
                 ExportType.ALL -> true
                 ExportType.INCOME_ONLY -> isIncome
                 ExportType.EXPENSE_ONLY -> isExpense
-                ExportType.DEBT_ONLY -> isDebt
+                ExportType.DEBT_ONLY -> isDebtTx
             }
         }
 
-        // 3. 🔥 FITUR BARU: Saring Berdasarkan Kategori
-        return if (categoryName == "Semua Kategori") {
+        // 3. Saring Berdasarkan Kategori
+        return if (categoryName == null) {
             typeFiltered
         } else {
             typeFiltered.filter { it.categoryName == categoryName }
