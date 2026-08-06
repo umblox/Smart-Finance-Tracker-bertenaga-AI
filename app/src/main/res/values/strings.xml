@@ -357,5 +357,34 @@
     <string name="category_toast_deleted">Kategori sukses dilenyapkan!</string>
     <string name="category_toast_delete_fail">Gagal menghapus!</string>
     <string name="category_toast_saved">Kategori sukses disimpan!</string>
+
+    <!-- ===== Transaksi Berkala (Recurring) ===== -->
+    <string name="recurring_title">⏳ Transaksi Berkala</string>
+    <string name="recurring_btn_add_new">+ BUAT JADWAL BARU</string>
+    <string name="recurring_empty_state">Belum ada transaksi terjadwal.\nKlik tombol di bawah untuk membuat baru.</string>
+
+    <string name="recurring_form_title_new">Buat Jadwal Baru</string>
+    <string name="recurring_form_title_edit">Edit Jadwal</string>
+    <string name="recurring_note_hint">Catatan (cth: Langganan WiFi)</string>
+    <string name="recurring_amount_hint">Nominal (Rp)</string>
+    <string name="recurring_category_label">Kategori:</string>
+    <string name="recurring_contact_hint">Kontak Terkait (Bisa Kosong)</string>
+    <string name="recurring_interval_label">Diulang Setiap:</string>
+    <string name="recurring_start_date_btn">Mulai: %1$s</string>
+    <string name="recurring_end_switch">Berikan Batas Waktu Akhir</string>
+    <string name="recurring_end_date_btn">Berhenti Pada: %1$s</string>
+    <string name="recurring_btn_delete">HAPUS JADWAL INI</string>
+    <string name="recurring_btn_save">SIMPAN JADWAL</string>
+
+    <string name="recurring_interval_daily">Harian</string>
+    <string name="recurring_interval_weekly">Mingguan</string>
+    <string name="recurring_interval_monthly">Bulanan</string>
+    <string name="recurring_interval_yearly">Tahunan</string>
+    <string name="recurring_toast_contact_fail">Gagal mengambil kontak</string>
+    <string name="recurring_toast_saved">✅ Jadwal Tersimpan!</string>
+    <string name="recurring_delete_title">Hapus Jadwal</string>
+    <string name="recurring_delete_message">Anda yakin ingin menghentikan &amp; menghapus jadwal transaksi otomatis ini?</string>
+    <string name="recurring_toast_deleted">🗑️ Jadwal Dihapus!</string>
+    <string name="recurring_toast_delete_fail">❌ Gagal menghapus jadwal</string>
     
 </resources>
