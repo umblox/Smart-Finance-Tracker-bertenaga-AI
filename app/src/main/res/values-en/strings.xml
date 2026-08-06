@@ -310,5 +310,8 @@
     <string name="api_config_key_label">API Key:</string>
     <string name="api_config_key_hint">Enter API Key…</string>
     <string name="api_config_saved_toast">AI Config Saved Successfully!</string>
+
+    <!-- ===== Worker / Background Sync ===== -->
+    <string name="sync_auto_label">Auto-Sync: %1$s</string>
     
 </resources>
