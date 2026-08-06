@@ -291,5 +291,9 @@
     <string name="trend_tab_breakdown">Rincian</string>
     <string name="trend_tab_trend">Tren</string>
     <string name="trend_no_other_category">Tidak ada kategori lain.</string>
+
+    <!-- ===== Detail Pemasukan & Kategori ===== -->
+    <string name="detail_summary_title">Ringkasan</string>
+    <string name="detail_net_income_label">Pemasukan Bersih</string>
     
 </resources>
