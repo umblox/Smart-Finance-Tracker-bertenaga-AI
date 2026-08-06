@@ -314,5 +314,28 @@
 
     <!-- ===== Worker / Background Sync ===== -->
     <string name="sync_auto_label">Sinkronisasi Otomatis: %1$s</string>
+
+    <!-- ===== Manajemen Anggaran (Budget) ===== -->
+    <string name="budget_form_title_new">Anggaran Baru</string>
+    <string name="budget_form_title_edit">Edit Anggaran</string>
+    <string name="budget_form_title_default">Atur Anggaran</string>
+    <string name="budget_category_label">Kategori Pengeluaran:</string>
+    <string name="budget_limit_hint">Batas Maksimal Bulanan (Rp)</string>
+    <string name="budget_btn_delete">HAPUS ANGGARAN</string>
+    <string name="budget_btn_save">SIMPAN ANGGARAN</string>
+    
+    <string name="budget_manager_title">🎯 Anggaran Bulanan</string>
+    <string name="budget_manager_subtitle">Kendalikan pengeluaranmu bulan ini</string>
+    <string name="budget_btn_add_new">+ BUAT ANGGARAN BARU</string>
+    <string name="budget_empty_state">Belum ada anggaran yang diatur.\nKlik tombol di bawah untuk membuat baru.</string>
+    <string name="budget_warning_over">⚠️ Kamu sudah melebihi batas anggaran!</string>
+    <string name="budget_remaining">Tersisa: %1$s</string>
+    
+    <string name="budget_toast_expense_only">Budget hanya bisa diatur untuk Pengeluaran!</string>
+    <string name="budget_toast_saved">✅ Anggaran berhasil disimpan!</string>
+    <string name="budget_delete_title">Hapus Anggaran</string>
+    <string name="budget_delete_message">Yakin ingin menghapus batas anggaran ini?</string>
+    <string name="budget_toast_deleted">🗑️ Anggaran dihapus!</string>
+    <string name="budget_toast_delete_fail">❌ Gagal menghapus anggaran</string>
     
 </resources>
