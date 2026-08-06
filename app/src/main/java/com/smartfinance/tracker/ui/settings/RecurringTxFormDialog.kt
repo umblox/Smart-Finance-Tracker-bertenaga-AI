@@ -1,6 +1,5 @@
 package com.smartfinance.tracker.ui.settings
 
-import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.Dialog
 import android.os.Bundle
@@ -13,6 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.smartfinance.tracker.R
 import com.smartfinance.tracker.data.model.Category
 import com.smartfinance.tracker.databinding.DialogRecurringTxFormBinding
 import kotlinx.coroutines.launch
@@ -41,8 +42,9 @@ class RecurringTxFormDialog : DialogFragment() {
     private var editingDocId: String? = null
     private var selectedCategoryMap: Category? = null
 
-    private val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
-    private val intervals = listOf("Harian" to "DAILY", "Mingguan" to "WEEKLY", "Bulanan" to "MONTHLY", "Tahunan" to "YEARLY")
+    // 🔥 FIX: Locale default agar format bulan beradaptasi dengan bahasa HP
+    private val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    private lateinit var intervals: List<Pair<String, String>>
 
     private val pickContactLauncher = registerForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         uri?.let {
@@ -54,7 +56,7 @@ class RecurringTxFormDialog : DialogFragment() {
                     cursor.close()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Gagal mengambil kontak", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.recurring_toast_contact_fail), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -67,10 +69,19 @@ class RecurringTxFormDialog : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogRecurringTxFormBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(requireContext()).setView(binding.root).create()
+        // 🔥 FIX: Upgrade UI
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setView(binding.root).create()
 
         viewModel = ViewModelProvider(requireActivity())[RecurringTxViewModel::class.java]
         editingDocId = arguments?.getString("DOC_ID")
+
+        // Inisialisasi daftar interval dengan string dinamis
+        intervals = listOf(
+            getString(R.string.recurring_interval_daily) to "DAILY",
+            getString(R.string.recurring_interval_weekly) to "WEEKLY",
+            getString(R.string.recurring_interval_monthly) to "MONTHLY",
+            getString(R.string.recurring_interval_yearly) to "YEARLY"
+        )
 
         setupUI()
         loadDataIfEditing()
@@ -82,16 +93,13 @@ class RecurringTxFormDialog : DialogFragment() {
         binding.spinnerInterval.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, intervals.map { it.first })
 
         binding.btnClose.setOnClickListener { dismiss() }
-        
-        // 🔥 FIX: Panggil Picker Kategori yang tersentralisasi
         binding.btnSelectCategory.setOnClickListener { showCategoryPickerDialog() }
-        
         binding.btnPickContact.setOnClickListener { pickContactLauncher.launch(null) }
 
         binding.btnStartDate.setOnClickListener {
             DatePickerDialog(requireContext(), { _, y, m, d ->
                 startDateCal.set(y, m, d, 0, 0, 0)
-                binding.btnStartDate.text = "Mulai: ${sdf.format(startDateCal.time)}"
+                binding.btnStartDate.text = getString(R.string.recurring_start_date_btn, sdf.format(startDateCal.time))
             }, startDateCal.get(Calendar.YEAR), startDateCal.get(Calendar.MONTH), startDateCal.get(Calendar.DAY_OF_MONTH)).show()
         }
 
@@ -102,7 +110,7 @@ class RecurringTxFormDialog : DialogFragment() {
         binding.btnEndDate.setOnClickListener {
             DatePickerDialog(requireContext(), { _, y, m, d ->
                 endDateCal.set(y, m, d, 23, 59, 59)
-                binding.btnEndDate.text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"
+                binding.btnEndDate.text = getString(R.string.recurring_end_date_btn, sdf.format(endDateCal.time))
             }, endDateCal.get(Calendar.YEAR), endDateCal.get(Calendar.MONTH), endDateCal.get(Calendar.DAY_OF_MONTH)).show()
         }
 
@@ -113,16 +121,16 @@ class RecurringTxFormDialog : DialogFragment() {
     private fun loadDataIfEditing() {
         val docId = editingDocId
         if (docId == null) {
-            binding.tvFormTitle.text = "Buat Jadwal Baru"
+            binding.tvFormTitle.text = getString(R.string.recurring_form_title_new)
             binding.btnDelete.visibility = View.GONE
-            binding.btnStartDate.text = "Mulai: ${sdf.format(startDateCal.time)}"
-            binding.btnEndDate.text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"
+            binding.btnStartDate.text = getString(R.string.recurring_start_date_btn, sdf.format(startDateCal.time))
+            binding.btnEndDate.text = getString(R.string.recurring_end_date_btn, sdf.format(endDateCal.time))
             binding.switchEnd.isChecked = false
             binding.btnEndDate.visibility = View.GONE
-            binding.spinnerInterval.setSelection(2) // Default Bulanan
+            binding.spinnerInterval.setSelection(2) 
         } else {
             val doc = viewModel.schedules.value.find { it.id == docId } ?: return
-            binding.tvFormTitle.text = "Edit Jadwal"
+            binding.tvFormTitle.text = getString(R.string.recurring_form_title_edit)
             binding.btnDelete.visibility = View.VISIBLE
 
             binding.etNote.setText(doc.note)
@@ -136,14 +144,14 @@ class RecurringTxFormDialog : DialogFragment() {
             if (intervalIndex >= 0) binding.spinnerInterval.setSelection(intervalIndex)
 
             startDateCal.timeInMillis = if (doc.nextExecutionTime > 0) doc.nextExecutionTime else System.currentTimeMillis()
-            binding.btnStartDate.text = "Mulai: ${sdf.format(startDateCal.time)}"
+            binding.btnStartDate.text = getString(R.string.recurring_start_date_btn, sdf.format(startDateCal.time))
 
             binding.switchEnd.isChecked = doc.hasEndDate
             binding.btnEndDate.visibility = if (doc.hasEndDate) View.VISIBLE else View.GONE
             
             if (doc.hasEndDate && doc.endDate != null) {
                 endDateCal.timeInMillis = doc.endDate
-                binding.btnEndDate.text = "Berhenti Pada: ${sdf.format(endDateCal.time)}"
+                binding.btnEndDate.text = getString(R.string.recurring_end_date_btn, sdf.format(endDateCal.time))
             }
         }
     }
@@ -162,7 +170,7 @@ class RecurringTxFormDialog : DialogFragment() {
                     hasEndDate = binding.switchEnd.isChecked,
                     endDate = endDateCal.timeInMillis
                 )
-                Toast.makeText(context, "✅ Jadwal Tersimpan!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.recurring_toast_saved), Toast.LENGTH_SHORT).show()
                 dismiss() 
             } catch (e: Exception) {
                 Toast.makeText(context, "❌ ${e.message}", Toast.LENGTH_SHORT).show()
@@ -172,24 +180,23 @@ class RecurringTxFormDialog : DialogFragment() {
 
     private fun deleteCurrentSchedule() {
         val docId = editingDocId ?: return
-        AlertDialog.Builder(requireContext())
-            .setTitle("Hapus Jadwal")
-            .setMessage("Anda yakin ingin menghentikan & menghapus jadwal transaksi otomatis ini?")
-            .setPositiveButton("Hapus") { _, _ ->
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.recurring_delete_title))
+            .setMessage(getString(R.string.recurring_delete_message))
+            .setPositiveButton(getString(R.string.action_delete)) { _, _ ->
                 lifecycleScope.launch {
                     try {
                         viewModel.deleteSchedule(docId)
-                        Toast.makeText(context, "🗑️ Jadwal Dihapus!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, getString(R.string.recurring_toast_deleted), Toast.LENGTH_SHORT).show()
                         dismiss()
                     } catch (e: Exception) {
-                        Toast.makeText(context, "❌ Gagal menghapus jadwal", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, getString(R.string.recurring_toast_delete_fail), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-            .setNegativeButton("Batal", null).show()
+            .setNegativeButton(getString(R.string.action_cancel), null).show()
     }
 
-    // 🔥 FIX: Kode raksasa dibuang, sekarang memanggil UI Sentral yang Elegan!
     private fun showCategoryPickerDialog() {
         val currentFilter = selectedCategoryMap?.type ?: "EXPENSE"
         val currentSelectedId = selectedCategoryMap?.id
