@@ -232,9 +232,18 @@ class DashboardFragment : Fragment() {
                         imageTintList = android.content.res.ColorStateList.valueOf(getThemeColor(if (isInc) R.color.income_green else R.color.expense_red))
                     })
                 }
+
+                // 🔥 FILTER VISUAL: Menyulap "KODE RAHASIA" menjadi tampilan elegan sebelum di-render ke Dashboard
+                var displayNote = tx.note
+                val matchB = Regex("\\(B/\\s*(.*?)\\)$").find(displayNote)
+                if (matchB != null) {
+                    val contactName = matchB.groupValues[1].trim()
+                    val pureNote = displayNote.replace(matchB.value, "").trim()
+                    displayNote = if (pureNote.isNotEmpty()) "$pureNote - $contactName" else contactName
+                }
                 
                 val centerInfo = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
-                centerInfo.addView(TextView(requireContext()).apply { text = tx.note; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
+                centerInfo.addView(TextView(requireContext()).apply { text = displayNote; setTextColor(getThemeColor(R.color.text_primary)); setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); textSize = 14.5f })
                 centerInfo.addView(TextView(requireContext()).apply { text = sdfPremiumDateTime.format(Date(tx.timestamp)); setTextColor(getThemeColor(R.color.text_secondary)); textSize = 11.5f; setPadding(0, 2, 0, 0) })
                 
                 rowLayout.addView(iconCircle); rowLayout.addView(centerInfo)
@@ -244,6 +253,18 @@ class DashboardFragment : Fragment() {
                     setTypeface(null, Typeface.BOLD); textSize = 14.5f
                 })
                 mutasiCard.addView(rowLayout)
+                
+                // Menambahkan fungsi klik untuk mengedit transaksi dari Dashboard
+                mutasiCard.setOnClickListener {
+                    try {
+                        com.smartfinance.tracker.ui.transaction.TransactionEditorDialog(
+                            hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to tx.debtId)
+                        ) { }.show(parentFragmentManager, "EditTx")
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                
                 binding.recentTxContainer.addView(mutasiCard)
             }
         }
