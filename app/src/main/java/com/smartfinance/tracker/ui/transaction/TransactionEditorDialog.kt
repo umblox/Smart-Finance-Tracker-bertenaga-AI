@@ -79,56 +79,21 @@ class TransactionEditorDialog(
         binding.tvContactLabel.visibility = View.VISIBLE
         binding.layoutContact.visibility = View.VISIBLE
         
-        var extractedName = ""
-        var cleanNoteToShow = currentNote
-
+        // 🔥 DELEGASI KE VIEWMODEL: Memotong kontak dari catatan
+        val parsedNoteData = viewModel.parseTransactionNote(currentNote, isDebtInitially)
+        
         if (isDebtInitially) {
             binding.rbPremiumTxDebt.isChecked = true
             currentType = "DEBT"
             binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " *"
-
-            // 🔥 FIX: Perisai Ganda. Cek apakah format utang bocor memakai (B/ Nama)
-            val matchB = Regex("\\(B/\\s*(.*?)\\)$").find(currentNote)
-            if (matchB != null) {
-                extractedName = matchB.groupValues[1].trim()
-                cleanNoteToShow = currentNote.replace(matchB.value, "").trim()
-            } else {
-                // Jika normal, parsing format baku: [Kategori] NAMA - CATATAN
-                extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
-                if (extractedName.contains("-")) {
-                    val parts = extractedName.split("-", limit = 2)
-                    extractedName = parts[0].trim()
-                    cleanNoteToShow = parts.getOrNull(1)?.trim() ?: currentNote
-                } else {
-                    val aiPatterns = listOf(
-                        "MEMBERIKAN PINJAMAN KEPADA ", "MENERIMA PINJAMAN DARI ",
-                        "MEMBAYAR CICILAN UTANG KE ", "MENERIMA CICILAN PIUTANG DARI "
-                    )
-                    for (pattern in aiPatterns) {
-                        if (extractedName.startsWith(pattern)) {
-                            extractedName = extractedName.removePrefix(pattern).trim()
-                            cleanNoteToShow = currentNote
-                            break
-                        }
-                    }
-                }
-            }
         } else {
-            val initialTypeRaw = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
-            currentType = initialTypeRaw
-            
+            currentType = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
             if (currentType == "INCOME") binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
             binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " (Opsional)"
-
-            val match = Regex("\\(B/\\s*(.*?)\\)$").find(currentNote)
-            if (match != null) {
-                extractedName = match.groupValues[1].trim()
-                cleanNoteToShow = currentNote.replace(match.value, "").trim()
-            }
         }
         
-        binding.etPremiumTxNote.setText(cleanNoteToShow.ifEmpty { if (isDebtInitially) "MANUAL" else "" })
-        binding.etContact.setText(extractedName)
+        binding.etPremiumTxNote.setText(parsedNoteData.cleanNote.ifEmpty { if (isDebtInitially) "MANUAL" else "" })
+        binding.etContact.setText(parsedNoteData.contactName)
 
         binding.btnPickContact.setOnClickListener {
             val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
@@ -234,25 +199,14 @@ class TransactionEditorDialog(
                 val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
 
                 lifecycleScope.launch {
-                    val finalTxType = if (isEditingDebt) {
-                        if (catId == 101L || catId == 103L) "INCOME" else "EXPENSE"
-                    } else {
-                        if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
-                    }
-                    
-                    var finalNote = noteRawVal.uppercase(Locale.ROOT)
+                    // 🔥 DELEGASI KE VIEWMODEL: Menentukan tipe dan merakit format akhir
+                    val selectedTypeRaw = if (binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxIncome.id) "INCOME" else "EXPENSE"
+                    val finalTxType = viewModel.determineTransactionType(catId, selectedTypeRaw, isEditingDebt)
+                    val finalNote = viewModel.formatTransactionNote(noteRawVal, contactNameVal, catName, isEditingDebt)
 
-                    if (isEditingDebt) {
+                    if (isEditingDebt && targetDebtId.isNotEmpty()) {
                         val selectedDebtType = if (catId == 104L || catId == 103L) "RECEIVABLE" else "DEBT"
-                        finalNote = "[$catName] $contactNameVal -$finalNote"
-
-                        if (targetDebtId.isNotEmpty()) {
-                            viewModel.updateDebtFields(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
-                        }
-                    } else {
-                        if (contactNameVal.isNotEmpty()) {
-                            finalNote = "$finalNote (B/ $contactNameVal)"
-                        }
+                        viewModel.updateDebtFields(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
                     }
 
                     val updatedTxMap = HashMap<String, Any>()
