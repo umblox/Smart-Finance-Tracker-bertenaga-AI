@@ -76,39 +76,65 @@ class TransactionEditorDialog(
         binding.etPremiumTxAmount.setText(currentAmount.toString())
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
 
-        // 🔥 Inisialisasi Radio Berdasarkan Tipe
+        // 🔥 TAMPILKAN KOLOM KONTAK DI SEMUA JENIS TRANSAKSI
+        binding.tvContactLabel.visibility = View.VISIBLE
+        binding.layoutContact.visibility = View.VISIBLE
+        
+        var extractedName = ""
+        var cleanNoteToShow = currentNote
+
         if (isDebtInitially) {
             binding.rbPremiumTxDebt.isChecked = true
             currentType = "DEBT"
-            binding.tvContactLabel.visibility = View.VISIBLE
-            binding.layoutContact.visibility = View.VISIBLE
+            // Label khusus Utang Piutang (Wajib)
+            binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " *"
 
-            var extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
-            if (extractedName.contains("-")) extractedName = extractedName.split("-")[0].trim()
-            
-            binding.etPremiumTxNote.setText(currentNote.substringAfter("- ").ifEmpty { "MANUAL" })
-            binding.etContact.setText(extractedName)
-
-            binding.btnPickContact.setOnClickListener {
-                val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                contactPickerLauncher.launch(intent)
+            extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
+            if (extractedName.contains("-")) {
+                val parts = extractedName.split("-", limit = 2)
+                extractedName = parts[0].trim()
+                cleanNoteToShow = parts.getOrNull(1)?.trim() ?: currentNote
+            } else {
+                val aiPatterns = listOf(
+                    "MEMBERIKAN PINJAMAN KEPADA ", "MENERIMA PINJAMAN DARI ",
+                    "MEMBAYAR CICILAN UTANG KE ", "MENERIMA CICILAN PIUTANG DARI "
+                )
+                for (pattern in aiPatterns) {
+                    if (extractedName.startsWith(pattern)) {
+                        extractedName = extractedName.removePrefix(pattern).trim()
+                        cleanNoteToShow = currentNote
+                        break
+                    }
+                }
             }
         } else {
             val initialTypeRaw = (transactionData["type"] as? String ?: "EXPENSE").trim().uppercase(Locale.ROOT)
             currentType = initialTypeRaw
             
             if (currentType == "INCOME") binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
-            binding.etPremiumTxNote.setText(currentNote)
-            
-            binding.tvContactLabel.visibility = View.GONE
-            binding.layoutContact.visibility = View.GONE
+            // Label khusus Transaksi Biasa (Opsional)
+            binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " (Opsional)"
+
+            // Deteksi kontak opsional dari format "(B/ Nama)" di transaksi biasa
+            val match = Regex("\\(B/\\s*(.*?)\\)$").find(currentNote)
+            if (match != null) {
+                extractedName = match.groupValues[1].trim()
+                cleanNoteToShow = currentNote.replace(match.value, "").trim()
+            }
+        }
+        
+        binding.etPremiumTxNote.setText(cleanNoteToShow.ifEmpty { if (isDebtInitially) "MANUAL" else "" })
+        binding.etContact.setText(extractedName)
+
+        binding.btnPickContact.setOnClickListener {
+            val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+            contactPickerLauncher.launch(intent)
         }
 
         if (currentCategoryId != 0L) {
             selectedCategoryMap = mapOf("id" to currentCategoryId, "name" to currentCategoryName, "type" to if (isDebtInitially) "DEBT" else currentType)
         }
 
-        // 🔥 Listener RadioButton Bebas Diklik Kapan Saja
         binding.rgPremiumTxType.setOnCheckedChangeListener { _, checkedId ->
             if (!isInitialized) return@setOnCheckedChangeListener 
 
@@ -123,17 +149,11 @@ class TransactionEditorDialog(
                 selectedCategoryMap = null
                 binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
 
-                // Toggle otomatis kolom kontak
+                // 🔥 Label Wajib/Opsional berubah otomatis saat Radio diklik (Tanpa menyembunyikan kolom)
                 if (newType == "DEBT") {
-                    binding.tvContactLabel.visibility = View.VISIBLE
-                    binding.layoutContact.visibility = View.VISIBLE
-                    binding.btnPickContact.setOnClickListener {
-                        val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                        contactPickerLauncher.launch(intent)
-                    }
+                    binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " *"
                 } else {
-                    binding.tvContactLabel.visibility = View.GONE
-                    binding.layoutContact.visibility = View.GONE
+                    binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " (Opsional)"
                 }
             }
         }
@@ -186,6 +206,14 @@ class TransactionEditorDialog(
             val amountVal = binding.etPremiumTxAmount.text.toString().toDoubleOrNull() ?: 0.0
             val noteRawVal = binding.etPremiumTxNote.text.toString().trim()
             val dateVal = binding.etPremiumTxDate.text.toString().trim()
+            val contactNameVal = binding.etContact.text.toString().trim().uppercase(Locale.ROOT)
+            val isEditingDebt = binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxDebt.id
+
+            // 🔥 Cegat jika transaksi utang tapi kontak kosong
+            if (isEditingDebt && contactNameVal.isEmpty()) {
+                Toast.makeText(context, getString(R.string.tx_toast_contact_required_simple), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
             if (amountVal > 0.0 && noteRawVal.isNotEmpty() && dateVal.isNotEmpty() && docId.isNotEmpty()) {
                 
@@ -204,9 +232,6 @@ class TransactionEditorDialog(
                 val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
 
                 lifecycleScope.launch {
-                    val isEditingDebt = binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxDebt.id
-                    
-                    // 🔥 Arus Kas Dihitung Otomatis Berdasarkan ID Kategori (Tanpa mengunci UI)
                     val finalTxType = if (isEditingDebt) {
                         if (catId == 101L || catId == 103L) "INCOME" else "EXPENSE"
                     } else {
@@ -216,17 +241,16 @@ class TransactionEditorDialog(
                     var finalNote = noteRawVal.uppercase(Locale.ROOT)
 
                     if (isEditingDebt) {
-                        val contactNameVal = binding.etContact.text.toString().trim().uppercase(Locale.ROOT)
-                        if (contactNameVal.isEmpty()) {
-                            Toast.makeText(context, getString(R.string.tx_toast_contact_required_simple), Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
                         val selectedDebtType = if (catId == 104L || catId == 103L) "RECEIVABLE" else "DEBT"
-                        finalNote = "[$catName] $contactNameVal - $finalNote"
+                        finalNote = "[$catName] $contactNameVal -$finalNote"
 
                         if (targetDebtId.isNotEmpty()) {
                             viewModel.updateDebtFields(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
+                        }
+                    } else {
+                        // 🔥 Pasang kembali " (B/ Nama)" di akhir catatan jika pengguna mengisi kontak opsional
+                        if (contactNameVal.isNotEmpty()) {
+                            finalNote = "$finalNote (B/ $contactNameVal)"
                         }
                     }
 
