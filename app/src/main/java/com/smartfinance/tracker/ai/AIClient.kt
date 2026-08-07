@@ -20,7 +20,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
-        // 🔥 FIX PROMPT: Aturan #8 ditingkatkan ke level GLOBAL (Multi-language Name Extraction)
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
@@ -93,7 +92,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
 
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
             for (tx in allTx.take(50)) {
-                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} | Kategori: ${tx.categoryName} | Tipe: ${tx.type} | Nominal: Rp${tx.amount}\n")
+                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} \vert{} Kategori:${tx.categoryName} | Tipe: ${tx.type} \vert{} Nominal: Rp${tx.amount}\n")
             }
 
             val allCats = db.categoryDao().getAllSync()
@@ -101,18 +100,18 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             val subs = allCats.filter { it.parentCategoryId != null }
 
             for (p in parents) {
-                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} | Nama: ${p.name}\n")
+                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} \vert{} Nama:${p.name}\n")
                 val kids = subs.filter { it.parentCategoryId == p.id }
                 for (k in kids) {
-                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} | Nama: ${k.name}\n")
+                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} \vert{} Nama:${k.name}\n")
                 }
             }
 
             val allDebts = db.debtDao().getAllSync()
             for (debt in allDebts) {
                 if (!debt.isPaid) {
-                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} | Sisa: Rp ${debt.remainingAmount}\n")
-                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya | Sisa: Rp ${debt.remainingAmount}\n")
+                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} \vert{} Sisa: Rp${debt.remainingAmount}\n")
+                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya \vert{} Sisa: Rp${debt.remainingAmount}\n")
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
@@ -144,14 +143,14 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             
             if (rawResponse.startsWith("⚠️")) return@withContext rawResponse 
             
-            return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse)
+            // 🔥 FIX: Kirimkan pesan asli dari pengguna (userMessage) agar tidak dibodohi oleh ringkasan JSON AI
+            return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse, userMessage)
             
         } catch (e: Exception) {
             return@withContext "⚠️ Gangguan Jaringan Lokal: ${e.localizedMessage ?: "Timeout"}"
         }
     }
 
-    // ... sisa fungsi HTTP Client tetap sama ...
     private fun callOpenAICompatible(endpoint: String, model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI(endpoint).toURL()
         val conn = url.openConnection() as HttpURLConnection
@@ -167,7 +166,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             return JSONObject(reader.readText()).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Server Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+            return "⚠️ Server Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
         }
     }
 
@@ -184,7 +183,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             return JSONObject(reader.readText()).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Gemini Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+            return "⚠️ Gemini Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
         }
     }
 
@@ -204,7 +203,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             return JSONObject(reader.readText()).getJSONArray("content").getJSONObject(0).getString("text").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Claude Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
+            return "⚠️ Claude Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
         }
     }
 }
