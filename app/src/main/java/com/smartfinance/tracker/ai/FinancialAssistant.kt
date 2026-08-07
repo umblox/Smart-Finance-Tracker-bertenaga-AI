@@ -501,26 +501,59 @@ class FinancialAssistant(private val context: Context) {
         } catch (e: Exception) { 0.0 }
     }
     
+    // 🔥 PENGUATAN GLOBAL ULTIMATE: Regex Multi-Bahasa & Multi-Konteks (Tanpa Hardcode Nama)
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
         val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
+        
+        // 1. Kumpulan Pola Kata Penghubung (Preposisi & Kata Kerja)
         val patterns = listOf(
-            Regex("BERSAMA\\s+([A-Z]+)"), Regex("SAMA\\s+([A-Z]+)"),
-            Regex("KE\\s+([A-Z]+)"), Regex("DARI\\s+([A-Z]+)"),
-            Regex("([A-Z]+)\\s+PINJAM"), Regex("([A-Z]+)\\s+NGUTANG")
+            // Asosiasi (Baku, Gaul, English)
+            Regex("(?:BERSAMA|SAMA|DENGAN|BARENG|BESERTA|WITH|ALONGSIDE|BY)\\s+([A-Z]+)"),
+            
+            // Tujuan (Baku, Gaul, English)
+            Regex("(?:KE|KEPADA|UNTUK|BUAT|KASIH|NGASIH|BAYARIN|TO|FOR)\\s+([A-Z]+)"),
+            
+            // Asal (Baku, Gaul, English)
+            Regex("(?:DARI|DAPET DARI|FROM)\\s+([A-Z]+)"),
+            
+            // Hutang Piutang (Subjek di Depan) -> "Albi pinjam", "Mike owes"
+            Regex("([A-Z]+)\\s+(?:PINJAM|MINJEM|NGUTANG|HUTANG|BORROW|OWES|OWE)"),
+            
+            // Hutang Piutang (Subjek di Belakang) -> "Ditalangin joko", "Dibayarin alice"
+            Regex("(?:NALANGIN|DITALANGIN|DIBAYARIN)\\s+([A-Z]+)")
         )
+        
         for (pattern in patterns) {
             val match = pattern.find(msgUpper)
             if (match != null && match.groupValues.size > 1) {
                 val extractedName = match.groupValues[1].trim()
-                val ignoredWords = listOf("UANG", "SEBESAR", "DI", "KE", "DARI", "SAMA", "BERSAMA", "ORANG", "TEMAN")
-                if (!ignoredWords.contains(extractedName)) return extractedName
+                
+                // 2. Filter Pembersih (Agar tidak menangkap kata benda / angka)
+                val ignoredWords = listOf(
+                    // Uang & Tempat
+                    "UANG", "DUIT", "SEBESAR", "TOTAL", "HARGA", "BIAYA", "CASH", "TUNAI",
+                    "KASIR", "TOKO", "WARUNG", "BANK", "ATM", "PASAR", "MALL",
+                    // Penghubung yang terbaca ganda
+                    "DI", "KE", "DARI", "SAMA", "BERSAMA", "DENGAN", "BARENG", "BUAT", "UNTUK", 
+                    "AT", "TO", "FROM", "WITH", "BY", "FOR",
+                    // Kata ganti umum internasional
+                    "ORANG", "TEMAN", "MONEY", "SOMEONE", "FRIEND", "THE", "A", "AN",
+                    "MY", "YOUR", "HIS", "HER",
+                    // Mata uang
+                    "RP", "IDR", "USD", "RUPIAH", "DOLLAR"
+                )
+                
+                // Pastikan yang ditangkap BUKAN angka (Mencegah salah tangkap: "Buat 50000")
+                val isNotNumber = extractedName.toDoubleOrNull() == null
+                
+                // Jika lolos semua filter, ini PASTI nama orang/entitas!
+                if (!ignoredWords.contains(extractedName) && isNotNumber) {
+                    return extractedName
+                }
             }
         }
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH", "FADILAH", "ALBI", "RIAN", "AFNAN", "YUNUS", "FARIDA")
-        val textUpper = text.uppercase(Locale.ROOT)
-        for (name in databasePopulerNames) { 
-            if (textUpper.contains(name) || msgUpper.contains(name)) return name 
-        }
+        
+        // Jika tidak ada kata penghubung sama sekali di kalimat, fallback ke default.
         return "TEMAN"
     }
 }
