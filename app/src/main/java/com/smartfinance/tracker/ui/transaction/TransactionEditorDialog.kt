@@ -76,7 +76,6 @@ class TransactionEditorDialog(
         binding.etPremiumTxAmount.setText(currentAmount.toString())
         binding.etPremiumTxDate.setText(sdfPremium.format(Date(currentTimestamp)))
 
-        // 🔥 TAMPILKAN KOLOM KONTAK DI SEMUA JENIS TRANSAKSI
         binding.tvContactLabel.visibility = View.VISIBLE
         binding.layoutContact.visibility = View.VISIBLE
         
@@ -86,24 +85,31 @@ class TransactionEditorDialog(
         if (isDebtInitially) {
             binding.rbPremiumTxDebt.isChecked = true
             currentType = "DEBT"
-            // Label khusus Utang Piutang (Wajib)
             binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " *"
 
-            extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
-            if (extractedName.contains("-")) {
-                val parts = extractedName.split("-", limit = 2)
-                extractedName = parts[0].trim()
-                cleanNoteToShow = parts.getOrNull(1)?.trim() ?: currentNote
+            // 🔥 FIX: Perisai Ganda. Cek apakah format utang bocor memakai (B/ Nama)
+            val matchB = Regex("\\(B/\\s*(.*?)\\)$").find(currentNote)
+            if (matchB != null) {
+                extractedName = matchB.groupValues[1].trim()
+                cleanNoteToShow = currentNote.replace(matchB.value, "").trim()
             } else {
-                val aiPatterns = listOf(
-                    "MEMBERIKAN PINJAMAN KEPADA ", "MENERIMA PINJAMAN DARI ",
-                    "MEMBAYAR CICILAN UTANG KE ", "MENERIMA CICILAN PIUTANG DARI "
-                )
-                for (pattern in aiPatterns) {
-                    if (extractedName.startsWith(pattern)) {
-                        extractedName = extractedName.removePrefix(pattern).trim()
-                        cleanNoteToShow = currentNote
-                        break
+                // Jika normal, parsing format baku: [Kategori] NAMA - CATATAN
+                extractedName = currentNote.replace(Regex("\\[.*?\\]"), "").trim()
+                if (extractedName.contains("-")) {
+                    val parts = extractedName.split("-", limit = 2)
+                    extractedName = parts[0].trim()
+                    cleanNoteToShow = parts.getOrNull(1)?.trim() ?: currentNote
+                } else {
+                    val aiPatterns = listOf(
+                        "MEMBERIKAN PINJAMAN KEPADA ", "MENERIMA PINJAMAN DARI ",
+                        "MEMBAYAR CICILAN UTANG KE ", "MENERIMA CICILAN PIUTANG DARI "
+                    )
+                    for (pattern in aiPatterns) {
+                        if (extractedName.startsWith(pattern)) {
+                            extractedName = extractedName.removePrefix(pattern).trim()
+                            cleanNoteToShow = currentNote
+                            break
+                        }
                     }
                 }
             }
@@ -112,10 +118,8 @@ class TransactionEditorDialog(
             currentType = initialTypeRaw
             
             if (currentType == "INCOME") binding.rbPremiumTxIncome.isChecked = true else binding.rbPremiumTxExpense.isChecked = true
-            // Label khusus Transaksi Biasa (Opsional)
             binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " (Opsional)"
 
-            // Deteksi kontak opsional dari format "(B/ Nama)" di transaksi biasa
             val match = Regex("\\(B/\\s*(.*?)\\)$").find(currentNote)
             if (match != null) {
                 extractedName = match.groupValues[1].trim()
@@ -149,7 +153,6 @@ class TransactionEditorDialog(
                 selectedCategoryMap = null
                 binding.btnCategoryPicker.text = getString(R.string.tx_choose_category)
 
-                // 🔥 Label Wajib/Opsional berubah otomatis saat Radio diklik (Tanpa menyembunyikan kolom)
                 if (newType == "DEBT") {
                     binding.tvContactLabel.text = getString(R.string.tx_contact_label) + " *"
                 } else {
@@ -209,7 +212,6 @@ class TransactionEditorDialog(
             val contactNameVal = binding.etContact.text.toString().trim().uppercase(Locale.ROOT)
             val isEditingDebt = binding.rgPremiumTxType.checkedRadioButtonId == binding.rbPremiumTxDebt.id
 
-            // 🔥 Cegat jika transaksi utang tapi kontak kosong
             if (isEditingDebt && contactNameVal.isEmpty()) {
                 Toast.makeText(context, getString(R.string.tx_toast_contact_required_simple), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -248,7 +250,6 @@ class TransactionEditorDialog(
                             viewModel.updateDebtFields(targetDebtId, contactNameVal, amountVal, selectedDebtType, parsedDate)
                         }
                     } else {
-                        // 🔥 Pasang kembali " (B/ Nama)" di akhir catatan jika pengguna mengisi kontak opsional
                         if (contactNameVal.isNotEmpty()) {
                             finalNote = "$finalNote (B/ $contactNameVal)"
                         }
