@@ -17,7 +17,8 @@ class FinancialAssistant(private val context: Context) {
     private val db = DatabaseProvider.db
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
-    suspend fun parseAndExecuteRawAiResponse(rawText: String): String = withContext(Dispatchers.IO) {
+    // 🔥 FIX: Menerima originalUserMessage dari AIClient
+    suspend fun parseAndExecuteRawAiResponse(rawText: String, originalUserMessage: String): String = withContext(Dispatchers.IO) {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```\s*"""), "")
@@ -99,7 +100,8 @@ class FinancialAssistant(private val context: Context) {
                     
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
-                        contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
+                        // 🔥 FIX: Menganalisa pesan MURNI pengguna, bukan JSON
+                        contactNameRaw = dynamicContactNameExtractor(originalUserMessage)
                     }
 
                     when {
@@ -116,7 +118,6 @@ class FinancialAssistant(private val context: Context) {
                         else -> { 
                             if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
                                 val currentNote = item.optString("clean_note", "Transaksi AI")
-                                // Menyimpan kontak opsional menggunakan marker khusus
                                 item.put("clean_note", "$currentNote (B/ $contactNameRaw)")
                             }
                             executePureTransaction(item, finalAmount, targetTimestamp)
@@ -128,13 +129,27 @@ class FinancialAssistant(private val context: Context) {
                 if (isSuccess) return@withContext aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
             }
 
-            val isIntentionalTransaction = actionType.contains("TRANSACTION") || actionType.contains("EXPENSE") || actionType.contains("INCOME")
+            // ==========================================
+            // 🔥 FIX FALLBACK: AI sering masuk ke blok ini
+            // ==========================================
+            val isIntentionalTransaction = actionType.contains("TRANSACTION") || actionType.contains("EXPENSE") || actionType.contains("INCOME") || actionType.contains("DEBT")
             val fallbackItem = json.optJSONObject("pending_transaction") ?: json
             val fallbackAmount = parseAmount(fallbackItem)
             
             if (fallbackAmount > 0.0 && isIntentionalTransaction) {
                 val customDateStr = fallbackItem.optString("transaction_date", "").trim()
                 val targetTimestamp = parseTransactionDateTime(customDateStr)
+                
+                // 🔥 SUNTIKAN EKSTRAKTOR: Mengekstrak kontak meskipun AI lari ke fallback
+                var contactNameRaw = fallbackItem.optString("contact_name", "").trim().uppercase(Locale.ROOT)
+                if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
+                    contactNameRaw = dynamicContactNameExtractor(originalUserMessage)
+                }
+
+                if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
+                    val currentNote = fallbackItem.optString("clean_note", "Transaksi AI")
+                    fallbackItem.put("clean_note", "$currentNote (B/ $contactNameRaw)")
+                }
                 
                 executePureTransaction(fallbackItem, fallbackAmount, targetTimestamp)
                 return@withContext aiResponse.ifEmpty { "✅ Transaksi berhasil dicatat, Mam!" }
@@ -501,25 +516,15 @@ class FinancialAssistant(private val context: Context) {
         } catch (e: Exception) { 0.0 }
     }
     
-    // 🔥 PENGUATAN GLOBAL ULTIMATE: Regex Multi-Bahasa & Multi-Konteks (Tanpa Hardcode Nama)
-    private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
-        val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
+    // 🔥 PENGUATAN GLOBAL ULTIMATE
+    private fun dynamicContactNameExtractor(userMessage: String): String {
+        val msgUpper = userMessage.uppercase(Locale.ROOT)
         
-        // 1. Kumpulan Pola Kata Penghubung (Preposisi & Kata Kerja)
         val patterns = listOf(
-            // Asosiasi (Baku, Gaul, English)
             Regex("(?:BERSAMA|SAMA|DENGAN|BARENG|BESERTA|WITH|ALONGSIDE|BY)\\s+([A-Z]+)"),
-            
-            // Tujuan (Baku, Gaul, English)
             Regex("(?:KE|KEPADA|UNTUK|BUAT|KASIH|NGASIH|BAYARIN|TO|FOR)\\s+([A-Z]+)"),
-            
-            // Asal (Baku, Gaul, English)
             Regex("(?:DARI|DAPET DARI|FROM)\\s+([A-Z]+)"),
-            
-            // Hutang Piutang (Subjek di Depan) -> "Albi pinjam", "Mike owes"
             Regex("([A-Z]+)\\s+(?:PINJAM|MINJEM|NGUTANG|HUTANG|BORROW|OWES|OWE)"),
-            
-            // Hutang Piutang (Subjek di Belakang) -> "Ditalangin joko", "Dibayarin alice"
             Regex("(?:NALANGIN|DITALANGIN|DIBAYARIN)\\s+([A-Z]+)")
         )
         
@@ -528,32 +533,23 @@ class FinancialAssistant(private val context: Context) {
             if (match != null && match.groupValues.size > 1) {
                 val extractedName = match.groupValues[1].trim()
                 
-                // 2. Filter Pembersih (Agar tidak menangkap kata benda / angka)
                 val ignoredWords = listOf(
-                    // Uang & Tempat
                     "UANG", "DUIT", "SEBESAR", "TOTAL", "HARGA", "BIAYA", "CASH", "TUNAI",
-                    "KASIR", "TOKO", "WARUNG", "BANK", "ATM", "PASAR", "MALL",
-                    // Penghubung yang terbaca ganda
+                    "KASIR", "TOKO", "WARUNG", "BANK", "ATM", "PASAR", "MALL", "HOTEL", "KAMAR", "KOS", "RUMAH",
                     "DI", "KE", "DARI", "SAMA", "BERSAMA", "DENGAN", "BARENG", "BUAT", "UNTUK", 
                     "AT", "TO", "FROM", "WITH", "BY", "FOR",
-                    // Kata ganti umum internasional
                     "ORANG", "TEMAN", "MONEY", "SOMEONE", "FRIEND", "THE", "A", "AN",
                     "MY", "YOUR", "HIS", "HER",
-                    // Mata uang
                     "RP", "IDR", "USD", "RUPIAH", "DOLLAR"
                 )
                 
-                // Pastikan yang ditangkap BUKAN angka (Mencegah salah tangkap: "Buat 50000")
                 val isNotNumber = extractedName.toDoubleOrNull() == null
                 
-                // Jika lolos semua filter, ini PASTI nama orang/entitas!
                 if (!ignoredWords.contains(extractedName) && isNotNumber) {
                     return extractedName
                 }
             }
         }
-        
-        // Jika tidak ada kata penghubung sama sekali di kalimat, fallback ke default.
         return "TEMAN"
     }
 }
