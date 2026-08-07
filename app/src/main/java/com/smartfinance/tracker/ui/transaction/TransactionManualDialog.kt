@@ -16,11 +16,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.smartfinance.tracker.R
-import com.smartfinance.tracker.data.local.DatabaseProvider
 import com.smartfinance.tracker.databinding.DialogTransactionManualPremiumBinding
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.HashMap
@@ -60,7 +57,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogTransactionManualPremiumBinding.inflate(layoutInflater)
         
-        // 🔥 FIX: Hapus paksaan tema
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root)
             .create()
@@ -101,7 +97,7 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
             val catName = selectedCategoryMap!!["name"] as? String ?: "Umum"
             val typeRaw = (selectedCategoryMap!!["type"] as? String)?.uppercase(Locale.ROOT) ?: "EXPENSE"
 
-            val isDebtTransaction = typeRaw == "DEBT" || typeRaw == "RECEIVABLE" || catId == 101L || catId == 102L || catId == 103L || catId == 104L
+            val isDebtTransaction = typeRaw == "DEBT" || typeRaw == "RECEIVABLE" || catId in listOf(101L, 102L, 103L, 104L)
 
             if (isDebtTransaction && contactVal.isEmpty()) {
                 Toast.makeText(context, getString(R.string.tx_toast_contact_required), Toast.LENGTH_SHORT).show()
@@ -116,13 +112,10 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                         else sdfPremium.parse(dateVal)?.time ?: System.currentTimeMillis() 
                     } catch (e: Exception) { System.currentTimeMillis() }
 
-                    val finalType = when (catId) {
-                        101L, 103L -> "INCOME"     
-                        102L, 104L -> "EXPENSE"    
-                        else -> if (typeRaw == "INCOME") "INCOME" else "EXPENSE"
-                    }
-
-                    val finalNote = if (isDebtTransaction) "[$catName] $contactVal - $noteVal".uppercase(Locale.ROOT) else noteVal.uppercase(Locale.ROOT)
+                    // 🔥 DELEGASI KE VIEWMODEL
+                    val finalType = viewModel.determineTransactionType(catId, typeRaw, isDebtTransaction)
+                    val finalNote = viewModel.formatTransactionNote(noteVal, contactVal, catName, isDebtTransaction)
+                    
                     val txId = "tx_${System.currentTimeMillis()}"
                     val generatedDebtId = if (isDebtTransaction) "debt_${System.currentTimeMillis()}" else null
 
@@ -155,7 +148,8 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
                     }
 
                     if (finalType == "EXPENSE") {
-                        checkAndTriggerBudgetAlert(catId, catName)
+                        // 🔥 DELEGASI KE VIEWMODEL (Dialog bersih dari Database Provider)
+                        viewModel.checkAndTriggerBudgetAlert(requireContext(), catId, catName)
                     }
 
                     Toast.makeText(context, getString(R.string.success_saved), Toast.LENGTH_SHORT).show()
@@ -168,45 +162,6 @@ class TransactionManualDialog(private val onSaved: () -> Unit) : DialogFragment(
         }
 
         return dialog
-    }
-
-    private suspend fun checkAndTriggerBudgetAlert(categoryId: Long, categoryName: String) = withContext(Dispatchers.IO) {
-        val db = DatabaseProvider.db
-        try {
-            val budgetDoc = db.budgetDao().getByCategoryId(categoryId)
-
-            if (budgetDoc != null) {
-                val limitAmount = budgetDoc.limitAmount
-
-                if (limitAmount > 0.0) {
-                    val cal = Calendar.getInstance()
-                    cal.set(Calendar.DAY_OF_MONTH, 1); cal.set(Calendar.HOUR_OF_DAY, 0)
-                    cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
-                    val startOfMonth = cal.timeInMillis
-
-                    val txs = db.transactionDao().getByCategoryId(categoryId)
-                    var totalSpent = 0.0 
-                    for (tx in txs) {
-                        if (tx.timestamp >= startOfMonth && (tx.type == "EXPENSE" || tx.type == "RECEIVABLE")) { 
-                            totalSpent += tx.amount
-                        }
-                    }
-
-                    if (totalSpent >= (limitAmount * 0.8)) {
-                        withContext(Dispatchers.Main) {
-                            com.smartfinance.tracker.worker.AiWorkerManager.triggerBudgetAlert(
-                                requireContext(),
-                                categoryName,
-                                totalSpent,
-                                limitAmount
-                            )
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     private fun showCategoryPickerDialog() {
