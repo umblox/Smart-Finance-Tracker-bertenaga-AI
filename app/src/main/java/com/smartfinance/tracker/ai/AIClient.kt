@@ -20,7 +20,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
-        // 🔥 FIX PROMPT ULTIMATE: Tambahan anti-kategori hutang & adaptasi multi-bahasa otomatis!
+        // 🔥 FIX PROMPT: Aturan #8 ditingkatkan ke level GLOBAL (Multi-language Name Extraction)
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
@@ -40,16 +40,16 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             5. TRANSAKSI UTANG / PIUTANG (JIKA ADA KATA PINJAM / HUTANG):
                - WAJIB SET action_type: "DEBT_RECORD" (DILARANG KERAS MENGGUNAKAN "TRANSACTION"!).
                - JIKA SAYA MEMINJAM UANG DARI ORANG: debt_type: "DEBT".
-               - JIKA ORANG LAIN MEMINJAM UANG DARI SAYA: debt_type: "RECEIVABLE" (Contoh: "Afnan pinjam uang", "Bayu meminjam 40000"). JANGAN TERBALIK!
+               - JIKA ORANG LAIN MEMINJAM UANG DARI SAYA: debt_type: "RECEIVABLE". JANGAN TERBALIK!
                - PEMBAYARAN / PELUNASAN -> action_type: "DEBT_PAYMENT".
-               - WAJIB masukkan ke dalam array 'transactions' dan isi 'contact_name'.
             6. KATEGORI (LIHAT & BUAT): 
-               - JIKA DIMINTA KATEGORI SPESIFIK (Contoh: "kategori pengeluaran", "kategori pemasukan", "sub kategori"): WAJIB gunakan action_type: "CHAT_ONLY". Tulis manual daftarnya di 'ai_response' dengan rapi (📁 untuk Induk, └── 💰 untuk Sub). DILARANG KERAS menggunakan "VIEW_CATEGORIES"!
+               - JIKA DIMINTA KATEGORI SPESIFIK: WAJIB action_type: "CHAT_ONLY". Tulis manual daftarnya di 'ai_response' dengan rapi. DILARANG KERAS menggunakan "VIEW_CATEGORIES"!
                - Gunakan action_type: "VIEW_CATEGORIES" HANYA JIKA diminta melihat "SEMUA" daftar kategori sekaligus.
-               - Jika membuat baru -> action_type: "CREATE_CATEGORY". Tipe WAJIB "INCOME" atau "EXPENSE". DILARANG KERAS membuat kategori untuk hutang/piutang!
-            7. PENOLAKAN KETAT: TOLAK permintaan saran (wisata, resep, hobi, dll) dan pertanyaan umum di luar keuangan. Aturan ini BERLAKU MUTLAK di SEMUA BAHASA.
+               - Jika membuat baru -> action_type: "CREATE_CATEGORY". DILARANG KERAS membuat kategori untuk hutang/piutang!
+            7. PENOLAKAN KETAT: TOLAK permintaan saran (wisata, resep, hobi, dll) dan pertanyaan umum di luar keuangan. Aturan ini BERLAKU MUTLAK.
+            8. EKSTRAKSI NAMA KONTAK (MANDATORY GLOBAL): Extract human names from the text in ANY language (Contoh: "bersama fadilah", "dinner with John", "bayar ke Budi", "from Alice", "Mike borrowed"). ANDA WAJIB mengekstrak nama tersebut ("Fadilah", "John", "Budi", "Alice", "Mike") dan memasukannya ke dalam parameter 'contact_name' di JSON. Berlaku untuk transaksi biasa maupun utang piutang di seluruh dunia!
                
-            PERINGATAN: 'ai_response' WAJIB bahasa natural DAN WAJIB MENYESUAIKAN BAHASA PENGGUNA (Jika input bahasa Inggris, balas dengan bahasa Inggris). DILARANG MENGCOPY TEMPLATE JSON INI KE DALAM JAWABAN!
+            PERINGATAN: 'ai_response' WAJIB bahasa natural DAN WAJIB MENYESUAIKAN BAHASA PENGGUNA. DILARANG MENGCOPY TEMPLATE JSON INI KE DALAM JAWABAN!
             
             FORMAT JSON WAJIB:
             {
@@ -58,7 +58,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
               "pending_transaction": { "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama", "clean_note": "Catatan", "contact_name": "", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" },
               "report_filter": { "report_type": "SUMMARY" | "ITEM_DETAILS" | "CATEGORY_BREAKDOWN" | "TOP_EXPENSE", "time_range": "TODAY" | "WEEKLY" | "MONTHLY" | "LAST_MONTH" | "YEARLY" | "CUSTOM_RANGE", "start_date": "dd-MM-yyyy", "end_date": "dd-MM-yyyy", "target_category": "", "target_keyword": "" },
               "new_category": { "name": "Nama Kategori", "type": "INCOME" | "EXPENSE", "parent_category_id": "" },
-              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama Kategori", "clean_note": "Catatan", "contact_name": "WAJIB DIISI JIKA CATAT/BAYAR UTANG", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
+              "transactions": [{ "amount": 0, "type": "EXPENSE", "category_id": 1, "category_name": "Nama Kategori", "clean_note": "Catatan", "contact_name": "NAMA ORANG JIKA ADA (WAJIB DIEKSTRAK)", "debt_type": "DEBT", "is_new_category": false, "transaction_date": "dd-MM-yyyy HH:mm" }]
             }
         """.trimIndent()
     }
@@ -151,6 +151,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         }
     }
 
+    // ... sisa fungsi HTTP Client tetap sama ...
     private fun callOpenAICompatible(endpoint: String, model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI(endpoint).toURL()
         val conn = url.openConnection() as HttpURLConnection
@@ -158,25 +159,12 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.setRequestProperty("Content-Type", "application/json")
         conn.setRequestProperty("Authorization", "Bearer $apiKey")
         conn.doOutput = true
-
-        val messagesArray = JSONArray().apply {
-            put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
-            put(JSONObject().apply { put("role", "user"); put("content", userMessage) })
-        }
-
-        val jsonBody = JSONObject().apply {
-            put("model", model)
-            put("messages", messagesArray)
-            put("temperature", 0.7)
-            put("response_format", JSONObject().apply { put("type", "json_object") })
-        }
-
+        val messagesArray = JSONArray().apply { put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) }); put(JSONObject().apply { put("role", "user"); put("content", userMessage) }) }
+        val jsonBody = JSONObject().apply { put("model", model); put("messages", messagesArray); put("temperature", 0.7); put("response_format", JSONObject().apply { put("type", "json_object") }) }
         conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
         if (conn.responseCode == 200) {
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            return JSONObject(reader.readText()).getJSONArray("choices")
-                .getJSONObject(0).getJSONObject("message").getString("content").trim()
+            return JSONObject(reader.readText()).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
             return "⚠️ Server Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
@@ -189,30 +177,11 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.requestMethod = "POST"
         conn.setRequestProperty("Content-Type", "application/json")
         conn.doOutput = true
-
-        val jsonBody = JSONObject().apply {
-            put("systemInstruction", JSONObject().apply {
-                put("parts", JSONArray().apply { put(JSONObject().apply { put("text", systemPrompt) }) })
-            })
-            put("contents", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().apply { put(JSONObject().apply { put("text", userMessage) }) })
-                })
-            })
-            put("generationConfig", JSONObject().apply {
-                put("responseMimeType", "application/json")
-                put("temperature", 0.7)
-            })
-        }
-
+        val jsonBody = JSONObject().apply { put("systemInstruction", JSONObject().apply { put("parts", JSONArray().apply { put(JSONObject().apply { put("text", systemPrompt) }) }) }); put("contents", JSONArray().apply { put(JSONObject().apply { put("role", "user"); put("parts", JSONArray().apply { put(JSONObject().apply { put("text", userMessage) }) }) }) }); put("generationConfig", JSONObject().apply { put("responseMimeType", "application/json"); put("temperature", 0.7) }) }
         conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
         if (conn.responseCode == 200) {
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            return JSONObject(reader.readText()).getJSONArray("candidates")
-                .getJSONObject(0).getJSONObject("content").getJSONArray("parts")
-                .getJSONObject(0).getString("text").trim()
+            return JSONObject(reader.readText()).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
             return "⚠️ Gemini Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
@@ -227,25 +196,12 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.setRequestProperty("x-api-key", apiKey)
         conn.setRequestProperty("anthropic-version", "2023-06-01")
         conn.doOutput = true
-
-        val messagesArray = JSONArray().apply {
-            put(JSONObject().apply { put("role", "user"); put("content", "$userMessage\n\n[RESPOND STRICTLY IN JSON FORMAT]") })
-        }
-
-        val jsonBody = JSONObject().apply {
-            put("model", model)
-            put("max_tokens", 4096)
-            put("temperature", 0.7)
-            put("system", systemPrompt)
-            put("messages", messagesArray)
-        }
-
+        val messagesArray = JSONArray().apply { put(JSONObject().apply { put("role", "user"); put("content", "$userMessage\n\n[RESPOND STRICTLY IN JSON FORMAT]") }) }
+        val jsonBody = JSONObject().apply { put("model", model); put("max_tokens", 4096); put("temperature", 0.7); put("system", systemPrompt); put("messages", messagesArray) }
         conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
         if (conn.responseCode == 200) {
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            return JSONObject(reader.readText()).getJSONArray("content")
-                .getJSONObject(0).getString("text").trim()
+            return JSONObject(reader.readText()).getJSONArray("content").getJSONObject(0).getString("text").trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
             return "⚠️ Claude Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
