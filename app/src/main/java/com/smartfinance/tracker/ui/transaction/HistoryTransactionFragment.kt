@@ -35,13 +35,11 @@ class HistoryTransactionFragment : Fragment() {
     private var currentCalendar = Calendar.getInstance()
     private var searchQuery = ""
     
-    // 🔥 FIX: Menggunakan Locale.getDefault() agar nama bulan & hari dinamis sesuai bahasa
     private val sdfMonthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
     private val sdfDateOnly = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private val sdfDayNum = SimpleDateFormat("dd", Locale.getDefault())
     private val sdfMonthYear = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
 
-    // 🔥 FIX: Uang tetap dikunci ke Locale ID agar selalu berformat Rupiah (Rp)
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -175,7 +173,6 @@ class HistoryTransactionFragment : Fragment() {
             val itemDateStr = sdfDateOnly.format(date)
             val ctx = holder.itemView.context
 
-            // 🔥 FIX: Teks "Hari ini" & "Kemarin" dinamis dwibahasa
             holder.tvDayName.text = when (itemDateStr) {
                 todayStr -> ctx.getString(R.string.history_today)
                 yesterdayStr -> ctx.getString(R.string.history_yesterday)
@@ -204,8 +201,16 @@ class HistoryTransactionFragment : Fragment() {
                 val isInc = tx.type == "INCOME" || tx.type == "DEBT"
                 tvCategory.text = tx.categoryName
                 
-                // 🔥 FIX: Teks "Tanpa catatan" dinamis dwibahasa
-                tvNote.text = tx.note.ifEmpty { ctx.getString(R.string.history_no_note) }
+                // 🔥 FILTER VISUAL: Menyulap "KODE RAHASIA" menjadi tampilan elegan sebelum di-render ke UI
+                var displayNote = tx.note
+                val matchB = Regex("\\(B/\\s*(.*?)\\)$").find(displayNote)
+                if (matchB != null) {
+                    val contactName = matchB.groupValues[1].trim()
+                    val pureNote = displayNote.replace(matchB.value, "").trim()
+                    displayNote = if (pureNote.isNotEmpty()) "$pureNote - $contactName" else contactName
+                }
+
+                tvNote.text = displayNote.ifEmpty { ctx.getString(R.string.history_no_note) }
                 
                 val amtPrefix = if (isInc) "+" else "-"
                 tvAmount.text = "$amtPrefix${formatRupiah.format(tx.amount)}"
@@ -215,6 +220,7 @@ class HistoryTransactionFragment : Fragment() {
                 ivIcon.setImageResource(com.smartfinance.tracker.utils.IconProvider.getIconResource(iconName))
                 ivIcon.imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(requireContext(), if (isInc) R.color.income_green else R.color.expense_red))
                 
+                // 🔥 DATA ASLI (Mentah) tetap dikirim ke Editor agar ViewModel bisa membongkarnya kembali
                 txView.setOnClickListener {
                     TransactionEditorDialog(
                         hashMapOf("id" to tx.id, "amount" to tx.amount, "note" to tx.note, "type" to tx.type, "timestamp" to tx.timestamp, "categoryId" to tx.categoryId, "debtId" to tx.debtId)
