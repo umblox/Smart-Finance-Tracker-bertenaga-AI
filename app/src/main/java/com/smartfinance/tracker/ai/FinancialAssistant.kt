@@ -17,7 +17,6 @@ class FinancialAssistant(private val context: Context) {
     private val db = DatabaseProvider.db
     private val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
-    // 🔥 FIX: Menerima originalUserMessage dari AIClient
     suspend fun parseAndExecuteRawAiResponse(rawText: String, originalUserMessage: String): String = withContext(Dispatchers.IO) {
         var cleanJsonStr = rawText.trim()
         cleanJsonStr = cleanJsonStr.replace(Regex("""^```json\s*"""), "")
@@ -100,7 +99,6 @@ class FinancialAssistant(private val context: Context) {
                     
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
-                        // 🔥 FIX: Menganalisa pesan MURNI pengguna, bukan JSON
                         contactNameRaw = dynamicContactNameExtractor(originalUserMessage)
                     }
 
@@ -118,7 +116,14 @@ class FinancialAssistant(private val context: Context) {
                         else -> { 
                             if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
                                 val currentNote = item.optString("clean_note", "Transaksi AI")
-                                item.put("clean_note", "$currentNote (B/ $contactNameRaw)")
+                                val catId = item.optLong("category_id", 15L)
+                                // 🔥 FIX DB STANDAR: Jika AI salah melempar Kategori Utang ke blok biasa
+                                if (catId in listOf(101L, 102L, 103L, 104L)) {
+                                    val catName = item.optString("category_name", "Utang/Piutang")
+                                    item.put("clean_note", "[$catName] $contactNameRaw - $currentNote")
+                                } else {
+                                    item.put("clean_note", "$currentNote (B/ $contactNameRaw)")
+                                }
                             }
                             executePureTransaction(item, finalAmount, targetTimestamp)
                             isSuccess = true
@@ -130,7 +135,7 @@ class FinancialAssistant(private val context: Context) {
             }
 
             // ==========================================
-            // 🔥 FIX FALLBACK: AI sering masuk ke blok ini
+            // FALLBACK BLOCK
             // ==========================================
             val isIntentionalTransaction = actionType.contains("TRANSACTION") || actionType.contains("EXPENSE") || actionType.contains("INCOME") || actionType.contains("DEBT")
             val fallbackItem = json.optJSONObject("pending_transaction") ?: json
@@ -140,7 +145,6 @@ class FinancialAssistant(private val context: Context) {
                 val customDateStr = fallbackItem.optString("transaction_date", "").trim()
                 val targetTimestamp = parseTransactionDateTime(customDateStr)
                 
-                // 🔥 SUNTIKAN EKSTRAKTOR: Mengekstrak kontak meskipun AI lari ke fallback
                 var contactNameRaw = fallbackItem.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                 if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
                     contactNameRaw = dynamicContactNameExtractor(originalUserMessage)
@@ -148,7 +152,15 @@ class FinancialAssistant(private val context: Context) {
 
                 if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
                     val currentNote = fallbackItem.optString("clean_note", "Transaksi AI")
-                    fallbackItem.put("clean_note", "$currentNote (B/ $contactNameRaw)")
+                    val catId = fallbackItem.optLong("category_id", 15L)
+                    
+                    // 🔥 FIX DB STANDAR FALLBACK
+                    if (catId in listOf(101L, 102L, 103L, 104L)) {
+                        val catName = fallbackItem.optString("category_name", "Utang/Piutang")
+                        fallbackItem.put("clean_note", "[$catName] $contactNameRaw - $currentNote")
+                    } else {
+                        fallbackItem.put("clean_note", "$currentNote (B/ $contactNameRaw)")
+                    }
                 }
                 
                 executePureTransaction(fallbackItem, fallbackAmount, targetTimestamp)
@@ -516,7 +528,6 @@ class FinancialAssistant(private val context: Context) {
         } catch (e: Exception) { 0.0 }
     }
     
-    // 🔥 PENGUATAN GLOBAL ULTIMATE
     private fun dynamicContactNameExtractor(userMessage: String): String {
         val msgUpper = userMessage.uppercase(Locale.ROOT)
         
