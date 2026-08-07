@@ -97,7 +97,6 @@ class FinancialAssistant(private val context: Context) {
                     val finalAmount = parseAmount(item)
                     if (finalAmount <= 0.0) continue
                     
-                    // 🔥 Ekstraksi Nama Kontak yang Jauh Lebih Cerdas
                     var contactNameRaw = item.optString("contact_name", "").trim().uppercase(Locale.ROOT)
                     if (contactNameRaw.isEmpty() || contactNameRaw == "TEMAN" || contactNameRaw == "BERI") {
                         contactNameRaw = dynamicContactNameExtractor(cleanAiResponseUpper, userMessageKeyword = cleanJsonStr)
@@ -115,9 +114,9 @@ class FinancialAssistant(private val context: Context) {
                             if (i == txArray.length() - 1) return@withContext msg
                         }
                         else -> { 
-                            // Menyertakan contact_name ke dalam catatan transaksi biasa jika ditemukan nama orang
                             if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
                                 val currentNote = item.optString("clean_note", "Transaksi AI")
+                                // Menyimpan kontak opsional menggunakan marker khusus
                                 item.put("clean_note", "$currentNote (B/ $contactNameRaw)")
                             }
                             executePureTransaction(item, finalAmount, targetTimestamp)
@@ -199,7 +198,8 @@ class FinancialAssistant(private val context: Context) {
         val catId = if (selectedType == "RECEIVABLE") 104L else 101L
         val catName = if (selectedType == "RECEIVABLE") "Piutang" else "Hutang"
         val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
-        val standardizedNote = if (selectedType == "RECEIVABLE") "MEMBERIKAN PINJAMAN KEPADA $sanitizedName" else "MENERIMA PINJAMAN DARI $sanitizedName"
+        
+        val standardizedNote = if (selectedType == "RECEIVABLE") "[$catName] $sanitizedName - MEMBERIKAN PINJAMAN" else "[$catName] $sanitizedName - MENERIMA PINJAMAN"
 
         val tx = Transaction(
             id = txId, amount = amountValue, type = flowType, categoryId = catId, 
@@ -242,7 +242,8 @@ class FinancialAssistant(private val context: Context) {
             val catId = if (matchType == "DEBT") 102L else 103L
             val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
             val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
-            val standardizedNote = if (matchType == "DEBT") "MEMBAYAR CICILAN UTANG KE $matchContactName" else "MENERIMA CICILAN PIUTANG DARI $matchContactName"
+            
+            val standardizedNote = if (matchType == "DEBT") "[$catName] $matchContactName - MEMBAYAR CICILAN UTANG" else "[$catName] $matchContactName - MENERIMA CICILAN PIUTANG"
 
             val payTx = Transaction(
                 id = txId, amount = targetPayAmount, type = txType, categoryId = catId, 
@@ -500,39 +501,26 @@ class FinancialAssistant(private val context: Context) {
         } catch (e: Exception) { 0.0 }
     }
     
-    // 🔥 PENGUATAN: Regex Cerdas untuk menangkap nama (Anti AI Bodoh)
     private fun dynamicContactNameExtractor(text: String, userMessageKeyword: String): String {
         val msgUpper = userMessageKeyword.uppercase(Locale.ROOT)
-        
-        // Coba tangkap dengan pola struktur kalimat (Regex)
         val patterns = listOf(
-            Regex("BERSAMA\\s+([A-Z]+)"), // "beli rujak bersama fadilah"
-            Regex("SAMA\\s+([A-Z]+)"),    // "beli baju sama ryan"
-            Regex("KE\\s+([A-Z]+)"),      // "bayar utang ke budi"
-            Regex("DARI\\s+([A-Z]+)"),    // "terima cicilan dari joko"
-            Regex("([A-Z]+)\\s+PINJAM"),  // "albi pinjam uang"
-            Regex("([A-Z]+)\\s+NGUTANG")  // "albi ngutang"
+            Regex("BERSAMA\\s+([A-Z]+)"), Regex("SAMA\\s+([A-Z]+)"),
+            Regex("KE\\s+([A-Z]+)"), Regex("DARI\\s+([A-Z]+)"),
+            Regex("([A-Z]+)\\s+PINJAM"), Regex("([A-Z]+)\\s+NGUTANG")
         )
-        
         for (pattern in patterns) {
             val match = pattern.find(msgUpper)
             if (match != null && match.groupValues.size > 1) {
                 val extractedName = match.groupValues[1].trim()
-                // Abaikan jika yang tertangkap adalah kata hubung
                 val ignoredWords = listOf("UANG", "SEBESAR", "DI", "KE", "DARI", "SAMA", "BERSAMA", "ORANG", "TEMAN")
-                if (!ignoredWords.contains(extractedName)) {
-                    return extractedName
-                }
+                if (!ignoredWords.contains(extractedName)) return extractedName
             }
         }
-
-        // Fallback jika tidak ada pola, cari di database nama populer
-        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH", "FADILAH", "ALBI", "RIAN", "AFNAN")
+        val databasePopulerNames = listOf("JOKO", "ARNETA", "ADIT", "DANI", "ARIANTO", "BUDI", "ARI", "BAYU", "AJI", "LILIK", "DIKAH", "FADILAH", "ALBI", "RIAN", "AFNAN", "YUNUS", "FARIDA")
         val textUpper = text.uppercase(Locale.ROOT)
         for (name in databasePopulerNames) { 
             if (textUpper.contains(name) || msgUpper.contains(name)) return name 
         }
-        
         return "TEMAN"
     }
 }
