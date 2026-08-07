@@ -39,17 +39,19 @@ class TransactionViewModel : ViewModel() {
         list
     }
 
-    // 🔥 LOGIKA MVVM: Mem-parsing teks kotor menjadi rapi (Dipindah dari Editor Dialog)
+    // 🔥 LOGIKA KEMBALI BENAR: Mengekstrak kontak dari transaksi UTANG maupun BIASA!
     fun parseTransactionNote(rawNote: String, isDebt: Boolean): ParsedNoteData {
         var extractedName = ""
         var cleanNoteToShow = rawNote
 
         if (isDebt) {
+            // Cek apakah ada format salah (B/ NAMA) yang nyasar ke Utang
             val matchB = Regex("\\(B/\\s*(.*?)\\)$").find(rawNote)
             if (matchB != null) {
                 extractedName = matchB.groupValues[1].trim()
                 cleanNoteToShow = rawNote.replace(matchB.value, "").trim()
             } else {
+                // Ekstraksi format baku Utang: [Kategori] NAMA - Catatan
                 extractedName = rawNote.replace(Regex("\\[.*?\\]"), "").trim()
                 if (extractedName.contains("-")) {
                     val parts = extractedName.split("-", limit = 2)
@@ -70,16 +72,17 @@ class TransactionViewModel : ViewModel() {
                 }
             }
         } else {
+            // 🔥 TRANSAKSI BIASA: Wajib mengekstrak (B/ NAMA) agar kolom kontak terisi!
             val match = Regex("\\(B/\\s*(.*?)\\)$").find(rawNote)
             if (match != null) {
                 extractedName = match.groupValues[1].trim()
                 cleanNoteToShow = rawNote.replace(match.value, "").trim()
             }
         }
+        
         return ParsedNoteData(extractedName, cleanNoteToShow)
     }
 
-    // 🔥 LOGIKA MVVM: Menentukan tipe transaksi berdasarkan Kategori Baku (101-104)
     fun determineTransactionType(categoryId: Long, selectedType: String, isDebt: Boolean): String {
         if (isDebt || categoryId in listOf(101L, 102L, 103L, 104L)) {
             return if (categoryId == 101L || categoryId == 103L) "INCOME" else "EXPENSE"
@@ -87,19 +90,18 @@ class TransactionViewModel : ViewModel() {
         return selectedType.uppercase(Locale.ROOT)
     }
 
-    // 🔥 LOGIKA MVVM: Merakit catatan akhir untuk di-save ke Database
     fun formatTransactionNote(rawNote: String, contactName: String, categoryName: String, isDebt: Boolean): String {
         val cleanNote = rawNote.uppercase(Locale.ROOT)
         val cleanContact = contactName.uppercase(Locale.ROOT)
         
         return if (isDebt) {
-            "[$categoryName] $cleanContact - $cleanNote"
+            "[$categoryName] $cleanContact -$cleanNote"
         } else {
+            // 🔥 TRANSAKSI BIASA: Pasang kembali stempel (B/ NAMA) agar data tersimpan
             if (cleanContact.isNotEmpty()) "$cleanNote (B/ $cleanContact)" else cleanNote
         }
     }
 
-    // 🔥 LOGIKA MVVM: Mengecek limit budget (Dipindah dari Manual Dialog)
     suspend fun checkAndTriggerBudgetAlert(context: Context, categoryId: Long, categoryName: String) = withContext(Dispatchers.IO) {
         try {
             val budgetDoc = DatabaseProvider.db.budgetDao().getByCategoryId(categoryId)
