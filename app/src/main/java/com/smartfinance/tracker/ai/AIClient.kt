@@ -20,16 +20,25 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
+        // 🔥 FIX PROMPT: Aturan #8 Global (Tanpa karakter ilegal \n di dalam raw string)
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
             WAKTU SAAT INI: {TODAY_DATE}
             
             [SALDO UANG SAYA SAAT INI]: {CURRENT_BALANCE}
-            [DATABASE KATEGORI]: \n{CAT_CONTEXT}
-            [HUTANG SAYA (SAYA PINJAM)]: \n{MY_DEBT_CONTEXT}
-            [PIUTANG SAYA (ORANG PINJAM)]: \n{OTHER_RECEIVABLE_CONTEXT}
-            [RIWAYAT TRANSAKSI TERAKHIR]: \n{TX_CONTEXT}
+            
+            [DATABASE KATEGORI]: 
+            {CAT_CONTEXT}
+            
+            [HUTANG SAYA (SAYA PINJAM)]: 
+            {MY_DEBT_CONTEXT}
+            
+            [PIUTANG SAYA (ORANG PINJAM)]: 
+            {OTHER_RECEIVABLE_CONTEXT}
+            
+            [RIWAYAT TRANSAKSI TERAKHIR]: 
+            {TX_CONTEXT}
             
             ATURAN MUTLAK KECERDASAN:
             1. PENCATATAN TRANSAKSI BIASA: action_type -> "TRANSACTION". Pemasukan -> "INCOME". Pengeluaran -> "EXPENSE".
@@ -92,7 +101,7 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
 
             val sdfTx = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
             for (tx in allTx.take(50)) {
-                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} \vert{} Kategori:${tx.categoryName} | Tipe: ${tx.type} \vert{} Nominal: Rp${tx.amount}\n")
+                txContext.append("- [${sdfTx.format(Date(tx.timestamp))}] ${tx.note} | Kategori: ${tx.categoryName} | Tipe: ${tx.type} | Nominal: Rp${tx.amount}\n")
             }
 
             val allCats = db.categoryDao().getAllSync()
@@ -100,21 +109,23 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             val subs = allCats.filter { it.parentCategoryId != null }
 
             for (p in parents) {
-                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} \vert{} Nama:${p.name}\n")
+                catContext.append("📁 [INDUK - ${p.type}] ID: ${p.id} | Nama: ${p.name}\n")
                 val kids = subs.filter { it.parentCategoryId == p.id }
                 for (k in kids) {
-                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} \vert{} Nama:${k.name}\n")
+                    catContext.append("   └── 💰 [SUB-KATEGORI] ID: ${k.id} | Nama: ${k.name}\n")
                 }
             }
 
             val allDebts = db.debtDao().getAllSync()
             for (debt in allDebts) {
                 if (!debt.isPaid) {
-                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} \vert{} Sisa: Rp${debt.remainingAmount}\n")
-                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya \vert{} Sisa: Rp${debt.remainingAmount}\n")
+                    if (debt.type == "DEBT") myDebtContext.append("- Saya berhutang ke: ${debt.contactName} | Sisa: Rp ${debt.remainingAmount}\n")
+                    else otherReceivableContext.append("- ${debt.contactName} berhutang ke saya | Sisa: Rp ${debt.remainingAmount}\n")
                 }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { 
+            e.printStackTrace() 
+        }
 
         val sdfToday = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale("id", "ID"))
         val todayString = sdfToday.format(Date())
@@ -143,7 +154,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
             
             if (rawResponse.startsWith("⚠️")) return@withContext rawResponse 
             
-            // 🔥 FIX: Kirimkan pesan asli dari pengguna (userMessage) agar tidak dibodohi oleh ringkasan JSON AI
             return@withContext assistant.parseAndExecuteRawAiResponse(rawResponse, userMessage)
             
         } catch (e: Exception) {
@@ -151,6 +161,8 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         }
     }
 
+    // 🔥 FIX: Semua kode di bawah ini dijabarkan rapi untuk mencegah bug compiler (Illegal Escape)
+    
     private fun callOpenAICompatible(endpoint: String, model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI(endpoint).toURL()
         val conn = url.openConnection() as HttpURLConnection
@@ -158,15 +170,43 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.setRequestProperty("Content-Type", "application/json")
         conn.setRequestProperty("Authorization", "Bearer $apiKey")
         conn.doOutput = true
-        val messagesArray = JSONArray().apply { put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) }); put(JSONObject().apply { put("role", "user"); put("content", userMessage) }) }
-        val jsonBody = JSONObject().apply { put("model", model); put("messages", messagesArray); put("temperature", 0.7); put("response_format", JSONObject().apply { put("type", "json_object") }) }
-        conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-        if (conn.responseCode == 200) {
+        
+        val systemMessage = JSONObject()
+        systemMessage.put("role", "system")
+        systemMessage.put("content", systemPrompt)
+        
+        val userMsgObj = JSONObject()
+        userMsgObj.put("role", "user")
+        userMsgObj.put("content", userMessage)
+        
+        val messagesArray = JSONArray()
+        messagesArray.put(systemMessage)
+        messagesArray.put(userMsgObj)
+        
+        val responseFormat = JSONObject()
+        responseFormat.put("type", "json_object")
+        
+        val jsonBody = JSONObject()
+        jsonBody.put("model", model)
+        jsonBody.put("messages", messagesArray)
+        jsonBody.put("temperature", 0.7)
+        jsonBody.put("response_format", responseFormat)
+        
+        conn.outputStream.use { os -> 
+            os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) 
+        }
+        
+        return if (conn.responseCode == 200) {
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            return JSONObject(reader.readText()).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content").trim()
+            JSONObject(reader.readText())
+                .getJSONArray("choices")
+                .getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content")
+                .trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Server Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
+            "⚠️ Server Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
         }
     }
 
@@ -176,14 +216,55 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.requestMethod = "POST"
         conn.setRequestProperty("Content-Type", "application/json")
         conn.doOutput = true
-        val jsonBody = JSONObject().apply { put("systemInstruction", JSONObject().apply { put("parts", JSONArray().apply { put(JSONObject().apply { put("text", systemPrompt) }) }) }); put("contents", JSONArray().apply { put(JSONObject().apply { put("role", "user"); put("parts", JSONArray().apply { put(JSONObject().apply { put("text", userMessage) }) }) }) }); put("generationConfig", JSONObject().apply { put("responseMimeType", "application/json"); put("temperature", 0.7) }) }
-        conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-        if (conn.responseCode == 200) {
+        
+        val systemPart = JSONObject()
+        systemPart.put("text", systemPrompt)
+        
+        val systemPartsArray = JSONArray()
+        systemPartsArray.put(systemPart)
+        
+        val systemInstruction = JSONObject()
+        systemInstruction.put("parts", systemPartsArray)
+        
+        val userPart = JSONObject()
+        userPart.put("text", userMessage)
+        
+        val userPartsArray = JSONArray()
+        userPartsArray.put(userPart)
+        
+        val userContent = JSONObject()
+        userContent.put("role", "user")
+        userContent.put("parts", userPartsArray)
+        
+        val contentsArray = JSONArray()
+        contentsArray.put(userContent)
+        
+        val generationConfig = JSONObject()
+        generationConfig.put("responseMimeType", "application/json")
+        generationConfig.put("temperature", 0.7)
+        
+        val jsonBody = JSONObject()
+        jsonBody.put("systemInstruction", systemInstruction)
+        jsonBody.put("contents", contentsArray)
+        jsonBody.put("generationConfig", generationConfig)
+        
+        conn.outputStream.use { os -> 
+            os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) 
+        }
+        
+        return if (conn.responseCode == 200) {
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            return JSONObject(reader.readText()).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim()
+            JSONObject(reader.readText())
+                .getJSONArray("candidates")
+                .getJSONObject(0)
+                .getJSONObject("content")
+                .getJSONArray("parts")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Gemini Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
+            "⚠️ Gemini Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
         }
     }
 
@@ -195,15 +276,35 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         conn.setRequestProperty("x-api-key", apiKey)
         conn.setRequestProperty("anthropic-version", "2023-06-01")
         conn.doOutput = true
-        val messagesArray = JSONArray().apply { put(JSONObject().apply { put("role", "user"); put("content", "$userMessage\n\n[RESPOND STRICTLY IN JSON FORMAT]") }) }
-        val jsonBody = JSONObject().apply { put("model", model); put("max_tokens", 4096); put("temperature", 0.7); put("system", systemPrompt); put("messages", messagesArray) }
-        conn.outputStream.use { os -> os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-        if (conn.responseCode == 200) {
+        
+        val userMsgObj = JSONObject()
+        userMsgObj.put("role", "user")
+        userMsgObj.put("content", "$userMessage\n\n[RESPOND STRICTLY IN JSON FORMAT]")
+        
+        val messagesArray = JSONArray()
+        messagesArray.put(userMsgObj)
+        
+        val jsonBody = JSONObject()
+        jsonBody.put("model", model)
+        jsonBody.put("max_tokens", 4096)
+        jsonBody.put("temperature", 0.7)
+        jsonBody.put("system", systemPrompt)
+        jsonBody.put("messages", messagesArray)
+        
+        conn.outputStream.use { os -> 
+            os.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) 
+        }
+        
+        return if (conn.responseCode == 200) {
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            return JSONObject(reader.readText()).getJSONArray("content").getJSONObject(0).getString("text").trim()
+            JSONObject(reader.readText())
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
         } else {
             val errorReader = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream))
-            return "⚠️ Claude Error (HTTP ${conn.responseCode}):${errorReader.readText()}"
+            "⚠️ Claude Error (HTTP ${conn.responseCode}): ${errorReader.readText()}"
         }
     }
 }
