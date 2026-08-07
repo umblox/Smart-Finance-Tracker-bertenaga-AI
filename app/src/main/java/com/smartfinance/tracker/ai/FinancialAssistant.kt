@@ -84,14 +84,20 @@ class FinancialAssistant(private val context: Context) {
                 return@withContext "❌ Gagal membuat kategori, format instruksi kurang lengkap."
             }
 
-            // 🔥 INTERCEPTOR MUTLAK: Mendeteksi paksa niat berhutang dari pengguna! (Kasus Ilyas)
             val msgUpper = originalUserMessage.uppercase(Locale.ROOT)
             val isDebtIntent = msgUpper.contains("PINJAM") || msgUpper.contains("HUTANG") || 
-                               msgUpper.contains("PIUTANG") || msgUpper.contains("NGUTANG")
+                               msgUpper.contains("PIUTANG") || msgUpper.contains("NGUTANG") || msgUpper.contains("KASBON")
+            
+            val isPaymentIntent = msgUpper.contains("BAYAR") || msgUpper.contains("CICIL") || 
+                                  msgUpper.contains("LUNAS") || msgUpper.contains("KEMBALI")
             
             var currentActionType = actionType
-            if (currentActionType == "TRANSACTION" && isDebtIntent) {
-                currentActionType = "DEBT_RECORD"
+            if (currentActionType == "TRANSACTION") {
+                if (isDebtIntent && isPaymentIntent) {
+                    currentActionType = "DEBT_PAYMENT" 
+                } else if (isDebtIntent) {
+                    currentActionType = "DEBT_RECORD"  
+                }
             }
 
             val txArray = json.optJSONArray("transactions")
@@ -115,28 +121,25 @@ class FinancialAssistant(private val context: Context) {
                     when {
                         currentActionType.contains("DEBT_RECORD") -> {
                             var isReceivableFlow = item.optString("debt_type", "").uppercase(Locale.ROOT) == "RECEIVABLE"
-                            if (!item.has("debt_type") || item.optString("debt_type").isEmpty()) {
-                                isReceivableFlow = !msgUpper.contains("SAYA PINJAM") && !msgUpper.contains("SAYA NGUTANG")
+                            if (!item.has("debt_type") || item.optString("debt_type").isEmpty() || item.optString("debt_type") == "NULL") {
+                                isReceivableFlow = !(msgUpper.contains("SAYA PINJAM") || msgUpper.contains("SAYA NGUTANG"))
                             }
                             executeDirectDebtRecord(contactNameRaw, finalAmount, isReceivableFlow, targetTimestamp)
                             isSuccess = true
                         }
                         currentActionType.contains("DEBT_PAYMENT") -> { 
-                            val msg = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp) 
+                            val msg = executeDirectDebtPayment(contactNameRaw, finalAmount, aiResponse, targetTimestamp, msgUpper) 
                             isSuccess = true
                             if (i == txArray.length() - 1) return@withContext msg
                         }
                         else -> { 
-                            // 🔥 TRANSAKSI BIASA: Kembalikan (B/ Nama) agar Editor bisa menangkapnya!
                             if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
                                 val currentNote = item.optString("clean_note", "Transaksi AI")
                                 val catId = item.optLong("category_id", 15L)
-                                // Jika terlanjur masuk dengan ID Utang
                                 if (catId in listOf(101L, 102L, 103L, 104L)) {
                                     val catName = item.optString("category_name", "Utang/Piutang")
                                     item.put("clean_note", "[$catName] $contactNameRaw - $currentNote")
                                 } else {
-                                    // Pasang Payload untuk Transaksi Biasa
                                     item.put("clean_note", "$currentNote (B/ $contactNameRaw)")
                                 }
                             }
@@ -149,9 +152,6 @@ class FinancialAssistant(private val context: Context) {
                 if (isSuccess) return@withContext aiResponse.ifEmpty { "✅ Sip Mam, transaksi berhasil diamankan ke Cloud!" }
             }
 
-            // ==========================================
-            // FALLBACK BLOCK
-            // ==========================================
             val fallbackItem = json.optJSONObject("pending_transaction") ?: json
             val fallbackAmount = parseAmount(fallbackItem)
             
@@ -171,12 +171,16 @@ class FinancialAssistant(private val context: Context) {
 
                 if (currentActionType.contains("DEBT_RECORD")) {
                     var isReceivableFlow = fallbackItem.optString("debt_type", "").uppercase(Locale.ROOT) == "RECEIVABLE"
-                    if (!fallbackItem.has("debt_type") || fallbackItem.optString("debt_type").isEmpty()) {
-                        isReceivableFlow = !msgUpper.contains("SAYA PINJAM") && !msgUpper.contains("SAYA NGUTANG")
+                    if (!fallbackItem.has("debt_type") || fallbackItem.optString("debt_type").isEmpty() || fallbackItem.optString("debt_type") == "NULL") {
+                        isReceivableFlow = !(msgUpper.contains("SAYA PINJAM") || msgUpper.contains("SAYA NGUTANG"))
                     }
                     executeDirectDebtRecord(contactNameRaw, fallbackAmount, isReceivableFlow, targetTimestamp)
-                } else {
-                    // 🔥 TRANSAKSI BIASA FALLBACK: Kembalikan (B/ Nama)
+                } 
+                else if (currentActionType.contains("DEBT_PAYMENT")) { 
+                    val msg = executeDirectDebtPayment(contactNameRaw, fallbackAmount, aiResponse, targetTimestamp, msgUpper)
+                    return@withContext msg
+                } 
+                else {
                     if (contactNameRaw.isNotEmpty() && contactNameRaw != "TEMAN") {
                         val currentNote = fallbackItem.optString("clean_note", "Transaksi AI")
                         val catId = fallbackItem.optLong("category_id", 15L)
@@ -201,7 +205,6 @@ class FinancialAssistant(private val context: Context) {
     }
 
     private suspend fun renderBeautifulCategoryList(): String {
-        // ... (Tidak diubah, untuk menghemat tempat)
         val allCats = db.categoryDao().getAllSync()
         val parents = allCats.filter { it.parentCategoryId == null }.sortedBy { it.name }
         val subs = allCats.filter { it.parentCategoryId != null }
@@ -262,27 +265,39 @@ class FinancialAssistant(private val context: Context) {
         db.transactionDao().insert(tx)
     }
 
-    private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, originalAiResponse: String, targetTimestamp: Long): String {
+    // 🔥 FIX: FUNGSI PELUNASAN KINI SANGAT CERDAS DAN ANTI-GAGAL (TERMASUK FUZZY MATCHING)
+    private suspend fun executeDirectDebtPayment(contactNameRaw: String, finalAmount: Double, originalAiResponse: String, targetTimestamp: Long, msgUpper: String): String {
         val allDebts = db.debtDao().getAllSync()
-        var matchDocId: String? = null; var matchAmount = 0.0; var matchType = "DEBT"
+        var matchDocId: String? = null
+        var matchAmount = 0.0
+        var matchType = "DEBT"
         var matchContactName = contactNameRaw.ifEmpty { "TEMAN" }.uppercase(Locale.ROOT)
 
-        val inputTokens = contactNameRaw.uppercase(Locale.ROOT).split(" ").filter { it.length > 2 }
+        // 1. Fuzzy Matching: Coba cari kecocokan dengan data di tabel Debt
+        val inputTokens = matchContactName.split(" ").filter { it.length > 2 }
         for (doc in allDebts) {
             if (!doc.isPaid) {
                 val dbName = doc.contactName.uppercase(Locale.ROOT).trim()
-                val remainingAmount = doc.remainingAmount
                 var isTokenMatch = false
-                for (token in inputTokens) { if (dbName.contains(token)) { isTokenMatch = true; break } }
+                for (token in inputTokens) { 
+                    if (dbName.contains(token)) { isTokenMatch = true; break } 
+                }
 
-                if (isTokenMatch || dbName.contains(contactNameRaw.uppercase(Locale.ROOT)) || contactNameRaw.uppercase(Locale.ROOT).contains(dbName)) {
-                    matchDocId = doc.id; matchAmount = remainingAmount; matchType = doc.type
-                    matchContactName = dbName; break
+                // Coba cocokkan juga dari ucapan user secara langsung
+                val directMatchFromMsg = msgUpper.contains(dbName)
+
+                if (isTokenMatch || dbName.contains(matchContactName) || matchContactName.contains(dbName) || directMatchFromMsg) {
+                    matchDocId = doc.id
+                    matchAmount = doc.remainingAmount
+                    matchType = doc.type
+                    matchContactName = dbName
+                    break
                 }
             }
         }
 
         if (matchDocId != null) {
+            // 2. Pemrosesan jika kontak DITEMUKAN di buku utang
             val isPelunasan = originalAiResponse.uppercase(Locale.ROOT).contains("MELUNASI") || finalAmount >= matchAmount
             val targetPayAmount = if (isPelunasan) matchAmount else finalAmount
             val nextRemaining = (matchAmount - targetPayAmount).coerceAtLeast(0.0)
@@ -292,23 +307,44 @@ class FinancialAssistant(private val context: Context) {
                 db.debtDao().update(existingDebt.copy(remainingAmount = nextRemaining, isPaid = nextRemaining <= 0.0))
             }
 
+            // Aturan Manual Dialog:
+            // "DEBT" -> Saya punya hutang, saya bayar -> "Pembayaran kembali" (EXPENSE) (Merah)
+            // "RECEIVABLE" -> Orang ngutang ke saya, dia bayar -> "Penagihan Utang" (INCOME) (Hijau)
             val txType = if (matchType == "DEBT") "EXPENSE" else "INCOME"
-            val catId = if (matchType == "DEBT") 102L else 103L
-            val catName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
+            val targetCatId = if (matchType == "DEBT") 102L else 103L
+            val targetCatName = if (matchType == "DEBT") "Pembayaran kembali" else "Penagihan Utang"
             val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
             
-            val standardizedNote = if (matchType == "DEBT") "[$catName] $matchContactName - MEMBAYAR CICILAN UTANG" else "[$catName] $matchContactName - MENERIMA CICILAN PIUTANG"
+            // Format catatan disamakan dengan manual dialog:
+            val standardizedNote = "[$targetCatName] $matchContactName - PEMBAYARAN VIA AI"
 
             val payTx = Transaction(
-                id = txId, amount = targetPayAmount, type = txType, categoryId = catId, 
-                categoryName = catName, note = standardizedNote, timestamp = targetTimestamp, debtId = matchDocId
+                id = txId, amount = targetPayAmount, type = txType, categoryId = targetCatId, 
+                categoryName = targetCatName, note = standardizedNote, timestamp = targetTimestamp, debtId = matchDocId
             )
             db.transactionDao().insert(payTx)
 
             val statusLunasText = if (nextRemaining <= 0.0) "LUNAS SEPENUHNYA ✅" else formatRupiah.format(nextRemaining)
             return "✅ **Sip Mam, Pembayaran Berhasil Dicatat!**\n\n👤 Kontak: $matchContactName\n💵 Nominal: ${formatRupiah.format(targetPayAmount)}\n📊 Sisa: $statusLunasText\n\n$originalAiResponse"
+        } else {
+            // 3. SAFETY NET: Jika kontak TIDAK DITEMUKAN
+            // Kita coba tebak niat user: Apakah dia menerima uang atau mengeluarkan uang?
+            val isReceivingMoney = msgUpper.contains("BAYAR KE SAYA") || msgUpper.contains("MENERIMA") || 
+                                   msgUpper.contains("DARI") || originalAiResponse.uppercase(Locale.ROOT).contains("DARI")
+            
+            val targetCatId = if (isReceivingMoney) 103L else 102L
+            val targetCatName = if (targetCatId == 103L) "Penagihan Utang" else "Pembayaran kembali"
+            val txType = if (targetCatId == 103L) "INCOME" else "EXPENSE"
+            val txId = "tx_${System.currentTimeMillis()}_${(1000..9999).random()}"
+            
+            val tx = Transaction(
+                id = txId, amount = finalAmount, type = txType, categoryId = targetCatId, 
+                categoryName = targetCatName, note = "[$targetCatName] $matchContactName - PEMBAYARAN (TIDAK ADA LINK UTANG)", timestamp = targetTimestamp, debtId = ""
+            )
+            db.transactionDao().insert(tx)
+            
+            return "⚠️ **Peringatan: Tidak Ada Data Hutang!**\n\nSaya mencatat pembayaran Rp${formatRupiah.format(finalAmount)} oleh $matchContactName, namun nama tersebut tidak ditemukan di Buku Utang Anda. Transaksi tetap dicatat sebagai $targetCatName.\n\n$originalAiResponse"
         }
-        return originalAiResponse.ifEmpty { "✅ Pencatatan diproses." }
     }
 
     private suspend fun executePureTransaction(item: JSONObject, finalAmount: Double, targetTimestamp: Long) {
@@ -376,7 +412,7 @@ class FinancialAssistant(private val context: Context) {
     }
 
     private suspend fun compileAiReport(cleanJsonStr: String): String {
-        return "Laporan" // Tidak ada perubahan, disingkat agar muat
+        return "Laporan" // Singkat agar muat
     }
 
     private fun parseTransactionDateTime(dateStr: String, baseTime: Long = System.currentTimeMillis()): Long {
