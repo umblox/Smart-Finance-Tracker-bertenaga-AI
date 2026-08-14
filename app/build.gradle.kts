@@ -13,8 +13,9 @@ android {
         minSdk = 26
         targetSdk = 34
         
-        versionCode = 4
-        versionName = "3.0.1"
+        // 🔥 UPDATE RILIS KE v3.1.1
+        versionCode = 5
+        versionName = "3.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
