@@ -13,18 +13,20 @@ object AiSettingsDialog {
     fun showApiConfig(context: Context, inflater: LayoutInflater, prefs: SharedPreferences, viewToSnackbar: android.view.View) {
         val dialogBinding = DialogApiConfigBinding.inflate(inflater)
         
-        // 🔥 FIX: Menggunakan MaterialAlertDialogBuilder agar pop-up melengkung elegan dan sesuai dark mode
         val dialog = MaterialAlertDialogBuilder(context).setView(dialogBinding.root).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        // Catatan: Nama-nama model AI ini adalah "Proper Nouns" (Merek), jadi tidak perlu diterjemahkan.
-        val aiModelsDisplay = listOf("Groq: llama-3.3-70b", "OpenAI: gpt-4o", "Google: gemini-3.1-pro", "Anthropic: claude-3-opus")
-        val aiModelsValue = listOf("llama-3.3-70b-versatile", "gpt-4o", "gemini-3.1-pro-preview", "claude-3-opus-20240229")
+        // 🔥 FIX: Llama 70B diganti menjadi Groq GPT OSS 120B (Sesuai rekomendasi & ketersediaan Groq)
+        val aiModelsDisplay = listOf("Groq: gpt-oss-120b", "OpenAI: gpt-4o", "Google: gemini-3.1-pro", "Anthropic: claude-3-opus")
+        val aiModelsValue = listOf("openai/gpt-oss-120b", "gpt-4o", "gemini-3.1-pro-preview", "claude-3-opus-20240229")
 
         dialogBinding.spinnerAiModel.adapter = android.widget.ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item, aiModelsDisplay)
         
-        val savedModel = prefs.getString("ai_model", "llama-3.3-70b-versatile")
-        val selectedIndex = aiModelsValue.indexOf(savedModel).takeIf { it >= 0 } ?: 0
+        // Cek fallback jika model sebelumnya llama, pindahkan ke openai/gpt-oss-120b
+        val savedModel = prefs.getString("ai_model", "openai/gpt-oss-120b")
+        val mappedModel = if (savedModel == "llama-3.3-70b-versatile") "openai/gpt-oss-120b" else savedModel
+        
+        val selectedIndex = aiModelsValue.indexOf(mappedModel).takeIf { it >= 0 } ?: 0
         dialogBinding.spinnerAiModel.setSelection(selectedIndex)
         
         dialogBinding.etApiKey.setText(prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")))
@@ -47,7 +49,6 @@ object AiSettingsDialog {
             
             editor.apply()
                 
-            // 🔥 FIX: Translasi dinamis untuk notifikasi berhasil disimpan
             Snackbar.make(viewToSnackbar, context.getString(R.string.api_config_saved_toast), Snackbar.LENGTH_SHORT).show()
             dialog.dismiss()
         }
