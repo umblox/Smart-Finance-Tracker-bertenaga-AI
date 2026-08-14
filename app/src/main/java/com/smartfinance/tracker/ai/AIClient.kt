@@ -20,7 +20,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
     private val db = DatabaseProvider.db
 
     companion object {
-        // 🔥 FIX PROMPT: Aturan #8 Global (Tanpa karakter ilegal \n di dalam raw string)
         val DEFAULT_PROMPT = """
             Anda adalah Asisten Finansial cerdas untuk {USER_NAME} dalam aplikasi "Smart Finance Tracker".
             Dilarang menjawab pertanyaan selain tugasmu dalam aplikasi yang berkaitan dengan financial tracker!
@@ -75,7 +74,9 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         val prefs = context.getSharedPreferences("smart_finance_prefs", Context.MODE_PRIVATE)
         
         val apiKey = prefs.getString("ai_api_key", prefs.getString("groq_key_override", "")) ?: ""
-        val aiModel = prefs.getString("ai_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile"
+        
+        // 🔥 FIX: Default model diganti dari llama-3.3-70b-versatile ke openai/gpt-oss-120b
+        val aiModel = prefs.getString("ai_model", "openai/gpt-oss-120b") ?: "openai/gpt-oss-120b"
         
         val savedName = prefs.getString("user_name", "")?.trim()
         val userName = if (savedName.isNullOrEmpty()) "Pengguna" else savedName
@@ -161,8 +162,6 @@ class AIClient(private val context: Context, private val assistant: FinancialAss
         }
     }
 
-    // 🔥 FIX: Semua kode di bawah ini dijabarkan rapi untuk mencegah bug compiler (Illegal Escape)
-    
     private fun callOpenAICompatible(endpoint: String, model: String, apiKey: String, systemPrompt: String, userMessage: String): String {
         val url = URI(endpoint).toURL()
         val conn = url.openConnection() as HttpURLConnection
