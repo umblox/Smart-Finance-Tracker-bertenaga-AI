@@ -255,12 +255,15 @@
     <string name="dashboard_recent_tx">Recent Transactions</string>
     <string name="dashboard_view_all">View All</string>
 
+    <!-- 🔥 FIX: Dwi-Bahasa, Spasi Tepat, Warna Dinamis HTML, Panah Modern -->
     <string name="dashboard_summary_title">🔹 Centralized %1$s Cash Summary</string>
     <string name="dashboard_filter_week">Weekly</string>
     <string name="dashboard_filter_month">Monthly</string>
-    <string name="dashboard_trend_up"> up %1$d%%</string>
-    <string name="dashboard_trend_down"> down %1$d%%</string>
-    <string name="dashboard_summary_performance">📈 Performance: Income%1$s • Expense%2$s (vs Last Month)</string>
+    <string name="dashboard_trend_up"><![CDATA[<font color="%1$s">▲ %2$d%%</font>]]></string>
+    <string name="dashboard_trend_down"><![CDATA[<font color="%1$s">▼ %2$d%%</font>]]></string>
+    <string name="dashboard_summary_performance"><![CDATA[📈 Performance: Income %1$s • Expense %2$s (vs %3$s)]]></string>
+    <string name="dashboard_last_month">Last Month</string>
+    <string name="dashboard_last_week">Last Week</string>
     
     <string name="dashboard_empty_category_title">Empty Category %1$d</string>
     <string name="dashboard_empty_category_desc">No funds allocated yet.</string>
