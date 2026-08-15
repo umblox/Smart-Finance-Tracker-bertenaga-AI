@@ -240,7 +240,6 @@
     <string name="chat_clear_confirm">Ya, Hapus Semua</string>
 
     <!-- ===== Dashboard ===== -->
-    <!-- (Beberapa string mungkin sudah ada, tambahkan yang belum) -->
     <string name="dashboard_total_balance_title">TOTAL SALDO BERSIH</string>
     <string name="dashboard_income_label">🟢 Pemasukan</string>
     <string name="dashboard_expense_label">🔴 Pengeluaran</string>
@@ -256,12 +255,15 @@
     <string name="dashboard_recent_tx">Transaksi Terkini</string>
     <string name="dashboard_view_all">Lihat Semua</string>
 
+    <!-- 🔥 FIX: Dwi-Bahasa, Spasi Tepat, Warna Dinamis HTML, Panah Modern -->
     <string name="dashboard_summary_title">🔹 Ringkasan Kas %1$s Terpusat</string>
     <string name="dashboard_filter_week">Mingguan</string>
     <string name="dashboard_filter_month">Bulanan</string>
-    <string name="dashboard_trend_up"> naik %1$d%%</string>
-    <string name="dashboard_trend_down"> turun %1$d%%</string>
-    <string name="dashboard_summary_performance">📈 Performa: Pemasukan%1$s • Pengeluaran%2$s (vs Bulan Lalu)</string>
+    <string name="dashboard_trend_up"><![CDATA[<font color="%1$s">▲ %2$d%%</font>]]></string>
+    <string name="dashboard_trend_down"><![CDATA[<font color="%1$s">▼ %2$d%%</font>]]></string>
+    <string name="dashboard_summary_performance"><![CDATA[📈 Performa: Pemasukan %1$s • Pengeluaran %2$s (vs %3$s)]]></string>
+    <string name="dashboard_last_month">Bulan Lalu</string>
+    <string name="dashboard_last_week">Minggu Lalu</string>
     
     <string name="dashboard_empty_category_title">Kategori Kosong %1$d</string>
     <string name="dashboard_empty_category_desc">Belum ada alokasi dana.</string>
