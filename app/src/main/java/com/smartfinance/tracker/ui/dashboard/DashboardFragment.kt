@@ -129,15 +129,29 @@ class DashboardFragment : Fragment() {
         val expDiffPercent = if (state.expenseLastMonth > 0) ((state.expenseThisMonth - state.expenseLastMonth) / state.expenseLastMonth * 100).toInt() else 0
 
         val filterLabelStr = if (state.activeTimeLabel == "PERMINGGU") getString(R.string.dashboard_filter_week) else getString(R.string.dashboard_filter_month)
-        val incTextStr = if (incDiffPercent >= 0) getString(R.string.dashboard_trend_up, incDiffPercent) else getString(R.string.dashboard_trend_down, Math.abs(incDiffPercent))
-        val expTextStr = if (expDiffPercent >= 0) getString(R.string.dashboard_trend_up, expDiffPercent) else getString(R.string.dashboard_trend_down, Math.abs(expDiffPercent))
+        
+        // 🔥 FIX BILINGUAL + WARNA DINAMIS: Konversi warna tema ke Hex agar terbaca oleh HTML Formatter
+        val greenHex = String.format("#%06X", 0xFFFFFF and getThemeColor(R.color.income_green))
+        val redHex = String.format("#%06X", 0xFFFFFF and getThemeColor(R.color.expense_red))
+
+        // Pemasukan Naik = Hijau, Pemasukan Turun = Merah
+        val colorIncomeTrend = if (incDiffPercent >= 0) greenHex else redHex
+        // Pengeluaran Naik = Merah (buruk), Pengeluaran Turun = Hijau (hemat/bagus)
+        val colorExpenseTrend = if (expDiffPercent > 0) redHex else greenHex
+
+        val incTextStr = if (incDiffPercent >= 0) getString(R.string.dashboard_trend_up, colorIncomeTrend, Math.abs(incDiffPercent)) else getString(R.string.dashboard_trend_down, colorIncomeTrend, Math.abs(incDiffPercent))
+        val expTextStr = if (expDiffPercent >= 0) getString(R.string.dashboard_trend_up, colorExpenseTrend, Math.abs(expDiffPercent)) else getString(R.string.dashboard_trend_down, colorExpenseTrend, Math.abs(expDiffPercent))
+
+        val timeContext = if (state.activeTimeLabel == "PERMINGGU") getString(R.string.dashboard_last_week) else getString(R.string.dashboard_last_month)
+        val fullHtmlStr = getString(R.string.dashboard_summary_performance, incTextStr, expTextStr, timeContext)
 
         summaryLayout.addView(TextView(requireContext()).apply {
             text = getString(R.string.dashboard_summary_title, filterLabelStr)
             textSize = 11.5f; setTextColor(getThemeColor(R.color.text_secondary)); setPadding(0, 0, 0, (2 * density).toInt())
         })
         summaryLayout.addView(TextView(requireContext()).apply {
-            text = getString(R.string.dashboard_summary_performance, incTextStr, expTextStr)
+            // 🔥 Parse HTML dari string yang sudah dibumbui Hex Color
+            text = androidx.core.text.HtmlCompat.fromHtml(fullHtmlStr, androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY)
             textSize = 12f; setTextColor(getThemeColor(R.color.primary)); setTypeface(null, Typeface.BOLD)
         })
         
@@ -233,7 +247,6 @@ class DashboardFragment : Fragment() {
                     })
                 }
 
-                // 🔥 FILTER VISUAL: Menyulap "KODE RAHASIA" menjadi tampilan elegan sebelum di-render ke Dashboard
                 var displayNote = tx.note
                 val matchB = Regex("\\(B/\\s*(.*?)\\)$").find(displayNote)
                 if (matchB != null) {
@@ -254,7 +267,6 @@ class DashboardFragment : Fragment() {
                 })
                 mutasiCard.addView(rowLayout)
                 
-                // Menambahkan fungsi klik untuk mengedit transaksi dari Dashboard
                 mutasiCard.setOnClickListener {
                     try {
                         com.smartfinance.tracker.ui.transaction.TransactionEditorDialog(
